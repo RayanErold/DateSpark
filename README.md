@@ -1,8 +1,9 @@
-<<<<<<< Website: https://datespark.onrender.com
+<<<<<<< 
 # DateSpark
 Modern couples often struggle with planning meaningful dates due to time constraints and decision fatigue. DateSpark solves this by instantly generating curated date itineraries using real location data and AI.
 =======
 # DateSpark ⚡
+Website: https://datespark.onrender.com
 
 Get a full date night plan in seconds. DateSpark is an AI-powered itinerary generator for busy couples, providing highly curated, location-accurate, and budget-aware date plans in New York City.
 
