@@ -548,11 +548,16 @@ app.post('/api/generate-date', async (req, res) => {
 });
 
 // Serve frontend static files in production
-app.use(express.static(path.join(__dirname, 'dist')));
+const distPath = path.resolve(__dirname, 'dist');
+app.use(express.static(distPath));
 
 // Catch-all route to serve index.html for React Router
-app.get(/.*/, (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// We use a regex but ensure we don't handle API or file-like (asset) requests
+app.get(/.*/, (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.includes('.')) {
+        return next();
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
 });
 
 app.listen(PORT, () => {
