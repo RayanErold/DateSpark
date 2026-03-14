@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #0a192f;
+  --color-coral: #ff7f50;
+  --color-gold: #ffd700;
+  --color-soft-pink: #fce4ec;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Animations */
+  --animate-shimmer-fast: shimmer 2s infinite linear;
+  --animate-waitlist-glow: button-glow-pulse 2.5s infinite ease-in-out;
+  --animate-float-badge: float-badge 3s infinite ease-in-out;
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes button-glow-pulse {
+
+    0%,
+    100% {
+      box-shadow: 0 0 15px 0px rgba(255, 127, 80, 0.5);
+      transform: scale(1);
+    }
+
+    50% {
+      box-shadow: 0 0 30px 15px rgba(255, 127, 80, 0.2);
+      transform: scale(1.03);
+    }
+  }
+
+  @keyframes float-badge {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  @apply bg-white text-gray-900 overflow-x-hidden;
+}
+
+.section-padding {
+  @apply py-20 md:py-32;
+}
+
+.container-custom {
+  @apply max-w-6xl mx-auto px-4;
+}
+
+.btn-primary {
+  @apply bg-coral text-white px-6 py-3 rounded-full font-semibold transition-all hover:bg-coral/90 hover:scale-105 active:scale-95 shadow-lg;
+}
+
+.btn-secondary {
+  @apply border-2 border-coral text-coral px-6 py-3 rounded-full font-semibold transition-all hover:bg-coral hover:text-white active:scale-95;
+}
