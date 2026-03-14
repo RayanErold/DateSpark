@@ -63,4 +63,4 @@ npm run dev
 
 ## 📝 License
 
-© 2026 DateSpark SaaS. All rights reserved.
+© 2026 DateSpark Inc. All rights reserved.
