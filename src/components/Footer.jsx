@@ -17,7 +17,7 @@ const Footer = () => {
                             Making city nights unforgettable since 2026. Join thousands of couples rediscovering the joy of date night.
                         </p>
                         <div className="flex gap-4">
-                            <a href="#" className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-coral hover:border-coral transition-all">
+                            <a href="https://instagram.com/datespark01/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-coral hover:border-coral transition-all">
                                 <Instagram className="w-5 h-5" />
                             </a>
                             <a href="#" className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-coral hover:border-coral transition-all">
