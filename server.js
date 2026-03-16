@@ -446,9 +446,29 @@ app.post('/api/generate-date', async (req, res) => {
                 if (cache.has(pCacheKey)) return cache.get(pCacheKey);
 
                 let priceLevels = [];
-                if (budget === 'low') priceLevels = ['PRICE_LEVEL_INEXPENSIVE', 'PRICE_LEVEL_MODERATE'];
-                else if (budget === 'moderate') priceLevels = ['PRICE_LEVEL_MODERATE', 'PRICE_LEVEL_EXPENSIVE'];
-                else if (budget === 'high') priceLevels = ['PRICE_LEVEL_EXPENSIVE', 'PRICE_LEVEL_VERY_EXPENSIVE'];
+
+                // Parse numerical budget (e.g., "$100")
+                let budgetNum = null;
+                if (budget && budget.startsWith('$')) {
+                    budgetNum = parseInt(budget.replace('$', ''), 10);
+                }
+
+                if (budgetNum !== null) {
+                    if (budgetNum <= 50) {
+                        priceLevels = ['PRICE_LEVEL_INEXPENSIVE']; // Max $50: Strictly index 1
+                    } else if (budgetNum <= 110) {
+                        priceLevels = ['PRICE_LEVEL_INEXPENSIVE', 'PRICE_LEVEL_MODERATE']; // Max $110: Index 1 & 2
+                    } else if (budgetNum <= 200) {
+                        priceLevels = ['PRICE_LEVEL_MODERATE', 'PRICE_LEVEL_EXPENSIVE']; // Max $200: Index 2 & 3
+                    } else {
+                        priceLevels = ['PRICE_LEVEL_EXPENSIVE', 'PRICE_LEVEL_VERY_EXPENSIVE']; // $200+: Index 3 & 4
+                    }
+                } else {
+                    // Fallback to legacy triggers
+                    if (budget === 'low') priceLevels = ['PRICE_LEVEL_INEXPENSIVE', 'PRICE_LEVEL_MODERATE'];
+                    else if (budget === 'moderate') priceLevels = ['PRICE_LEVEL_MODERATE', 'PRICE_LEVEL_EXPENSIVE'];
+                    else if (budget === 'high') priceLevels = ['PRICE_LEVEL_EXPENSIVE', 'PRICE_LEVEL_VERY_EXPENSIVE'];
+                }
 
                 try {
                     const res = await axios.post('https://places.googleapis.com/v1/places:searchText', {

@@ -123,8 +123,12 @@ const Dashboard = () => {
 
     const handleSync = () => {
         if (!selectedPlan) return;
-        const eventName = encodeURIComponent(`Date Night: ${selectedPlan.vibe} in ${selectedPlan.location}`);
-        const details = encodeURIComponent(`Starting at ${selectedPlan.itinerary[0]?.time} at ${selectedPlan.itinerary[0]?.venue}.`);
+
+        const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
+        const formattedStops = steps.map((step) => `${step.time} - ${step.venue}`).join('\n');
+
+        const eventName = encodeURIComponent(`Date Night: ${selectedPlan.vibe} Plan`);
+        const details = encodeURIComponent(`DateSpark Itinerary:\n${formattedStops}`);
         const loc = encodeURIComponent(selectedPlan.location);
         const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventName}&details=${details}&location=${loc}`;
         window.open(url, '_blank');
@@ -139,13 +143,25 @@ const Dashboard = () => {
         const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
         const formattedStops = steps.map((step, index) => `${index + 1}. ${step.time} - ${step.venue}`).join('\n');
 
-        const text = `✨ Our custom ${selectedPlan.vibe} NYC date plan carefully crafted by DateSpark!\n\nTimeline:\n${formattedStops}\n\nCheck out the full interactive map here:\n${shareLink}`;
+        const text = `✨ Our custom ${selectedPlan.vibe} date plan carefully crafted by DateSpark!\n\nTimeline:\n${formattedStops}\n\nCheck out the full interactive map here:`;
 
-        try {
-            await navigator.clipboard.writeText(text);
-            alert('Detailed DateSpark link copied to clipboard!');
-        } catch (err) {
-            alert('Failed to copy to clipboard.');
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `${selectedPlan.vibe} Date Plan`,
+                    text: text,
+                    url: shareLink,
+                });
+            } catch (err) {
+                console.error('Share failed:', err);
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(`${text}\n${shareLink}`);
+                alert('Detailed DateSpark link copied to clipboard!');
+            } catch (err) {
+                alert('Failed to copy to clipboard.');
+            }
         }
     };
 
