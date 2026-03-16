@@ -16,7 +16,7 @@ dotenv.config();
 
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 
-const resend = new Resend(process.env.RESEND_API_KEY); // Initialize Resend
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null; // Initialize Resend conditionally
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -100,7 +100,7 @@ app.post('/api/waitlist', async (req, res) => {
 
         // --- SEND WELCOME EMAIL ---
         try {
-            if (process.env.RESEND_API_KEY) {
+            if (resend) {
                 await resend.emails.send({
                     from: 'DateSpark <onboarding@resend.dev>', // Must use approved domain or onboarding@resend.dev for testing
                     to: [email],
