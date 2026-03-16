@@ -20,6 +20,7 @@ const Dashboard = () => {
     // --- FREEMIUM LOGIC STATE ---
     const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -428,6 +429,27 @@ const Dashboard = () => {
                     </div>
                 )}
 
+                {/* OUR VISION BANNER */}
+                <div className="bg-gradient-to-r from-violet-500/10 via-coral/5 to-white rounded-3xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between border border-gray-100 shadow-sm animate-in fade-in duration-500">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-sm">
+                            <Heart className="w-6 h-6 fill-coral text-coral" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-navy flex items-center gap-2">Why I built DateSpark <span className="text-xl">💖</span></h3>
+                            <p className="text-gray-500 text-sm font-medium mt-0.5 max-w-lg">
+                                Tired of date night decision fatigue? I built DateSpark to make creating unforgettable memories stress-free and enjoyable.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setShowVisionModal(true)}
+                        className="mt-4 md:mt-0 px-5 py-2.5 bg-navy text-white text-xs font-bold rounded-xl hover:bg-navy/90 transition-all shadow-sm outline outline-1 outline-white/10"
+                    >
+                        Read Our Story
+                    </button>
+                </div>
+
                 {plans.filter(p => !p.is_archived || p.is_favorite).length === 0 ? (
                     <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm">
                         <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-400">
@@ -791,6 +813,46 @@ const Dashboard = () => {
                                 className="w-full py-3 text-gray-400 font-bold hover:text-gray-600 transition-colors"
                             >
                                 Maybe Later
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* OUR VISION MODAL */}
+            {showVisionModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-navy/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+                        <div className="bg-gradient-to-r from-violet-500 to-coral h-2.5 w-full"></div>
+
+                        <div className="p-8 pb-12 flex-1 overflow-y-auto">
+                            <div className="w-16 h-16 bg-coral/10 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                <Heart className="w-8 h-8 fill-coral text-coral" />
+                            </div>
+
+                            <h2 className="text-2xl font-black text-navy text-center mb-2">The Vision Behind DateSpark</h2>
+                            <p className="text-xs text-gray-400 uppercase tracking-widest font-black text-center mb-6">Designed by Couples, For Couples</p>
+
+                            <div className="space-y-4 text-gray-600 font-normal leading-relaxed text-sm">
+                                <p>
+                                    Like many couples, my partner and I always hit the same wall on Friday night: <strong>"What are we doing tonight?"</strong> Standard map searches give you random scattered places, not an actual execution plan with timings and sequence flow.
+                                </p>
+                                <p>
+                                    I built <strong>DateSpark</strong> to solve decision fatigue by planning structured chronological timelines absolute map route iterations that make sense.
+                                </p>
+                                <p>
+                                    Whether it's matching dinner sequences perfectly inside coordinates or automating ticket search deep-links, the goal is always the same: <strong>More deep memories with less stress</strong>.
+                                </p>
+                                <p className="pt-4 font-black text-navy text-center border-t border-gray-100 mt-6">
+                                    Thanks for riding along on the journey to better dates! 💖
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => setShowVisionModal(false)}
+                                className="w-full mt-8 py-3.5 bg-navy text-white font-black rounded-xl hover:bg-navy/90 transition-all active:scale-[0.98] shadow-sm"
+                            >
+                                Close story
                             </button>
                         </div>
                     </div>
