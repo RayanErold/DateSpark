@@ -540,21 +540,17 @@ const GeneratePlan = () => {
                                     <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
                                         <Heart className="text-coral w-4 h-4" /> What's the vibe?
                                     </label>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <select
+                                        value={formData.vibe}
+                                        onChange={(e) => setFormData({ ...formData, vibe: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
+                                    >
                                         {vibes.map((v) => (
-                                            <button
-                                                key={v.id}
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, vibe: v.id })}
-                                                className={`p-3.5 rounded-xl border text-left transition-all ${formData.vibe === v.id
-                                                    ? 'border-coral bg-coral/5 text-coral font-bold'
-                                                    : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50 font-medium'
-                                                    }`}
-                                            >
-                                                <span className="block text-[14px]">{v.label}</span>
-                                            </button>
+                                            <option key={v.id} value={v.id}>
+                                                {v.label}
+                                            </option>
                                         ))}
-                                    </div>
+                                    </select>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -597,49 +593,51 @@ const GeneratePlan = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                        <DollarSign className="text-coral w-4 h-4" /> Target Budget
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="e.g. $100"
-                                        value={formData.budget}
-                                        onChange={handleBudgetChange}
-                                        className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium placeholder-gray-400 text-gray-700"
-                                    />
-                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                            <DollarSign className="text-coral w-4 h-4" /> Target Budget
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="e.g. $100"
+                                            value={formData.budget}
+                                            onChange={handleBudgetChange}
+                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium placeholder-gray-400 text-gray-700"
+                                        />
+                                    </div>
 
-                                <div className="space-y-3">
-                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                        <Sparkles className="text-coral w-4 h-4" /> Interest-Based Filtering
-                                    </label>
-                                    <select
-                                        value={formData.interests}
-                                        onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
-                                        className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
-                                    >
-                                        {interestCategories.map((category) => (
-                                            <option key={category.id} value={category.id}>
-                                                {category.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                            <Sparkles className="text-coral w-4 h-4" /> Interest-Based Filtering
+                                        </label>
+                                        <select
+                                            value={formData.interests}
+                                            onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
+                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
+                                        >
+                                            {interestCategories.map((category) => (
+                                                <option key={category.id} value={category.id}>
+                                                    {category.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                                <div className="space-y-3">
-                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                        <Sparkles className="text-coral w-4 h-4" /> How many ideas?
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="7"
-                                        value={ideaCount}
-                                        onChange={(e) => setIdeaCount(Number(e.target.value))}
-                                        className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium text-gray-700"
-                                    />
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                            <Sparkles className="text-coral w-4 h-4" /> How many ideas?
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="7"
+                                            value={ideaCount}
+                                            onChange={(e) => setIdeaCount(Number(e.target.value))}
+                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium text-gray-700"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="pt-6">
