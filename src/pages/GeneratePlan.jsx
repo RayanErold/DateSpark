@@ -240,6 +240,7 @@ const GeneratePlan = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: user?.id,
+                    ideaCount, // Pass idea count
                     ...formData
                 })
             });
@@ -371,7 +372,7 @@ const GeneratePlan = () => {
                                             <input
                                                 type="number"
                                                 min="1"
-                                                max="5"
+                                                max="7"
                                                 value={ideaCount}
                                                 onChange={(e) => setIdeaCount(Number(e.target.value))}
                                                 className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[15px] font-medium text-gray-700"
@@ -625,6 +626,20 @@ const GeneratePlan = () => {
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                        <Sparkles className="text-coral w-4 h-4" /> How many ideas?
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="7"
+                                        value={ideaCount}
+                                        onChange={(e) => setIdeaCount(Number(e.target.value))}
+                                        className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium text-gray-700"
+                                    />
                                 </div>
 
                                 <div className="pt-6">

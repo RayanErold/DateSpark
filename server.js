@@ -553,7 +553,10 @@ app.post('/api/generate-date', async (req, res) => {
             { vibeLabel: 'Ultimate Surprise', format: 'event-dinner-sightseeing' }
         ];
 
-        for (let i = 0; i < 7; i++) {
+        const requestedCount = Number(req.body.ideaCount) || 7;
+        const countToGenerate = Math.min(Math.max(1, requestedCount), 7); // Clamp between 1 and 7
+
+        for (let i = 0; i < countToGenerate; i++) {
             const custom = shuffledCustom.length > 0 ? shuffledCustom[i % shuffledCustom.length] : null;
 
             const dinner = shuffledRestaurants[i % shuffledRestaurants.length];
