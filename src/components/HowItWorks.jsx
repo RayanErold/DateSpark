@@ -11,7 +11,7 @@ const HowItWorks = () => {
         {
             icon: <Map className="w-8 h-8 text-gold" />,
             title: "We find local spots & events",
-            description: "We pull real-time data from Google Maps, Yelp, and Eventbrite to find the best secrets in your city."
+            description: "We pull real-time data from Google Maps to find the best secrets in your city."
         },
         {
             icon: <CheckCircle2 className="w-8 h-8 text-navy" />,

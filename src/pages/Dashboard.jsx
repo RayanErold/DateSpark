@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check } from 'lucide-react';
+import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Search } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const Dashboard = () => {
@@ -566,6 +566,17 @@ const Dashboard = () => {
                                                     <h4 className="text-2xl font-black text-navy mb-2">{step.venue}</h4>
                                                     <p className="text-gray-500 font-medium mb-3">{step.description}</p>
 
+                                                    {step.photoUrl && (
+                                                        <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
+                                                            <img
+                                                                src={step.photoUrl}
+                                                                alt={step.venue}
+                                                                className="w-full h-48 object-cover hover:scale-105 transition-transform duration-500"
+                                                                loading="lazy"
+                                                            />
+                                                        </div>
+                                                    )}
+
                                                     {/* Action Tags */}
                                                     <div className="flex flex-wrap items-center gap-2 mt-2">
                                                         {step.directionsUrl && (
@@ -584,9 +595,20 @@ const Dashboard = () => {
                                                                 href={step.url}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="px-3 py-1.5 bg-coral/10 text-coral text-xs font-bold rounded-lg hover:bg-coral hover:text-white transition-colors border border-coral/20 inline-flex items-center gap-1"
+                                                                className="px-3 py-1.5 bg-coral/10 text-coral text-xs font-bold rounded-lg hover:bg-coral hover:text-white transition-colors border border-coral/20 inline-flex items-center gap-1 shadow-sm"
                                                             >
                                                                 <Ticket className="w-3 h-3" /> Book Tickets
+                                                            </a>
+                                                        )}
+
+                                                        {!step.url && step.searchUrl && (
+                                                            <a
+                                                                href={step.searchUrl}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="px-3 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                            >
+                                                                <Search className="w-3 h-3" /> Search on Google
                                                             </a>
                                                         )}
                                                         {/* Uber Request Link */}

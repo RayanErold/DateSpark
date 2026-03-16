@@ -115,6 +115,17 @@ const SharedPlan = () => {
                                         <h4 className="text-2xl font-black text-navy mb-2">{step.venue}</h4>
                                         <p className="text-gray-500 font-medium mb-3">{step.description}</p>
 
+                                        {step.photoUrl && (
+                                            <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
+                                                <img
+                                                    src={step.photoUrl}
+                                                    alt={step.venue}
+                                                    className="w-full h-48 object-cover hover:scale-105 transition-transform duration-500"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        )}
+
                                         {step.directionsUrl && (
                                             <a href={step.directionsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-coral hover:text-coral/80 transition-colors">
                                                 <MapPin className="w-4 h-4" /> View on Map

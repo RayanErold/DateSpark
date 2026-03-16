@@ -170,48 +170,67 @@ app.post('/api/generate-custom-date', async (req, res) => {
     }
 
     try {
-        const YELP_API_KEY = process.env.YELP_API_KEY;
+        const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
         const fetchPlaces = async (searchString) => {
             const pCacheKey = `custom_${Buffer.from(searchString).toString('base64')}`;
             if (cache.has(pCacheKey)) return cache.get(pCacheKey);
-            if (!YELP_API_KEY) return null;
+            if (!GOOGLE_API_KEY) return null;
 
             try {
-                const res = await axios.get('https://api.yelp.com/v3/businesses/search', {
+                const res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+                    textQuery: searchString,
+                    locationBias: {
+                        circle: {
+                            center: { latitude: 40.7128, longitude: -74.0060 },
+                            radius: 10000.0 // 10km radius
+                        }
+                    }
+                }, {
                     headers: {
-                        Authorization: `Bearer ${YELP_API_KEY}`,
-                        accept: 'application/json'
-                    },
-                    params: { term: searchString, location: 'New York City', limit: 3, sort_by: 'rating' }
+                        'X-Goog-Api-Key': GOOGLE_API_KEY,
+                        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.priceLevel,places.websiteUri,places.photos',
+                        'Content-Type': 'application/json'
+                    }
                 });
 
-                if (res.data && res.data.businesses && res.data.businesses.length > 0) {
-                    const place = res.data.businesses[0]; // Take the best match
+                if (res.data && res.data.places && res.data.places.length > 0) {
+                    const place = res.data.places[0]; // Take the best match
+                    let photoUrl = null;
+                    if (place.photos && place.photos.length > 0) {
+                        photoUrl = `https://places.googleapis.com/v1/${place.photos[0].name}/media?maxHeightPx=400&maxWidthPx=400&key=${GOOGLE_API_KEY}`;
+                    }
+
+                    const getPriceStr = (level) => {
+                        if (level === 'PRICE_LEVEL_INEXPENSIVE') return '$';
+                        if (level === 'PRICE_LEVEL_MODERATE') return '$$';
+                        if (level === 'PRICE_LEVEL_EXPENSIVE') return '$$$';
+                        if (level === 'PRICE_LEVEL_VERY_EXPENSIVE') return '$$$$';
+                        return 'N/A';
+                    };
+
                     const result = {
-                        name: place.name,
-                        description: `Rating: ${place.rating} ⭐ (${place.review_count} reviews). Price: ${place.price || 'N/A'}.`,
-                        lat: place.coordinates.latitude,
-                        lng: place.coordinates.longitude,
-                        address: place.location.display_address ? place.location.display_address.join(', ') : 'New York City, NY',
-                        photoUrl: place.image_url || null,
-                        url: place.url
+                        name: place.displayName?.text || 'Venue',
+                        description: `Rating: ${place.rating || 'N/A'} ⭐ (${place.userRatingCount || 0} reviews). Price: ${getPriceStr(place.priceLevel)}.`,
+                        lat: place.location?.latitude,
+                        lng: place.location?.longitude,
+                        address: place.formattedAddress || 'New York City, NY',
+                        photoUrl: photoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
+                        url: place.websiteUri || null
                     };
                     cache.set(pCacheKey, result);
                     return result;
                 }
-            } catch (err) { console.error(`Failed Yelp custom fetch for ${searchString}:`, err.message); }
+            } catch (err) { console.error(`Failed Google Places custom fetch for ${searchString}:`, err.response?.data || err.message); }
             return null;
         };
 
         const terms = concept.searchTerms || [];
         const durationStrs = concept.durations || ["1.5 hrs", "2 hrs", "1.5 hrs"];
 
-        // Execute Google Places searches in parallel for the 3 distinct terms
         const placePromises = terms.map(term => fetchPlaces(term));
         const placesResults = await Promise.all(placePromises);
 
-        // Fallbacks
         const getFallback = (i) => ({
             name: `Surprise Spot ${i + 1}`,
             description: `A fantastic local venue fitting your vibe.`,
@@ -235,7 +254,8 @@ app.post('/api/generate-custom-date', async (req, res) => {
                 activity: `Stop ${i + 1} (${duration})`,
                 venue: place.name,
                 description: `${place.description} Address: ${place.address}. Expected duration: ${duration}.`,
-                url: place.url || `https://www.google.com/search?q=${encodeURIComponent(place.name + ' New York City')}`,
+                url: place.url || null,
+                searchUrl: `https://www.google.com/search?q=${encodeURIComponent(place.name + ' New York City')}`,
                 directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`,
                 lat: place.lat,
                 lng: place.lng,
@@ -318,7 +338,7 @@ app.post('/api/generate-date', async (req, res) => {
     }
 
     try {
-        const YELP_API_KEY = process.env.YELP_API_KEY;
+        const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
         let events = [];
         let restaurants = [];
@@ -327,59 +347,66 @@ app.post('/api/generate-date', async (req, res) => {
         let desserts = [];
         let customPlaces = [];
 
-        if (YELP_API_KEY) {
+        if (GOOGLE_API_KEY) {
             const fetchPlaces = async (queryType, searchString) => {
-                const pCacheKey = `yelp_nyc_${queryType}_${budget || 'moderate'}_${searchString}`;
+                const pCacheKey = `goog_nyc_${queryType}_${budget || 'moderate'}_${searchString}`;
                 if (cache.has(pCacheKey)) return cache.get(pCacheKey);
 
-                // Map frontend budget strings to Yelp price tiers (1=$, 2=$$, 3=$$$, 4=$$$$)
-                // Yelp fusion accepts a comma separated list e.g. "1,2"
-                let priceFilter = '1,2,3,4';
-                if (budget === 'low') priceFilter = '1,2';
-                else if (budget === 'moderate') priceFilter = '2,3';
-                else if (budget === 'high') priceFilter = '3,4';
+                let priceLevels = [];
+                if (budget === 'low') priceLevels = ['PRICE_LEVEL_INEXPENSIVE', 'PRICE_LEVEL_MODERATE'];
+                else if (budget === 'moderate') priceLevels = ['PRICE_LEVEL_MODERATE', 'PRICE_LEVEL_EXPENSIVE'];
+                else if (budget === 'high') priceLevels = ['PRICE_LEVEL_EXPENSIVE', 'PRICE_LEVEL_VERY_EXPENSIVE'];
 
                 try {
-                    const res = await axios.get('https://api.yelp.com/v3/businesses/search', {
+                    const res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+                        textQuery: searchString,
+                        priceLevels: priceLevels.length > 0 ? priceLevels : undefined,
+                        locationBias: {
+                            circle: {
+                                center: { latitude: 40.7128, longitude: -74.0060 },
+                                radius: 10000.0 // 10km radius
+                            }
+                        }
+                    }, {
                         headers: {
-                            Authorization: `Bearer ${YELP_API_KEY}`,
-                            accept: 'application/json'
-                        },
-                        params: {
-                            term: searchString,
-                            location: 'New York City',
-                            limit: 20,
-                            sort_by: 'rating',
-                            price: priceFilter,
-                            // Categories to help narrow down search
-                            categories: queryType === 'events' || queryType === 'entertainment' ? 'arts,active,localflavor'
-                                : queryType === 'food' ? 'restaurants'
-                                    : queryType === 'dessert' ? 'desserts,bakeries,icecream'
-                                        : ''
+                            'X-Goog-Api-Key': GOOGLE_API_KEY,
+                            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.priceLevel,places.websiteUri,places.photos',
+                            'Content-Type': 'application/json'
                         }
                     });
 
-                    if (res.data && res.data.businesses) {
-                        const results = res.data.businesses.slice(0, 20).map(place => ({
-                            name: place.name,
-                            description: `Rating: ${place.rating} ⭐ (${place.review_count} reviews). Price: ${place.price || 'N/A'}. A top-rated spot.`,
-                            lat: place.coordinates.latitude,
-                            lng: place.coordinates.longitude,
-                            address: place.location.display_address ? place.location.display_address.join(', ') : 'New York City, NY',
-                            photoUrl: place.image_url || null,
-                            url: place.url
-                        }));
+                    if (res.data && res.data.places) {
+                        const results = res.data.places.slice(0, 20).map(place => {
+                            let photoUrl = null;
+                            if (place.photos && place.photos.length > 0) {
+                                photoUrl = `https://places.googleapis.com/v1/${place.photos[0].name}/media?maxHeightPx=400&maxWidthPx=400&key=${GOOGLE_API_KEY}`;
+                            }
+                            const getPriceStr = (level) => {
+                                if (level === 'PRICE_LEVEL_INEXPENSIVE') return '$';
+                                if (level === 'PRICE_LEVEL_MODERATE') return '$$';
+                                if (level === 'PRICE_LEVEL_EXPENSIVE') return '$$$';
+                                if (level === 'PRICE_LEVEL_VERY_EXPENSIVE') return '$$$$';
+                                return 'N/A';
+                            };
+                            return {
+                                name: place.displayName?.text || 'Venue',
+                                description: `Rating: ${place.rating || 'N/A'} ⭐ (${place.userRatingCount || 0} reviews). Price: ${getPriceStr(place.priceLevel)}. A top-rated spot.`,
+                                lat: place.location?.latitude,
+                                lng: place.location?.longitude,
+                                address: place.formattedAddress || 'New York City, NY',
+                                photoUrl: photoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
+                                url: place.websiteUri || null
+                            };
+                        });
                         cache.set(pCacheKey, results);
                         return results;
                     }
-                } catch (err) { console.error(`Failed ${queryType} fetch:`, err.message); }
+                } catch (err) { console.error(`Failed ${queryType} fetch:`, err.response?.data || err.message); }
                 return [];
             };
 
-            // Process the interests filter
             const interestQuery = (interests && interests !== 'Any') ? `${interests} ` : '';
 
-            // Run requests in parallel, injecting the interest query
             const fetchPromises = [
                 fetchPlaces('events', `${interestQuery}live event theater or comedy club or concert ${vibe}`),
                 fetchPlaces('food', `${interestQuery}highly rated romantic restaurant ${budget || ''}`),
@@ -400,14 +427,13 @@ app.post('/api/generate-date', async (req, res) => {
             }
         }
 
-        // Fallbacks if APIs are exhausted
         const getFallback = (type, i) => ({
             name: `NYC ${type} Spot ${i + 1}`,
             description: `A fantastic local ${type} venue in the heart of New York City.`,
             lat: 40.7128 + (i * 0.005), lng: -74.0060 + (i * 0.005),
             address: 'New York City, NY',
             photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-            url: type === 'Event' ? 'https://www.google.com' : null
+            url: null
         });
         if (!events.length) events = Array(7).fill().map((_, i) => getFallback('Event', i));
         if (!restaurants.length) restaurants = Array(7).fill().map((_, i) => getFallback('Restaurant', i));
@@ -415,7 +441,6 @@ app.post('/api/generate-date', async (req, res) => {
         if (!sightseeing.length) sightseeing = Array(7).fill().map((_, i) => getFallback('Sightseeing', i));
         if (!desserts.length) desserts = Array(7).fill().map((_, i) => getFallback('Dessert', i));
 
-        // Shuffle arrays to ensure variety every time user clicks generate
         const shuffle = (array) => [...array].sort(() => 0.5 - Math.random());
         const shuffledEvents = shuffle(events);
         const shuffledRestaurants = shuffle(restaurants);
@@ -424,7 +449,6 @@ app.post('/api/generate-date', async (req, res) => {
         const shuffledDesserts = shuffle(desserts);
         const shuffledCustom = shuffle(customPlaces);
 
-        // 3. Assemble 7 cohesive, highly descriptive itinerary variations
         const generatedPlans = [];
         const planTypes = [
             { vibeLabel: 'Classic Romance', format: 'sightseeing-dinner-dessert' },
@@ -444,7 +468,6 @@ app.post('/api/generate-date', async (req, res) => {
 
             const planFormat = planTypes[i];
 
-            // Override one of the standard slots with the custom requested activity if present
             const mainEvent = custom && planFormat.format.includes('event') ? custom : shuffledEvents[i % shuffledEvents.length];
             const sight = custom && !planFormat.format.includes('event') && planFormat.format.includes('sightseeing') ? custom : shuffledSightseeing[i % shuffledSightseeing.length];
             const fun = custom && !planFormat.format.includes('event') && !planFormat.format.includes('sightseeing') ? custom : shuffledEntertainment[i % shuffledEntertainment.length];
@@ -458,7 +481,8 @@ app.post('/api/generate-date', async (req, res) => {
             const createStep = (time, activity, venue, description, lat, lng, url = null, photoUrl = null) => ({
                 time, activity, venue,
                 description: `${description} Location: ${venue}. Make sure to take pictures!`,
-                url: url || `https://www.google.com/search?q=${encodeURIComponent(venue + ' New York City')}`,
+                url: url || null,
+                searchUrl: `https://www.google.com/search?q=${encodeURIComponent(venue + ' New York City')}`,
                 directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, lat, lng, photoUrl
             });
 
