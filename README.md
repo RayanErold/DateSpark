@@ -1,7 +1,3 @@
-<<<<<<< 
-# DateSpark
-Modern couples often struggle with planning meaningful dates due to time constraints and decision fatigue. DateSpark solves this by instantly generating curated date itineraries using real location data and AI.
-=======
 # DateSpark ⚡
 Website: https://datespark.onrender.com
 
@@ -9,18 +5,22 @@ Get a full date night plan in seconds. DateSpark is an AI-powered itinerary gene
 
 ## 🌟 Features
 
-- **Instant Generation:** Creates 7 distinct chronological date variations instantly based on real Google Places data.
-- **Smart Filtering:** Filter by budget, start/end times, date vibe, and specific personal interests.
-- **Customization Context:** You can enter custom activities manually and the generation engine will seamlessly weave them into your generated timeline.
-- **Freemium Tiers:** Free users enjoy 3 plans with up to 2 stops. Premium users unlock all 7 options, comprehensive 5-step itineraries, direct Google Maps directions, and Uber ride deep-links.
-- **Calendar Date Tracking:** Keep an organizational record of exactly when your dates are taking place.
+- **Instant Generation:** Creates up to 7 distinct chronological date variations instantly based on real Google Places data.
+- **Dynamic Search Radius:** Select exactly how far you want to travel (1 Mile to 15+ Miles) to keep your Uber fares low and timing perfect.
+- **Smart Booking Links:** 
+  - **Restaurants & Desserts:** Automatically generates a pre-filled OpenTable deep-link with absolute guests and timings.
+  - **Events & Entertainment:** Directs users to custom Google Search Query fallbacks dropping you onto ticketing aggregates seamlessly.
+- **Custom AI mode ("Describe your perfect date idea"):** Full conversation flow allowing users to pitch any text prompts and iterate alternatives alongside context suggestions.
+- **Freemium Tiers with 24h Rolling Reset:** 
+  - Free users receive 2 custom generation iterations. Count resets automatically every 24 hours using rolling timestamp decay checks.
+- **Smart Filtering:** Filter by budget, start/end times, date vibe, and specific personal interests effortlessly.
 
 ## 🛠️ Tech Stack
 
 - **Frontend:** React, Vite, Tailwind CSS, Lucide React
 - **Backend:** Node.js, Express
 - **Database:** Supabase (PostgreSQL)
-- **Data Integrations:** Google Places API, `@react-google-maps/api`
+- **Data Integrations:** Google Places API, `@react-google-maps/api`, Gemini AI (for Concept Ideation), Resend (Waitlist Onboarding Emails)
 
 ## 🚀 Getting Started
 
@@ -29,6 +29,8 @@ Get a full date night plan in seconds. DateSpark is an AI-powered itinerary gene
 You need the following API keys:
 - Supabase Project URL, Anon Key, and Service Role Key
 - Google Cloud Platform key (Places API & Maps JavaScript API Enabled)
+- Gemini API Key (If testing AI custom generators)
+- Resend API Key (Optional, for onboarding email dispatches layout verify checks)
 
 ### Environment Variables
 
@@ -40,6 +42,10 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+GEMINI_API_KEY=your_gemini_api_key
+
+# OPTIONAL for waitlist support
+RESEND_API_KEY=your_resend_api_key
 
 PORT=5000
 ```
@@ -51,12 +57,13 @@ PORT=5000
 npm install
 ```
 
-2. Start the backend server:
+2. Start the backend:
 ```bash
-node server.js
+npm run server
+# or run dev to launch concurrently
 ```
 
-3. In a new terminal tab, start the frontend development server:
+3. Start the dev layout (concurrent supports automatically):
 ```bash
 npm run dev
 ```
