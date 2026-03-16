@@ -7,6 +7,7 @@ import NodeCache from 'node-cache';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Resend } from 'resend'; // Import Resend
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
+
+const resend = new Resend(process.env.RESEND_API_KEY); // Initialize Resend
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -94,6 +97,49 @@ app.post('/api/waitlist', async (req, res) => {
             .select();
 
         if (error) throw error;
+
+        // --- SEND WELCOME EMAIL ---
+        try {
+            if (process.env.RESEND_API_KEY) {
+                await resend.emails.send({
+                    from: 'DateSpark <onboarding@resend.dev>', // Must use approved domain or onboarding@resend.dev for testing
+                    to: [email],
+                    subject: 'Welcome to DateSpark – Let the Date Planning Begin! 💖',
+                    html: `
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 12px;">
+                                <!-- REPLACE SRC WITH YOUR PUBLIC LOGO URL -->
+                                <img src="https://via.placeholder.com/150x50?text=DateSpark" alt="DateSpark Logo" style="display: block; margin: 0 auto 20px auto; max-width: 140px;" />
+                                
+                                <h1 style="color: #1a1a1a; text-align: center; margin-top: 0;">Welcome to the Waitlist!</h1>
+                            <p style="font-size: 16px; color: #4a4a4a; line-height: 1.6;">
+                                Hey there! Thanks so much for signing up for <strong>DateSpark</strong>. We are thrilled to have you!
+                            </p>
+                            <p style="font-size: 16px; color: #4a4a4a; line-height: 1.6;">
+                                We are currently grinding behind the scenes to roll out inside selected cities. To keep things moving for early testers:
+                            </p>
+                            <ul style="color: #4a4a4a; font-size: 15px;">
+                                <li><strong>Follow us</strong> for absolute launch dates.</li>
+                                <li>You'll get a <strong>FREE Custom AI Mode Plan</strong> as soon as access goes live.</li>
+                                <li>Unlock 5 additional credits to test with absolute premium limits if you invite 2 friends later.</li>
+                            </ul>
+                            <p style="font-size: 16px; color: #4a4a4a;">
+                                We'll let you know as soon as you're in!
+                            </p>
+                            <p style="text-align: center; margin-top: 30px;">
+                                <a href="#" style="background-color: #f43f5e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Follow Updates</a>
+                            </p>
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                            <p style="font-size: 12px; color: #aaa; text-align: center;">You're receiving this because you signed up to join DateSpark Waitlist.</p>
+                        </div>
+                    `
+                });
+            } else {
+                console.warn("Resend API Key not found. Skipping welcome email.");
+            }
+        } catch (emailErr) {
+            console.error('Failed to send email due to Resend restriction:', emailErr.message);
+            // We don't throw email errors so the user successfully completes waitlist joins regardless!
+        }
 
         res.status(201).json({
             message: 'Successfully joined the waitlist!',
