@@ -33,6 +33,36 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// --- Booking Link Helpers ---
+const convertTo24Hour = (timeStr) => {
+    if (!timeStr) return "19:00"; // Default 7 PM
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':');
+    if (hours === '12') hours = '00';
+    if (modifier === 'PM' || modifier === 'pm') hours = parseInt(hours, 10) + 12;
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+};
+
+const createBookingUrl = (type, name, date, time) => {
+    const d = date || new Date().toISOString().split('T')[0];
+    const t = convertTo24Hour(time);
+    const dateFormatted = d.replace(/\//g, '-'); // ensure YYYY-MM-DD
+
+    if (type === 'restaurant' || type === 'dessert') {
+        const params = new URLSearchParams({
+            dateTime: `${dateFormatted}T${t}`,
+            covers: '2',
+            term: name
+        });
+        return { url: `https://www.opentable.com/s?${params.toString()}`, type: 'opentable' };
+    } else if (type === 'event' || type === 'entertainment') {
+        // Fallback to safe google query targeting tickets direct to seatgeek/ticketmaster
+        const query = `${name} tickets ${dateFormatted}`;
+        return { url: `https://www.google.com/search?q=${encodeURIComponent(query)}`, type: 'tickets' };
+    }
+    return { url: null, type: null };
+};
+
 // Routes
 app.post('/api/waitlist', async (req, res) => {
     const { email } = req.body;
@@ -163,7 +193,7 @@ Return ONLY a valid JSON object formatted EXACTLY like this:
 
 // Build Custom Itinerary from AI Concept
 app.post('/api/generate-custom-date', async (req, res) => {
-    const { userId, concept, date } = req.body;
+    const { userId, concept, date, radius } = req.body;
 
     if (!userId || !concept) {
         return res.status(400).json({ error: 'User ID and Concept are required.' });
@@ -173,7 +203,8 @@ app.post('/api/generate-custom-date', async (req, res) => {
         const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
         const fetchPlaces = async (searchString) => {
-            const pCacheKey = `custom_${Buffer.from(searchString).toString('base64')}`;
+            const parsedRadius = radius ? Number(radius) : 8046; // Default to 5 miles
+            const pCacheKey = `custom_${parsedRadius}_${Buffer.from(searchString).toString('base64')}`;
             if (cache.has(pCacheKey)) return cache.get(pCacheKey);
             if (!GOOGLE_API_KEY) return null;
 
@@ -183,7 +214,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
                     locationBias: {
                         circle: {
                             center: { latitude: 40.7128, longitude: -74.0060 },
-                            radius: 10000.0 // 10km radius
+                            radius: parsedRadius
                         }
                     }
                 }, {
@@ -249,6 +280,19 @@ app.post('/api/generate-custom-date', async (req, res) => {
             const timeStr = startTimes[i] || `${5 + i * 2}:00 PM`;
             const duration = durationStrs[i] || "2 hours";
 
+            // Guess category type based on venue or search term keyword
+            let stepType = 'event';
+            const termLower = (terms[i] || '').toLowerCase();
+            const venueLower = place.name.toLowerCase();
+            if (termLower.includes('food') || termLower.includes('restaurant') || termLower.includes('dinner') ||
+                venueLower.includes('restaur') || venueLower.includes('cafe') || venueLower.includes('bistro') || venueLower.includes('kitchen')) {
+                stepType = 'restaurant';
+            } else if (termLower.includes('dessert') || termLower.includes('ice cream') || termLower.includes('bakery') || venueLower.includes('bakery') || venueLower.includes('dessert')) {
+                stepType = 'dessert';
+            }
+
+            const booking = createBookingUrl(stepType, place.name, date, timeStr);
+
             liveItinerary.push({
                 time: timeStr,
                 activity: `Stop ${i + 1} (${duration})`,
@@ -259,7 +303,9 @@ app.post('/api/generate-custom-date', async (req, res) => {
                 directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`,
                 lat: place.lat,
                 lng: place.lng,
-                photoUrl: place.photoUrl
+                photoUrl: place.photoUrl,
+                bookingUrl: booking.url,
+                bookingType: booking.type
             });
         }
 
@@ -331,7 +377,7 @@ app.get('/api/plans/:id', async (req, res) => {
 
 // Classical Generation Flow
 app.post('/api/generate-date', async (req, res) => {
-    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date } = req.body;
+    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius } = req.body;
 
     if (!userId || !location) {
         return res.status(400).json({ error: 'User ID and Location are required' });
@@ -349,7 +395,8 @@ app.post('/api/generate-date', async (req, res) => {
 
         if (GOOGLE_API_KEY) {
             const fetchPlaces = async (queryType, searchString) => {
-                const pCacheKey = `goog_nyc_${queryType}_${budget || 'moderate'}_${searchString}`;
+                const parsedRadius = radius ? Number(radius) : 8046; // Default to 5 miles
+                const pCacheKey = `goog_nyc_${queryType}_${budget || 'moderate'}_${parsedRadius}_${searchString}`;
                 if (cache.has(pCacheKey)) return cache.get(pCacheKey);
 
                 let priceLevels = [];
@@ -364,7 +411,7 @@ app.post('/api/generate-date', async (req, res) => {
                         locationBias: {
                             circle: {
                                 center: { latitude: 40.7128, longitude: -74.0060 },
-                                radius: 10000.0 // 10km radius
+                                radius: parsedRadius
                             }
                         }
                     }, {
@@ -478,13 +525,34 @@ app.post('/api/generate-date', async (req, res) => {
 
             let liveItinerary = [];
 
-            const createStep = (time, activity, venue, description, lat, lng, url = null, photoUrl = null) => ({
-                time, activity, venue,
-                description: `${description} Location: ${venue}. Make sure to take pictures!`,
-                url: url || null,
-                searchUrl: `https://www.google.com/search?q=${encodeURIComponent(venue + ' New York City')}`,
-                directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, lat, lng, photoUrl
-            });
+            const createStep = (time, activity, venue, description, lat, lng, url = null, photoUrl = null) => {
+                let stepType = 'event';
+                const venueLower = (venue || '').toLowerCase();
+                const activityLower = (activity || '').toLowerCase();
+
+                if (activityLower.includes('dinner') || activityLower.includes('drinks') ||
+                    venueLower.includes('restaur') || venueLower.includes('kitchen') || venueLower.includes('cafe')) {
+                    stepType = 'restaurant';
+                } else if (activityLower.includes('treat') || activityLower.includes('pastries') || activityLower.includes('dessert') || activityLower.includes('sweet') ||
+                    venueLower.includes('bakery') || venueLower.includes('ice cream')) {
+                    stepType = 'dessert';
+                } else if (activityLower.includes('sport') || activityLower.includes('game') || activityLower.includes('arcade')) {
+                    stepType = 'entertainment';
+                }
+
+                const booking = createBookingUrl(stepType, venue, date, time);
+
+                return {
+                    time, activity, venue,
+                    description: `${description} Location: ${venue}. Make sure to take pictures!`,
+                    url: url || null,
+                    searchUrl: `https://www.google.com/search?q=${encodeURIComponent(venue + ' New York City')}`,
+                    directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+                    lat, lng, photoUrl,
+                    bookingUrl: booking.url,
+                    bookingType: booking.type
+                };
+            };
 
             // Dynamically construct based on plan format with 4-5 steps
             if (planFormat.format === 'sightseeing-dinner-dessert') {

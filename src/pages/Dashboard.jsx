@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Search } from 'lucide-react';
+import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Search, Utensils, Globe } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const Dashboard = () => {
@@ -18,7 +18,7 @@ const Dashboard = () => {
     const [settingsTab, setSettingsTab] = useState('profile');
 
     // --- FREEMIUM LOGIC STATE ---
-    const [isPremium, setIsPremium] = useState(false); // Default to free tier
+    const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const { isLoaded } = useJsApiLoader({
@@ -311,7 +311,11 @@ const Dashboard = () => {
                         <div className="hidden sm:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button
-                                onClick={() => setIsPremium(!isPremium)}
+                                onClick={() => {
+                                    const newVal = !isPremium;
+                                    setIsPremium(newVal);
+                                    localStorage.setItem('isPremium', newVal.toString());
+                                }}
                                 className={`w-10 h-5 rounded-full transition-colors relative flex items-center ${isPremium ? 'bg-navy' : 'bg-gray-200'}`}
                                 title="Toggle Premium Status for Testing"
                             >
@@ -587,6 +591,18 @@ const Dashboard = () => {
                                                                 className="px-3 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                             >
                                                                 <MapPin className="w-3 h-3" /> Get Directions
+                                                            </a>
+                                                        )}
+
+                                                        {step.bookingUrl && (
+                                                            <a
+                                                                href={step.bookingUrl}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="px-3 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                            >
+                                                                {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
+                                                                {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
                                                             </a>
                                                         )}
 

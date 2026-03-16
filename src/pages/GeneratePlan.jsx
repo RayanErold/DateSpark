@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock } from 'lucide-react';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const GeneratePlan = () => {
@@ -13,7 +13,7 @@ const GeneratePlan = () => {
 
     // Core states
     const [mode, setMode] = useState('classic'); // 'classic' or 'ai_custom'
-    const [isPremium, setIsPremium] = useState(false); // Mock state
+    const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [showAiAddonModal, setShowAiAddonModal] = useState(false);
     const [error, setError] = useState(null);
@@ -21,6 +21,16 @@ const GeneratePlan = () => {
     // AI Custom Uses tracking for Free users
     const [aiCustomUses, setAiCustomUses] = useState(() => {
         const saved = localStorage.getItem('aiCustomUses');
+        const lastUseTime = localStorage.getItem('aiCustomLastUseTime');
+
+        if (lastUseTime) {
+            const passedTime = Date.now() - parseInt(lastUseTime, 10);
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            if (passedTime >= twentyFourHours) {
+                localStorage.setItem('aiCustomUses', '0');
+                return 0;
+            }
+        }
         return saved ? parseInt(saved, 10) : 0;
     });
 
@@ -32,6 +42,7 @@ const GeneratePlan = () => {
     const [aiQuestions, setAiQuestions] = useState([]);
     const [ideaCount, setIdeaCount] = useState(3);
     const [selectedConceptIndex, setSelectedConceptIndex] = useState(null);
+    const [customRadius, setCustomRadius] = useState(8046); // Default to 5 Miles
 
     // Classic Form states
     const [formData, setFormData] = useState({
@@ -43,6 +54,7 @@ const GeneratePlan = () => {
         budget: '',
         interests: 'Any',
         activities: '',
+        radius: 8046, // Default to 5 Miles
     });
 
     const [isLocating, setIsLocating] = useState(false);
@@ -120,6 +132,12 @@ const GeneratePlan = () => {
     const handleSuggestConcepts = async (e, isRefinement = false) => {
         if (e) e.preventDefault();
 
+        // Guard clause for free users
+        if (!isPremium && aiCustomUses >= 2) {
+            setShowAiAddonModal(true);
+            return;
+        }
+
         let newHistory = [];
         if (!isRefinement) {
             if (!initialPrompt.trim()) return;
@@ -167,6 +185,12 @@ const GeneratePlan = () => {
 
     const handleGenerateCustom = async (e) => {
         e.preventDefault();
+
+        // Guard clause for free users
+        if (!isPremium && aiCustomUses >= 2) {
+            setShowAiAddonModal(true);
+            return;
+        }
         if (selectedConceptIndex === null) return;
         setIsGenerating(true);
         setError(null);
@@ -181,7 +205,8 @@ const GeneratePlan = () => {
                 body: JSON.stringify({
                     userId: user?.id,
                     concept: selectedConcept,
-                    date: formData.date
+                    date: formData.date,
+                    radius: customRadius
                 })
             });
 
@@ -192,6 +217,7 @@ const GeneratePlan = () => {
                 const newUses = aiCustomUses + 1;
                 setAiCustomUses(newUses);
                 localStorage.setItem('aiCustomUses', newUses.toString());
+                localStorage.setItem('aiCustomLastUseTime', Date.now().toString()); // Set timestamp on use
             }
 
             navigate('/dashboard');
@@ -293,7 +319,7 @@ const GeneratePlan = () => {
                                 <form onSubmit={handleSuggestConcepts} className="space-y-6">
                                     <div className="space-y-4">
                                         <label className="flex items-center gap-2 text-[16px] font-bold text-navy">
-                                            What are you dreaming of?
+                                            Describe your perfect date idea...
                                         </label>
                                         <textarea
                                             placeholder="e.g. 'I want to take her to Chipotle, then visit MoMA to chill, and finish with some highly rated artisanal ice cream in Midtown.'"
@@ -308,7 +334,7 @@ const GeneratePlan = () => {
                                         </p>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                         <div className="space-y-3">
                                             <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
                                                 <Calendar className="text-violet-500 w-4 h-4" /> Pick a Date
@@ -321,6 +347,22 @@ const GeneratePlan = () => {
                                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                                 className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[14px] font-medium text-gray-700"
                                             />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                                <Compass className="text-violet-500 w-4 h-4" /> Search Radius
+                                            </label>
+                                            <select
+                                                value={customRadius}
+                                                onChange={(e) => setCustomRadius(Number(e.target.value))}
+                                                className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
+                                            >
+                                                <option value={1609}>1 Mile</option>
+                                                <option value={4828}>3 Miles</option>
+                                                <option value={8046}>5 Miles</option>
+                                                <option value={16093}>10 Miles</option>
+                                                <option value={24140}>Citywide (15+ Miles)</option>
+                                            </select>
                                         </div>
                                         <div className="space-y-3">
                                             <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
@@ -455,22 +497,41 @@ const GeneratePlan = () => {
                     mode === 'classic' && (
                         <div className="bg-white rounded-3xl shadow-[0_4px_40px_rgba(0,0,0,0.04)] border border-gray-100 p-8 sm:p-10 mb-20 animate-in fade-in zoom-in-95 duration-500 relative">
                             <form onSubmit={handleSubmitClassic} className="space-y-8">
-                                <div className="space-y-3">
-                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                        <MapPin className="text-coral w-4 h-4" /> City or Neighborhood
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            required
-                                            placeholder="e.g. New York City, NY"
-                                            value={formData.location}
-                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                            className="w-full px-5 py-3.5 pl-12 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral text-[15px] font-medium text-gray-700 transition-colors"
-                                        />
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                                            {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                            <MapPin className="text-coral w-4 h-4" /> City or Neighborhood
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="e.g. New York City, NY"
+                                                value={formData.location}
+                                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                                className="w-full px-5 py-3.5 pl-12 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral text-[15px] font-medium text-gray-700 transition-colors"
+                                            />
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                                                {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                                            </div>
                                         </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                            <Compass className="text-coral w-4 h-4" /> Search Radius
+                                        </label>
+                                        <select
+                                            value={formData.radius}
+                                            onChange={(e) => setFormData({ ...formData, radius: Number(e.target.value) })}
+                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
+                                        >
+                                            <option value={1609}>1 Mile</option>
+                                            <option value={4828}>3 Miles</option>
+                                            <option value={8046}>5 Miles</option>
+                                            <option value={16093}>10 Miles</option>
+                                            <option value={24140}>Citywide (15+ Miles)</option>
+                                        </select>
                                     </div>
                                 </div>
 
