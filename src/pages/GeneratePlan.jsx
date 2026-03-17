@@ -120,6 +120,32 @@ const GeneratePlan = () => {
         }
     };
 
+    const handleGetCurrentLocation = () => {
+        setIsLocating(true);
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setFormData({
+                        ...formData,
+                        location: "Current Location",
+                        lat: latitude,
+                        lng: longitude
+                    });
+                    setIsLocating(false);
+                },
+                (error) => {
+                    console.error("Geolocation error:", error);
+                    setIsLocating(false);
+                    alert("Failed to get location. Please type your address manually.");
+                }
+            );
+        } else {
+            setIsLocating(false);
+            alert("Geolocation is not supported by your browser.");
+        }
+    };
+
     const handleModeSwitch = (newMode) => {
         if (newMode === 'ai_custom' && !isPremium && aiCustomUses >= 2) {
             setShowAiAddonModal(true);
@@ -206,7 +232,10 @@ const GeneratePlan = () => {
                     userId: user?.id,
                     concept: selectedConcept,
                     date: formData.date,
-                    radius: customRadius
+                    radius: customRadius,
+                    location: formData.location, // Pass location string
+                    lat: formData.lat || null,  // Pass coordinates if GPS was used
+                    lng: formData.lng || null
                 })
             });
 
@@ -512,7 +541,7 @@ const GeneratePlan = () => {
                                                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                                                 className="w-full px-5 py-3.5 pl-12 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral text-[15px] font-medium text-gray-700 transition-colors"
                                             />
-                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer hover:text-coral transition-colors" onClick={handleGetCurrentLocation} title="Use My Current Location">
                                                 {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
                                             </div>
                                         </div>

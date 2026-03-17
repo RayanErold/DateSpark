@@ -239,7 +239,7 @@ Return ONLY a valid JSON object formatted EXACTLY like this:
 
 // Build Custom Itinerary from AI Concept
 app.post('/api/generate-custom-date', async (req, res) => {
-    const { userId, concept, date, radius } = req.body;
+    const { userId, concept, date, radius, location, lat, lng } = req.body;
 
     if (!userId || !concept) {
         return res.status(400).json({ error: 'User ID and Concept are required.' });
@@ -247,6 +247,24 @@ app.post('/api/generate-custom-date', async (req, res) => {
 
     try {
         const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
+
+        let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
+
+        if (lat && lng) {
+            centerCoords = { latitude: Number(lat), longitude: Number(lng) };
+        } else if (GOOGLE_API_KEY && location) {
+            try {
+                const geoRes = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+                    params: { address: location, key: GOOGLE_API_KEY }
+                });
+                if (geoRes.data?.results?.[0]) {
+                    const locData = geoRes.data.results[0].geometry.location;
+                    centerCoords = { latitude: locData.lat, longitude: locData.lng };
+                }
+            } catch (err) {
+                console.error('Geocoding failed inside custom:', err.message);
+            }
+        }
 
         const fetchPlaces = async (searchString) => {
             const parsedRadius = radius ? Number(radius) : 8046; // Default to 5 miles
@@ -259,7 +277,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
                     textQuery: searchString,
                     locationBias: {
                         circle: {
-                            center: { latitude: 40.7128, longitude: -74.0060 },
+                            center: centerCoords,
                             radius: parsedRadius
                         }
                     }
@@ -423,7 +441,7 @@ app.get('/api/plans/:id', async (req, res) => {
 
 // Classical Generation Flow
 app.post('/api/generate-date', async (req, res) => {
-    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius } = req.body;
+    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng } = req.body;
 
     if (!userId || !location) {
         return res.status(400).json({ error: 'User ID and Location are required' });
@@ -431,6 +449,24 @@ app.post('/api/generate-date', async (req, res) => {
 
     try {
         const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
+
+        let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
+
+        if (lat && lng) {
+            centerCoords = { latitude: Number(lat), longitude: Number(lng) };
+        } else if (GOOGLE_API_KEY && location) {
+            try {
+                const geoRes = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+                    params: { address: location, key: GOOGLE_API_KEY }
+                });
+                if (geoRes.data?.results?.[0]) {
+                    const locData = geoRes.data.results[0].geometry.location;
+                    centerCoords = { latitude: locData.lat, longitude: locData.lng };
+                }
+            } catch (err) {
+                console.error('Geocoding failed inside classic:', err.message);
+            }
+        }
 
         let events = [];
         let restaurants = [];
@@ -476,7 +512,7 @@ app.post('/api/generate-date', async (req, res) => {
                         priceLevels: priceLevels.length > 0 ? priceLevels : undefined,
                         locationBias: {
                             circle: {
-                                center: { latitude: 40.7128, longitude: -74.0060 },
+                                center: centerCoords,
                                 radius: parsedRadius
                             }
                         }
