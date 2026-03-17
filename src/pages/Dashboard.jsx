@@ -903,7 +903,7 @@ const Dashboard = () => {
                                     <p className="text-gray-500 mb-8 font-medium">Manage your personal information and email.</p>
 
                                     <div className="space-y-5">
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-bold text-gray-700 mb-1">First Name</label>
                                                 <input type="text" disabled value={user?.user_metadata?.first_name || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
