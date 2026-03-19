@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils } from 'lucide-react';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const GeneratePlan = () => {
@@ -16,6 +16,7 @@ const GeneratePlan = () => {
     const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [showAiAddonModal, setShowAiAddonModal] = useState(false);
+    const [showDietaryOptions, setShowDietaryOptions] = useState(false);
     const [error, setError] = useState(null);
 
     // AI Custom Uses tracking for Free users
@@ -594,29 +595,46 @@ const GeneratePlan = () => {
                                     </select>
                                 </div>
 
-                                {/* Dietary Restrictions Pills */}
+                                {/* Dietary Restrictions Dropdown */}
                                 <div className="space-y-3">
-                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                        <Utensils className="text-coral w-4 h-4" /> Dietary Preferences (Optional)
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['Vegan', 'Vegetarian', 'Gluten-Free', 'Halal', 'Kosher', 'Nut Allergy', 'Dairy-Free'].map((diet) => {
-                                            const isSelected = formData.dietary?.includes(diet);
-                                            return (
-                                                <button
-                                                    type="button"
-                                                    key={diet}
-                                                    onClick={() => toggleDietary(diet)}
-                                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${isSelected
-                                                        ? 'bg-coral text-white border-coral shadow-sm shadow-coral/20'
-                                                        : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
-                                                        }`}
-                                                >
-                                                    {diet}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDietaryOptions(!showDietaryOptions)}
+                                        className="flex items-center justify-between w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all duration-200 cursor-pointer group"
+                                    >
+                                        <div className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                            <Utensils className="text-coral w-4 h-4 group-hover:scale-110 transition-transform" />
+                                            Dietary Preferences
+                                            <span className="text-gray-400 font-medium text-xs">(Optional)</span>
+                                            {formData.dietary?.length > 0 && (
+                                                <span className="bg-coral/10 text-coral text-[10px] px-1.5 py-0.5 rounded-full font-black">
+                                                    {formData.dietary.length}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showDietaryOptions ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {showDietaryOptions && (
+                                        <div className="flex flex-wrap gap-2 p-4 bg-white border border-gray-100 rounded-xl shadow-inner animate-fade-in">
+                                            {['Vegan', 'Vegetarian', 'Gluten-Free', 'Halal', 'Kosher', 'Nut Allergy', 'Dairy-Free'].map((diet) => {
+                                                const isSelected = formData.dietary?.includes(diet);
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={diet}
+                                                        onClick={() => toggleDietary(diet)}
+                                                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${isSelected
+                                                            ? 'bg-coral text-white border-coral shadow-sm shadow-coral/20'
+                                                            : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
+                                                            }`}
+                                                    >
+                                                        {diet}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

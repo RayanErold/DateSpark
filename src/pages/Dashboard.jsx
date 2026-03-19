@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Search, Utensils, Globe, Loader2 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import axios from 'axios';
+import { loadStripe } from '@stripe/stripe-js';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -22,6 +23,26 @@ const Dashboard = () => {
     const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
+
+    const handleBuyPass = async (planType) => {
+        try {
+            const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+            if (!stripe) throw new Error("Stripe Failed to Load");
+
+            const response = await axios.post('/api/create-checkout-session', { planType });
+            const { id, url } = response.data;
+
+            // Redirect to Stripe Checkout using session URL or ID
+            if (url) {
+                window.location.href = url; // Standard redirect
+            } else {
+                await stripe.redirectToCheckout({ sessionId: id });
+            }
+        } catch (err) {
+            console.error('Checkout error:', err);
+            alert(`Payment failed: ${err.response?.data?.error || err.message}`);
+        }
+    };
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -55,6 +76,22 @@ const Dashboard = () => {
         };
 
         fetchUserData();
+    }, []);
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const stripePayment = queryParams.get('stripe_payment');
+
+        if (stripePayment === 'success') {
+            setIsPremium(true);
+            localStorage.setItem('isPremium', 'true'); // Persist local testing flag
+            alert('🎉 Payment Successful! You are now a Premium Member.');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (stripePayment === 'canceled') {
+            alert('❌ Payment Canceled.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     }, []);
 
     const handleDelete = async (planId, e) => {
@@ -787,11 +824,18 @@ const Dashboard = () => {
                                         <span className="text-4xl font-black tracking-tight">$9.99</span>
                                         <span className="text-white/50 mb-1.5 font-bold">/mo</span>
                                     </div>
+
+                                    <ul className="mb-6 space-y-2.5 text-xs text-white/80 font-bold border-t border-white/10 pt-4">
+                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Plan unlimited dates</li>
+                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Unlock all venues & restaurants</li>
+                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Unlimited AI Date Customizer</li>
+                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Save unlimited favorites</li>
+                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Access to all supported cities</li>
+                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Early access to new features</li>
+                                    </ul>
+
                                     <button
-                                        onClick={() => {
-                                            alert("Redirecting to Stripe Checkout for $9.99/mo...");
-                                            setShowUpgradeModal(false);
-                                        }}
+                                        onClick={() => handleBuyPass('premium')}
                                         className="w-full py-3.5 bg-white text-navy font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg active:scale-[0.98]"
                                     >
                                         Start Premium
@@ -810,10 +854,7 @@ const Dashboard = () => {
                                         <span className="text-gray-400 mb-1 uppercase text-xs font-bold tracking-wider">/once</span>
                                     </div>
                                     <button
-                                        onClick={() => {
-                                            alert("Redirecting to Stripe Checkout for $0.99 Pass...");
-                                            setShowUpgradeModal(false);
-                                        }}
+                                        onClick={() => handleBuyPass('one-night')}
                                         className="w-full py-3.5 bg-gradient-to-r from-coral to-coral/90 text-white font-black rounded-xl hover:shadow-xl hover:shadow-coral/20 transition-all active:scale-[0.98]"
                                     >
                                         Unlock Tonight Only

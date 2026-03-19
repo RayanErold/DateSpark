@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Resend } from 'resend'; // Import Resend
+import Stripe from 'stripe';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,7 @@ dotenv.config();
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null; // Initialize Resend conditionally
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,6 +37,52 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// --- Stripe Checkout Endpoint ---
+app.post('/api/create-checkout-session', async (req, res) => {
+    try {
+        const { planType } = req.body;
+
+        let unitAmount = 99; // Default $0.99
+        let productName = 'One-Night Pass';
+        let mode = 'payment';
+        let recurring = undefined;
+
+        if (planType === 'premium') {
+            unitAmount = 999; // $9.99
+            productName = 'Premium Membership';
+            mode = 'subscription';
+            recurring = { interval: 'month' };
+        }
+
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: productName,
+                        description: planType === 'premium'
+                            ? '✅ Plan unlimited dates\n✅ Unlock all venues & restaurants\n✅ Unlimited AI Date Customizer\n✅ Save unlimited favorites\n✅ Access to all cities\n✅ Early access to new features'
+                            : '✅ Unlock full access to 1 premium date itinerary immediately on DateSpark.',
+                    },
+                    unit_amount: unitAmount,
+                    ...(recurring && { recurring })
+                },
+                quantity: 1,
+            }],
+            mode: mode,
+            success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?stripe_payment=success`,
+            cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?stripe_payment=canceled`,
+        });
+
+        // Return session id for redirect
+        res.json({ id: session.id, url: session.url });
+    } catch (error) {
+        console.error('Stripe Session Error:', error);
+        res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
 
 // --- Feedback Endpoint ---
 app.post('/api/feedback', async (req, res) => {
