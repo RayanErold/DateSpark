@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Search, Utensils, Globe } from 'lucide-react';
+import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Search, Utensils, Globe, Loader2 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import axios from 'axios';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -212,13 +213,13 @@ const Dashboard = () => {
     const groupedFavorites = getGroupedFavorites();
     const hasFavorites = plans.some(p => p.is_favorite);
 
-    const renderPlanCard = (plan, planIdx, enforceLocked = false) => {
+    const renderPlanCard = (plan, planIdx, enforceLocked = false, isCompact = false) => {
         const isLockedPlan = enforceLocked || (!isPremium && activeTab === 'all' && planIdx >= 3);
 
         return (
             <div
                 key={plan.id}
-                className={`bg-white rounded-3xl border border-gray-100 p-6 shadow-sm transition-all group relative overflow-hidden ${isLockedPlan ? 'cursor-not-allowed border-gray-200' : 'hover:shadow-md'}`}
+                className={`bg-white rounded-3xl border border-gray-100 ${isCompact ? 'p-4' : 'p-6'} shadow-sm transition-all group relative overflow-hidden ${isLockedPlan ? 'cursor-not-allowed border-gray-200' : 'hover:shadow-md'}`}
                 onClick={() => {
                     if (isLockedPlan) {
                         setShowUpgradeModal(true);
@@ -251,9 +252,9 @@ const Dashboard = () => {
                         <Trash2 className="w-5 h-5" />
                     </button>
                 </div>
-                <div className="flex justify-between items-start mb-4 pr-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4 pr-8">
                     <div className="space-y-1">
-                        <h3 className="text-xl font-bold text-navy capitalize">{plan.vibe} Date</h3>
+                        <h3 className={`${isCompact ? 'text-lg' : 'text-xl'} font-bold text-navy capitalize`}>{plan.vibe} Date</h3>
                         <div className="flex flex-col gap-1.5 mt-2">
                             <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
                                 <MapPin className="w-4 h-4 text-coral" /> {plan.location}
@@ -273,24 +274,26 @@ const Dashboard = () => {
                     {plan.budget}
                 </span>
 
-                <div className="space-y-4 mb-6">
-                    {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.slice(0, 2).map((step, idx) => (
-                        <div key={idx} className="flex gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 text-navy">
-                                <Clock className="w-4 h-4" />
+                {!isCompact && (
+                    <div className="space-y-4 mb-6">
+                        {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.slice(0, 2).map((step, idx) => (
+                            <div key={idx} className="flex gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 text-navy">
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-navy">{step.time}</p>
+                                    <p className="text-sm text-gray-600 line-clamp-1">{step.activity}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-bold text-navy">{step.time}</p>
-                                <p className="text-sm text-gray-600 line-clamp-1">{step.activity}</p>
-                            </div>
-                        </div>
-                    ))}
-                    {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.length > 2 && (
-                        <p className="text-sm text-coral font-medium pl-11">
-                            + {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps)?.length - 2} more activities {isLockedPlan ? '(Locked)' : ''}
-                        </p>
-                    )}
-                </div>
+                        ))}
+                        {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.length > 2 && (
+                            <p className="text-sm text-coral font-medium pl-11">
+                                + {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps)?.length - 2} more activities {isLockedPlan ? '(Locked)' : ''}
+                            </p>
+                        )}
+                    </div>
+                )}
                 <button
                     onClick={(e) => {
                         if (isLockedPlan) {
@@ -451,20 +454,30 @@ const Dashboard = () => {
                 </div>
 
                 {plans.filter(p => !p.is_archived || p.is_favorite).length === 0 ? (
-                    <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm">
-                        <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-400">
-                            <Calendar className="w-8 h-8" />
+                    <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-xl border border-navy-100/20 max-w-2xl mx-auto my-8 animate-in fade-in zoom-in-95 duration-500">
+                        {/* Ambient decorative gradient bubbles */}
+                        <div className="absolute -right-16 -top-16 w-64 h-64 bg-coral/20 rounded-full blur-3xl animate-pulse" />
+                        <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-violet-500/20 rounded-full blur-3xl" />
+
+                        <div className="relative z-10 space-y-4">
+                            <div className="w-20 h-20 bg-gradient-to-br from-coral to-pink-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-coral/30 rotate-6 hover:rotate-0 transition-transform duration-300">
+                                <Heart className="w-10 h-10 fill-white text-white" />
+                            </div>
+
+                            <h2 className="text-4xl font-black text-white tracking-tight">Let’s plan your next date 💖</h2>
+                            <p className="text-white/80 max-w-md mx-auto font-medium text-lg">
+                                Stop deciding, start dating. Generate custom timelines and interactive maps in seconds.
+                            </p>
+
+                            <div className="pt-4">
+                                <Link
+                                    to="/generate"
+                                    className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-navy font-black rounded-2xl hover:bg-coral hover:text-white transition-all shadow-xl hover:-translate-y-1 active:scale-[0.98] group"
+                                >
+                                    Start your first plan <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                                </Link>
+                            </div>
                         </div>
-                        <h3 className="text-xl font-bold text-navy mb-2">No plans yet</h3>
-                        <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                            You haven't generated any date plans yet. Create your first unforgettable experience!
-                        </p>
-                        <Link
-                            to="/generate"
-                            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-colors"
-                        >
-                            Generate a Plan
-                        </Link>
                     </div>
                 ) : activeTab === 'favorites' && !hasFavorites ? (
                     <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm animate-in fade-in duration-300">
@@ -507,7 +520,7 @@ const Dashboard = () => {
                                                 <span className="bg-gray-100 text-gray-500 px-3 py-1 text-xs rounded-full">{categoryPlans.length}</span>
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {categoryPlans.map((plan, idx) => renderPlanCard(plan, idx, false))}
+                                                {categoryPlans.map((plan, idx) => renderPlanCard(plan, idx, false, true))}
                                             </div>
                                         </div>
                                     ))}
@@ -557,15 +570,15 @@ const Dashboard = () => {
                             </div>
 
                             {/* Floating Tab Bar */}
-                            <div className="px-8 -mt-6 z-10">
-                                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-2 flex justify-between items-center text-sm font-bold text-gray-500 max-w-sm">
+                            <div className="px-4 md:px-8 -mt-6 z-10 w-full flex justify-center">
+                                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-2 flex justify-between items-center text-sm font-bold text-gray-500 w-full max-w-sm">
                                     <button className="flex-1 flex flex-col items-center gap-1 py-2 text-navy bg-gray-50 rounded-xl">
                                         <Ticket className="w-5 h-5" /> Itinerary
                                     </button>
                                     <button onClick={handleSync} className="flex-1 flex flex-col items-center gap-1 py-2 hover:text-navy transition-colors">
                                         <Calendar className="w-5 h-5" /> Sync
                                     </button>
-                                    <button onClick={handleShare} className="flex-[1.2] flex flex-col items-center gap-1 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl transition-colors border border-violet-100 shadow-sm relative overflow-hidden group">
+                                    <button onClick={handleShare} className="flex-1 flex flex-col items-center gap-1 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl transition-colors border border-violet-100 shadow-sm relative overflow-hidden group">
                                         <div className="absolute inset-0 bg-gradient-to-r from-violet-200/0 via-violet-200/50 to-violet-200/0 -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
                                         <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-5 h-5 rounded object-cover shadow-sm bg-white z-10" />
                                         <span className="text-[10px] font-black tracking-wide uppercase z-10 line-clamp-1 w-full text-center px-1">Share DateSpark</span>
@@ -793,12 +806,12 @@ const Dashboard = () => {
                                     <h3 className="text-xl font-bold text-navy mb-1">One-Night Pass</h3>
                                     <p className="text-gray-500 text-sm mb-5 font-medium">Unlock full access for just 24 hours.</p>
                                     <div className="flex items-end gap-1.5 mb-5">
-                                        <span className="text-3xl font-black text-navy tracking-tight">$4.99</span>
+                                        <span className="text-3xl font-black text-navy tracking-tight">$0.99</span>
                                         <span className="text-gray-400 mb-1 uppercase text-xs font-bold tracking-wider">/once</span>
                                     </div>
                                     <button
                                         onClick={() => {
-                                            alert("Redirecting to Stripe Checkout for $4.99 Pass...");
+                                            alert("Redirecting to Stripe Checkout for $0.99 Pass...");
                                             setShowUpgradeModal(false);
                                         }}
                                         className="w-full py-3.5 bg-gradient-to-r from-coral to-coral/90 text-white font-black rounded-xl hover:shadow-xl hover:shadow-coral/20 transition-all active:scale-[0.98]"
@@ -1042,6 +1055,8 @@ const Dashboard = () => {
                     </div>
                 </div>
             )}
+
+
 
         </div>
     );

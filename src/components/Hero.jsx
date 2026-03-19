@@ -1,8 +1,49 @@
 import React, { useState } from 'react';
-import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle } from 'lucide-react';
+import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon } from 'lucide-react';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+
+const DEMO_PLAN = {
+    vibe: 'Classic Romance',
+    location: 'New York City',
+    itinerary: [
+        {
+            time: '7:00 PM',
+            activity: 'Italian Candlelight Dinner',
+            venue: 'L’Artusi',
+            description: 'Start your evening with signature handmade pasta and a curated wine list in a cozy, intimate setting.',
+            photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80',
+            lat: 40.7338, lng: -74.0056,
+            rating: 4.6, reviews: 2432, price: '$$$'
+        },
+        {
+            time: '9:00 PM',
+            activity: 'Scenic Night Stroll',
+            venue: 'The High Line',
+            description: 'Walk off dinner on the elevated historic rail line with gorgeous skyline and Hudson River views.',
+            photoUrl: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=500&q=80',
+            lat: 40.7480, lng: -74.0048,
+            rating: 4.8, reviews: 34102, price: 'Free'
+        },
+        {
+            time: '10:30 PM',
+            activity: 'Live Jazz & Speakeasy',
+            venue: 'The Flatiron Room',
+            description: 'Finsih the night surrounded by vintage decor, smooth jazz quartets, and artisanal dessert menus.',
+            photoUrl: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=500&q=80',
+            lat: 40.7444, lng: -73.9904,
+            rating: 4.5, reviews: 1890, price: '$$'
+        }
+    ]
+};
 
 const Hero = () => {
     const [activeFeature, setActiveFeature] = useState('itinerary');
+    const [showDemoModal, setShowDemoModal] = useState(false);
+
+    const { isLoaded } = useJsApiLoader({
+        id: 'google-map-script',
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+    });
 
     const features = [
         { id: 'itinerary', icon: <Ticket className="w-5 h-5" />, label: 'Itinerary' },
@@ -40,15 +81,18 @@ const Hero = () => {
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5 pt-4">
-                        <button className="bg-navy text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_10px_40px_rgba(10,25,47,0.2)] hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(10,25,47,0.3)] transition-all group">
+                        <button onClick={() => window.location.hash = 'waitlist'} className="bg-navy text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_10px_40px_rgba(10,25,47,0.2)] hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(10,25,47,0.3)] transition-all group">
                             Plan a date now <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </button>
-                        <a href="#how-it-works" className="flex items-center gap-2 text-navy font-semibold hover:text-coral transition-colors">
-                            <div className="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center">
-                                <Play className="w-4 h-4 fill-navy" />
+                        <button
+                            onClick={() => setShowDemoModal(true)}
+                            className="flex items-center gap-2 text-navy font-bold hover:text-coral transition-colors bg-white border-2 border-gray-200 px-6 py-4 rounded-2xl hover:border-coral group shadow-sm active:scale-95"
+                        >
+                            <div className="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center group-hover:border-coral transition-colors">
+                                <Play className="w-4 h-4 fill-navy group-hover:fill-coral group-hover:text-coral transition-colors" />
                             </div>
-                            See how it works
-                        </a>
+                            See a Demo
+                        </button>
                     </div>
                 </div>
 
@@ -213,6 +257,112 @@ const Hero = () => {
                     </div>
                 </div>
             </div>
+            {/* Interactive Demo Modal */}
+            {showDemoModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+                    <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative animate-in zoom-in-95 duration-300">
+
+                        {/* Left Sidebar - Timeline */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+                            {/* Sticky Top Banner inside Modal */}
+                            <div className="bg-navy p-6 md:p-8 text-white relative flex justify-between items-center">
+                                <div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                                            <Heart className="w-5 h-5 fill-white text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold">{DEMO_PLAN.vibe} Date</h2>
+                                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Planned for Tonight</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowDemoModal(false)}
+                                    className="p-2 text-white/60 hover:text-white bg-white/10 rounded-full transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Timeline Contents */}
+                            <div className="p-8">
+                                <div className="space-y-10 border-l-2 border-dashed border-gray-200 ml-4 relative pb-6">
+                                    {DEMO_PLAN.itinerary.map((step, idx) => {
+                                        const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy'];
+                                        const textColor = ['text-coral', 'text-yellow-500', 'text-navy'];
+                                        return (
+                                            <div key={idx} className="relative pl-8">
+                                                <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white shadow-sm ${dotColors[idx % 3]}`} />
+                                                <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[idx % 3]}`}>{step.time} • {step.activity}</p>
+
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h4 className="text-2xl font-black text-navy">{step.venue}</h4>
+                                                    <div className="flex items-center gap-1 bg-yellow-400/10 px-2 py-0.5 rounded-lg">
+                                                        <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                                                        <span className="text-xs font-bold text-gray-700">{step.rating}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 mb-2 text-xs text-gray-400 font-bold">
+                                                    <span>⭐ ({step.reviews.toLocaleString()})</span>
+                                                    <span>•</span>
+                                                    <span className="text-green-600">{step.price}</span>
+                                                </div>
+
+                                                <p className="text-gray-500 font-medium text-sm mb-4 leading-relaxed">{step.description}</p>
+                                                {step.photoUrl && (
+                                                    <img src={step.photoUrl} alt={step.venue} className="rounded-2xl w-full h-48 object-cover border border-gray-100 shadow-sm" />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="pt-4">
+                                    <button
+                                        onClick={() => {
+                                            setShowDemoModal(false);
+                                            window.location.hash = 'waitlist';
+                                        }}
+                                        className="w-full bg-navy text-white py-4 px-6 rounded-2xl font-black text-center flex items-center justify-center gap-2 hover:bg-coral transition-colors shadow-lg group shadow-coral/5"
+                                    >
+                                        Plan Your First Date <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right Panel - Embedded Google Map */}
+                        <div className="hidden md:flex flex-col w-5/12 bg-gray-50 relative border-l border-gray-200">
+                            {isLoaded ? (
+                                <GoogleMap
+                                    mapContainerStyle={{ width: '100%', height: '100%' }}
+                                    center={{ lat: 40.7400, lng: -73.9980 }} // Center on mapped area
+                                    zoom={14}
+                                    options={{
+                                        disableDefaultUI: true,
+                                    }}
+                                >
+                                    {DEMO_PLAN.itinerary.map((step, idx) => (
+                                        <Marker
+                                            key={idx}
+                                            position={{ lat: step.lat, lng: step.lng }}
+                                            label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
+                                        />
+                                    ))}
+                                </GoogleMap>
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center bg-gray-100/50">
+                                    <MapIcon className="w-12 h-12 mb-4 opacity-50" />
+                                    <p className="font-medium">Please add your Google Maps API Key to view the map.</p>
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+                </div>
+            )}
         </section>
     );
 };

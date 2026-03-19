@@ -4,7 +4,6 @@ import Hero from '../components/Hero';
 import ProductDemo from '../components/ProductDemo';
 import TrustedPartners from '../components/TrustedPartners';
 import HowItWorks from '../components/HowItWorks';
-import TeaserGenerator from '../components/TeaserGenerator';
 import Benefits from '../components/Benefits';
 import Pricing from '../components/Pricing';
 import Waitlist from '../components/Waitlist';
@@ -22,7 +21,6 @@ const LandingPage = () => {
                 <TrustedPartners />
                 <ProductDemo />
                 <HowItWorks />
-                <TeaserGenerator />
                 <Benefits />
                 <Pricing />
                 <Waitlist />

@@ -36,6 +36,51 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// --- Feedback Endpoint ---
+app.post('/api/feedback', async (req, res) => {
+    const { text, userId, email } = req.body;
+
+    if (!text) {
+        return res.status(400).json({ error: 'Feedback text is required' });
+    }
+
+    try {
+        if (resend) {
+            await resend.emails.send({
+                from: 'Feedback <onboarding@resend.dev>',
+                to: process.env.ADMIN_EMAIL || 'eroldrayan@gmail.com', // fallback to eroldrayan if not set
+                subject: 'New DateSpark Feedback 💡',
+                html: `
+                    <h3>New Feedback Received</h3>
+                    <p><b>User Email:</b> ${email || 'Anonymous'}</p>
+                    <p><b>User ID:</b> ${userId || 'N/A'}</p>
+                    <p><b>Feedback:</b></p>
+                    <p>${text}</p>
+                `
+            });
+        } else {
+            console.log("Resend not configured. Feedback Log:", text);
+        }
+
+        const { error } = await supabase
+            .from('feedback')
+            .insert({
+                user_id: userId || null,
+                email: email || null,
+                text: text
+            });
+
+        if (error) {
+            console.warn('Supabase feedback insert error (might not have table created):', error.message);
+        }
+
+        res.status(200).json({ message: 'Feedback sent successfully' });
+    } catch (err) {
+        console.error('Feedback route error:', err);
+        res.status(200).json({ message: 'Feedback processed' }); // return 200 so UI succeeds if logged
+    }
+});
+
 // --- Booking Link Helpers ---
 const convertTo24Hour = (timeStr) => {
     if (!timeStr) return "19:00"; // Default 7 PM
@@ -441,7 +486,7 @@ app.get('/api/plans/:id', async (req, res) => {
 
 // Classical Generation Flow
 app.post('/api/generate-date', async (req, res) => {
-    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng } = req.body;
+    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng, dietary } = req.body;
 
     if (!userId || !location) {
         return res.status(400).json({ error: 'User ID and Location are required' });
@@ -555,13 +600,14 @@ app.post('/api/generate-date', async (req, res) => {
             };
 
             const interestQuery = (interests && interests !== 'Any') ? `${interests} ` : '';
+            const dietaryQuery = (dietary && Array.isArray(dietary) && dietary.length > 0) ? `${dietary.join(' ')} ` : '';
 
             const fetchPromises = [
                 fetchPlaces('events', `${interestQuery}live event theater or comedy club or concert ${vibe}`),
-                fetchPlaces('food', `${interestQuery}highly rated romantic restaurant ${budget || ''}`),
+                fetchPlaces('food', `${dietaryQuery}${interestQuery}highly rated romantic restaurant ${budget || ''}`),
                 fetchPlaces('entertainment', `${interestQuery}bowling alley or interactive entertainment or arcade`),
                 fetchPlaces('sightseeing', `${interestQuery}scenic pier or hudson river park or museum`),
-                fetchPlaces('dessert', `${interestQuery}famous bakery or dessert or ice cream`)
+                fetchPlaces('dessert', `${dietaryQuery}${interestQuery}famous bakery or dessert or ice cream`)
             ];
 
             if (activities && activities.trim() !== '') {

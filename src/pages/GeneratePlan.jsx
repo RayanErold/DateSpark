@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass } from 'lucide-react';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const GeneratePlan = () => {
@@ -55,6 +55,7 @@ const GeneratePlan = () => {
         interests: 'Any',
         activities: '',
         radius: 8046, // Default to 5 Miles
+        dietary: [],
     });
 
     const [isLocating, setIsLocating] = useState(false);
@@ -118,6 +119,17 @@ const GeneratePlan = () => {
         } else {
             setFormData({ ...formData, budget: '' });
         }
+    };
+
+    const toggleDietary = (diet) => {
+        setFormData(prev => {
+            const current = prev.dietary || [];
+            if (current.includes(diet)) {
+                return { ...prev, dietary: current.filter(d => d !== diet) };
+            } else {
+                return { ...prev, dietary: [...current, diet] };
+            }
+        });
     };
 
     const handleGetCurrentLocation = () => {
@@ -580,6 +592,31 @@ const GeneratePlan = () => {
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+
+                                {/* Dietary Restrictions Pills */}
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                        <Utensils className="text-coral w-4 h-4" /> Dietary Preferences (Optional)
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Vegan', 'Vegetarian', 'Gluten-Free', 'Halal', 'Kosher', 'Nut Allergy', 'Dairy-Free'].map((diet) => {
+                                            const isSelected = formData.dietary?.includes(diet);
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={diet}
+                                                    onClick={() => toggleDietary(diet)}
+                                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${isSelected
+                                                        ? 'bg-coral text-white border-coral shadow-sm shadow-coral/20'
+                                                        : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
+                                                        }`}
+                                                >
+                                                    {diet}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

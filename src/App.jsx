@@ -8,6 +8,7 @@ import GeneratePlan from './pages/GeneratePlan';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import SharedPlan from './pages/SharedPlan';
+import FeedbackBot from './components/FeedbackBot';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           </ProtectedRoute>
         } />
       </Routes>
+      <FeedbackBot />
     </Router>
   );
 }
