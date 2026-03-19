@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Search, Utensils, Globe, Loader2 } from 'lucide-react';
+import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
@@ -23,6 +23,24 @@ const Dashboard = () => {
     const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
+    const [completedSteps, setCompletedSteps] = useState([]);
+
+    useEffect(() => {
+        if (selectedPlan && selectedPlan.id) {
+            const saved = localStorage.getItem(`completed_steps_${selectedPlan.id}`);
+            setCompletedSteps(saved ? JSON.parse(saved) : []);
+        }
+    }, [selectedPlan]);
+
+    const toggleStepCompletion = (idx) => {
+        setCompletedSteps(prev => {
+            const updated = prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx];
+            if (selectedPlan && selectedPlan.id) {
+                localStorage.setItem(`completed_steps_${selectedPlan.id}`, JSON.stringify(updated));
+            }
+            return updated;
+        });
+    };
 
     const handleBuyPass = async (planType) => {
         try {
@@ -640,19 +658,36 @@ const Dashboard = () => {
                                         return (
                                             <div
                                                 key={idx}
-                                                className={`relative pl-8 ${isLockedStep ? 'cursor-pointer group/locked' : ''}`}
+                                                className={`relative pl-10 ${isLockedStep ? 'cursor-pointer group/locked' : ''}`}
                                                 onClick={() => {
                                                     if (isLockedStep) setShowUpgradeModal(true);
                                                 }}
                                             >
-                                                {/* Colored Dot or Padlock */}
-                                                <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white shadow-sm flex items-center justify-center ${isLockedStep ? 'bg-gray-300 !w-5 !h-5 !-left-[11px]' : dotColors[colorIdx]}`}>
-                                                    {isLockedStep && <span className="text-[10px]">🔒</span>}
-                                                </div>
+                                                {/* Checkbox Trigger button */}
+                                                <button
+                                                    type="button"
+                                                    disabled={isLockedStep}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleStepCompletion(idx);
+                                                    }}
+                                                    className={`absolute -left-[12px] top-1 w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center transition-all cursor-pointer z-10 ${completedSteps.includes(idx)
+                                                            ? 'bg-emerald-500 text-white border-emerald-500'
+                                                            : isLockedStep ? 'bg-gray-300' : 'bg-white hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    {completedSteps.includes(idx) ? (
+                                                        <Check className="w-3.5 h-3.5 font-black" />
+                                                    ) : isLockedStep ? (
+                                                        <span className="text-[10px]">🔒</span>
+                                                    ) : (
+                                                        <Circle className={`w-3 h-3 ${textColor[colorIdx]}`} />
+                                                    )}
+                                                </button>
 
                                                 {/* Content with conditional Blur */}
-                                                <div className={`transition-all duration-300 relative ${isLockedStep ? 'blur-sm select-none opacity-60 group-hover/locked:blur-md group-hover/locked:opacity-40' : ''}`}>
-                                                    <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]}`}>
+                                                <div className={`transition-all duration-300 relative ${isLockedStep ? 'blur-sm select-none opacity-60 group-hover/locked:blur-md group-hover/locked:opacity-40' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
+                                                    <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]} ${completedSteps.includes(idx) ? 'line-through' : ''}`}>
                                                         {step.time} • {step.activity}
                                                     </p>
                                                     <h4 className="text-2xl font-black text-navy mb-2">{step.venue}</h4>
