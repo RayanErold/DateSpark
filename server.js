@@ -257,6 +257,12 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
         return res.status(400).json({ error: 'Please enter a prompt to get started.' });
     }
 
+    const cacheKey = `ai_concepts_${JSON.stringify(validHistory)}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+        return res.status(200).json(cachedData);
+    }
+
     try {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
@@ -316,6 +322,7 @@ Return ONLY a valid JSON object formatted EXACTLY like this:
             throw new Error('AI returned an invalid format: ' + text);
         }
 
+        cache.set(cacheKey, parsedResponse);
         res.status(200).json(parsedResponse);
     } catch (error) {
         console.error('Gemini Suggest Error (Full):', JSON.stringify(error, Object.getOwnPropertyNames(error)));
