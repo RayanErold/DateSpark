@@ -246,7 +246,7 @@ app.post('/api/waitlist', async (req, res) => {
 
 // AI Idea Generation (Gemini)
 app.post('/api/suggest-date-concepts', async (req, res) => {
-    const { conversationHistory, ideaCount = 3 } = req.body;
+    const { conversationHistory, ideaCount = 3, userId } = req.body;
 
     if (!conversationHistory || !Array.isArray(conversationHistory) || conversationHistory.length === 0) {
         return res.status(400).json({ error: 'conversationHistory array is required' });
@@ -259,7 +259,26 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
 
     const cacheKey = `ai_concepts_${JSON.stringify(validHistory)}`;
     const cachedData = cache.get(cacheKey);
-    if (cachedData) {
+    let savedTitles = [];
+
+    if (cachedData && userId) {
+        try {
+            // Check if user already saved any of the cached titles
+            const { data: savedPlans } = await supabase
+                .from('plans')
+                .select('title')
+                .eq('user_id', userId);
+
+            savedTitles = savedPlans?.map(p => p.title.toLowerCase()) || [];
+            const collision = cachedData.concepts.some(c => savedTitles.includes(c.title.toLowerCase()));
+
+            if (!collision) {
+                return res.status(200).json(cachedData); // No collision, serve cache
+            }
+        } catch (err) {
+            console.error('Cache filter error:', err);
+        }
+    } else if (cachedData) {
         return res.status(200).json(cachedData);
     }
 
@@ -271,9 +290,14 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
 
         const genAI = new GoogleGenerativeAI(apiKey);
 
-        const systemInstruction = `You are a premium date concierge in New York City. The user wants you to help them "Create their own date".
-Generate EXACTLY ${ideaCount} distinct, high-level date concepts that fit their request and chat history.
-CRITICAL INSTRUCTION: Even if the user's request is very short, vague, or just a few words, you MUST still generate exactly ${ideaCount} complete, creative concepts based on whatever clues they provided. NEVER complain about the input. NEVER ask for a longer prompt. NEVER use the word "prompt" or say more information is required to generate ideas.
+        let systemInstruction = `You are a premium date concierge in New York City. The user wants you to help them "Create their own date".
+Generate EXACTLY ${ideaCount} distinct, high-level date concepts that fit their request and chat history.`;
+
+        if (savedTitles.length > 0) {
+            systemInstruction += `\nCRITICAL: DO NOT generate any ideas with titles that match these already saved titles: [${savedTitles.join(', ')}]. Give them completely fresh concepts.`;
+        }
+
+        systemInstruction += `\nCRITICAL INSTRUCTION: Even if the user's request is very short, vague, or just a few words, you MUST still generate exactly ${ideaCount} complete, creative concepts based on whatever clues they provided. NEVER complain about the input. NEVER ask for a longer prompt. NEVER use the word "prompt" or say more information is required to generate ideas.
 Additionally, you MUST ask 1 or 2 friendly clarifying questions (e.g. "Do you prefer indoor or outdoor?", "What's your typical budget?") to help narrow down their exact preferences for the next iteration.
 
 Return ONLY a valid JSON object formatted EXACTLY like this:

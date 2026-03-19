@@ -190,10 +190,16 @@ const GeneratePlan = () => {
         setError(null);
 
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+
             const response = await fetch('/api/suggest-date-concepts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ conversationHistory: newHistory, ideaCount })
+                body: JSON.stringify({
+                    conversationHistory: newHistory,
+                    ideaCount,
+                    userId: user?.id
+                })
             });
 
             if (!response.ok) {
