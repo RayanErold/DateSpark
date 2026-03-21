@@ -52,6 +52,8 @@ GEMINI_API_KEY=your_gemini_api_key
 
 # OPTIONAL for waitlist support
 RESEND_API_KEY=your_resend_api_key
+VITE_STRIPE_PUBLISHABLE_KEY=your publishable key
+STRIPE_SECRET_KEY=Your secret key
 
 PORT=5000
 ```
