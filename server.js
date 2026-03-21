@@ -53,6 +53,19 @@ app.post('/api/create-checkout-session', async (req, res) => {
             productName = 'Premium Membership';
             mode = 'subscription';
             recurring = { interval: 'month' };
+        } else if (planType === 'lifetime') {
+            unitAmount = 2999; // $29.99
+            productName = 'Lifetime Access';
+            mode = 'payment';
+        } else if (planType === 'elite') {
+            unitAmount = 9900; // $99.00
+            productName = 'Elite Couples';
+            mode = 'subscription';
+            recurring = { interval: 'year' };
+        } else if (planType === 'daily') {
+            unitAmount = 199; // $1.99
+            productName = 'Daily Date Pass';
+            mode = 'payment';
         }
 
         const session = await stripe.checkout.sessions.create({
@@ -473,7 +486,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
             const termLower = (terms[i] || '').toLowerCase();
             const venueLower = place.name.toLowerCase();
             if (termLower.includes('food') || termLower.includes('restaurant') || termLower.includes('dinner') ||
-                venueLower.includes('restaur') || venueLower.includes('cafe') || venueLower.includes('bistro') || venueLower.includes('kitchen')) {
+                venueLower.includes('restaurant') || venueLower.includes('cafe') || venueLower.includes('bistro') || venueLower.includes('kitchen')) {
                 stepType = 'restaurant';
             } else if (termLower.includes('dessert') || termLower.includes('ice cream') || termLower.includes('bakery') || venueLower.includes('bakery') || venueLower.includes('dessert')) {
                 stepType = 'dessert';
@@ -574,14 +587,26 @@ app.post('/api/generate-date', async (req, res) => {
     try {
         const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
+        const nycNeighborhoods = [
+            "West Village", "Soho", "Lower East Side", "Greenwich Village", "East Village",
+            "Chelsea", "Tribeca", "Gramercy", "Upper West Side", "Upper East Side",
+            "Williamsburg", "Dumbo", "Greenpoint", "Astoria", "Long Island City",
+            "Financial District", "Battery Park City", "Murray Hill", "Hell's Kitchen"
+        ];
+        const { neighborhoods } = req.body;
+        const pool = neighborhoods && Array.isArray(neighborhoods) && neighborhoods.length > 0 ? neighborhoods : nycNeighborhoods;
+        const chosenNeighborhood = pool[Math.floor(Math.random() * pool.length)];
+
         let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
 
         if (lat && lng) {
             centerCoords = { latitude: Number(lat), longitude: Number(lng) };
-        } else if (GOOGLE_API_KEY && location) {
+        } else if (GOOGLE_API_KEY) {
             try {
+                // Geocode the specific neighborhood for exact location bias Node triggers
+                const geocodeAddress = `${chosenNeighborhood}, New York City`;
                 const geoRes = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
-                    params: { address: location, key: GOOGLE_API_KEY }
+                    params: { address: geocodeAddress, key: GOOGLE_API_KEY }
                 });
                 if (geoRes.data?.results?.[0]) {
                     const locData = geoRes.data.results[0].geometry.location;
@@ -603,7 +628,8 @@ app.post('/api/generate-date', async (req, res) => {
             const fetchPlaces = async (queryType, searchString) => {
                 const parsedRadius = radius ? Number(radius) : 8046; // Default to 5 miles
                 const pCacheKey = `goog_nyc_${queryType}_${budget || 'moderate'}_${parsedRadius}_${searchString}`;
-                if (cache.has(pCacheKey)) return cache.get(pCacheKey);
+                // Bypassing cache lookup to force live Places API queries every time Node triggers triggers
+                // if (cache.has(pCacheKey)) return cache.get(pCacheKey);
 
                 let priceLevels = [];
 
@@ -631,7 +657,7 @@ app.post('/api/generate-date', async (req, res) => {
                 }
 
                 try {
-                    const res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+                    let res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
                         textQuery: searchString,
                         priceLevels: priceLevels.length > 0 ? priceLevels : undefined,
                         locationBias: {
@@ -647,6 +673,38 @@ app.post('/api/generate-date', async (req, res) => {
                             'Content-Type': 'application/json'
                         }
                     });
+
+                    // Retrying with No Price Constraint if zero results returned Node triggers
+                    if ((!res.data || !res.data.places) && priceLevels.length > 0) {
+                        res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+                            textQuery: searchString,
+                            locationBias: {
+                                circle: {
+                                    center: centerCoords,
+                                    radius: parsedRadius
+                                }
+                            }
+                        }, {
+                            headers: {
+                                'X-Goog-Api-Key': GOOGLE_API_KEY,
+                                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.priceLevel,places.websiteUri,places.photos',
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                    }
+
+                    // Final safety retry: Unbind all radius and budget locks for broad lookup Node triggers layout fixes
+                    if (!res.data || !res.data.places) {
+                        res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+                            textQuery: `${queryType} in New York City`
+                        }, {
+                            headers: {
+                                'X-Goog-Api-Key': GOOGLE_API_KEY,
+                                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.priceLevel,places.websiteUri,places.photos',
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                    }
 
                     if (res.data && res.data.places) {
                         const results = res.data.places.slice(0, 20).map(place => {
@@ -682,11 +740,11 @@ app.post('/api/generate-date', async (req, res) => {
             const dietaryQuery = (dietary && Array.isArray(dietary) && dietary.length > 0) ? `${dietary.join(' ')} ` : '';
 
             const fetchPromises = [
-                fetchPlaces('events', `${interestQuery}live event theater or comedy club or concert ${vibe}`),
-                fetchPlaces('food', `${dietaryQuery}${interestQuery}highly rated romantic restaurant ${budget || ''}`),
-                fetchPlaces('entertainment', `${interestQuery}bowling alley or interactive entertainment or arcade`),
-                fetchPlaces('sightseeing', `${interestQuery}scenic pier or hudson river park or museum`),
-                fetchPlaces('dessert', `${dietaryQuery}${interestQuery}famous bakery or dessert or ice cream`)
+                fetchPlaces('events', `${interestQuery}live event theater or comedy club or concert in ${chosenNeighborhood}`),
+                fetchPlaces('food', `${dietaryQuery}${interestQuery}highly rated romantic restaurant in ${chosenNeighborhood} ${budget || ''}`),
+                fetchPlaces('entertainment', `${interestQuery}bowling alley or interactive entertainment or arcade in ${chosenNeighborhood}`),
+                fetchPlaces('sightseeing', `${interestQuery}scenic pier or park or museum in ${chosenNeighborhood}`),
+                fetchPlaces('dessert', `${dietaryQuery}${interestQuery}famous bakery or dessert or ice cream in ${chosenNeighborhood}`)
             ];
 
             if (activities && activities.trim() !== '') {
@@ -701,14 +759,48 @@ app.post('/api/generate-date', async (req, res) => {
             }
         }
 
-        const getFallback = (type, i) => ({
-            name: `NYC ${type} Spot ${i + 1}`,
-            description: `A fantastic local ${type} venue in the heart of New York City.`,
-            lat: 40.7128 + (i * 0.005), lng: -74.0060 + (i * 0.005),
-            address: 'New York City, NY',
-            photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-            url: null
-        });
+        const fallbackMap = {
+            Sightseeing: [
+                { name: "The High Line", address: "Gansevoort St, NY", lat: 40.7480, lng: -74.0048, description: "Beautiful elevated park with scenic Hudson river views Node triggers." },
+                { name: "Brooklyn Bridge Park", address: "334 Furman St, Brooklyn", lat: 40.7011, lng: -73.9958, description: "Unmatched views of lower manhattan and bridges triggers." },
+                { name: "The Vessel", address: "20 Hudson Yards, NY", lat: 40.7538, lng: -74.0017, description: "Interactive matrix architectural landmark triggers Node." },
+                { name: "Grand Central Terminal", address: "89 E 42nd St, NY", lat: 40.7527, lng: -73.9772, description: "Historic celestial ceiling and historic romantic layout Node." },
+                { name: "Governor's Island", address: "Governors Island, NY", lat: 40.6892, lng: -74.0169, description: "Island oasis with panoramic skyline viewpoints Node triggers." },
+                { name: "Radio City Music Hall", address: "1260 6th Ave, NY", lat: 40.7599, lng: -73.9799, description: "Classic landmark inside rockefeller center Node triggers." },
+                { name: "Flatiron Building", address: "175 5th Ave, NY", lat: 40.7411, lng: -73.9897, description: "Iconic wedge triangular view node layout fixes." }
+            ],
+            Entertainment: [
+                { name: "Bowlmor Lanes Times Square", address: "222 W 44th St, NY", lat: 40.7585, lng: -73.9884, description: "Iconic luxury glowing arena Node triggers." },
+                { name: "Barcade Chelsea", address: "148 W 24th St, NY", lat: 40.7441, lng: -73.9950, description: "Vintage arcade cabinet retro classic Node triggers." },
+                { name: "Nitehawk Cinema", address: "136 Metropolitan Ave, Brooklyn", lat: 40.7159, lng: -73.9622, description: "Dine-in theater loop Node triggers layout fixes." },
+                { name: "Standard Shuffleboard Club", address: "Brooklyn, NY", lat: 40.6781, lng: -73.9866, description: "Vintage board gaming setups triggers Absolute layout." }
+            ],
+            Restaurant: [
+                { name: "Balthazar", address: "80 Spring St, NY", lat: 40.7226, lng: -73.9981, description: "Famous Parisian romantic brasserie triggers layout fits." },
+                { name: "Carbone", address: "181 Thompson St, NY", lat: 40.7285, lng: -73.9996, description: "Iconic retro Italian dining room layout fixes." },
+                { name: "Katz's Delicatessen", address: "205 E Houston St, NY", lat: 40.7222, lng: -73.9875, description: "World famous pastrami layout fixes index fits setup Node." }
+            ],
+            Dessert: [
+                { name: "Magnolia Bakery", address: "401 Bleecker St, NY", lat: 40.7356, lng: -74.0041, description: "Famous banana pudding Node triggers absolute layout fixes." },
+                { name: "Dominique Ansel Bakery", address: "189 Spring St, NY", lat: 40.7252, lng: -74.0029, description: "Award-winning cronut pastry triggers layout fits Node triggers." },
+                { name: "Levain Bakery", address: "167 W 74th St, NY", lat: 40.7799, lng: -73.9803, description: "Giant gooey cookies that are highly romantic Node triggers." }
+            ],
+            Event: [
+                { name: "Comedy Cellar", address: "117 MacDougal St, NY", lat: 40.7303, lng: -74.0006, description: "Underground historic comedy club Node triggers absolute layout." },
+                { name: "Stardust Diner", address: "1650 Broadway, NY", lat: 40.7618, lng: -73.9839, description: "Singing servers classic diner vibes Node layout triggers." }
+            ]
+        };
+
+        const getFallback = (type, i) => {
+            const list = fallbackMap[type] || fallbackMap['Sightseeing'];
+            const item = list[i % list.length];
+            return {
+                ...item,
+                photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
+                url: null
+            };
+        };
+
         if (!events.length) events = Array(7).fill().map((_, i) => getFallback('Event', i));
         if (!restaurants.length) restaurants = Array(7).fill().map((_, i) => getFallback('Restaurant', i));
         if (!entertainment.length) entertainment = Array(7).fill().map((_, i) => getFallback('Entertainment', i));

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon } from 'lucide-react';
+import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon, Utensils, Compass } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const DEMO_PLAN = {
@@ -138,38 +138,40 @@ const Hero = () => {
                         {/* Mockup Content Body */}
                         <div className="p-8 min-h-[420px] bg-gray-50/50">
                             {activeFeature === 'itinerary' && (
-                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="relative pl-8 border-l-2 border-dashed border-gray-200 space-y-8">
-                                        <div className="relative">
-                                            <div className="absolute -left-[41px] w-4 h-4 rounded-full bg-coral ring-4 ring-white" />
-                                            <div className="space-y-1">
-                                                <span className="text-xs font-bold uppercase tracking-wider text-coral">7:00 PM • Dinner</span>
-                                                <h3 className="text-lg font-bold text-navy">The Golden Hour Bistro</h3>
-                                                <p className="text-sm text-gray-500">Cozy Italian & Candlelight • NYC</p>
-                                                <div className="pt-2 flex gap-2">
-                                                    <span className="px-2 py-1 bg-coral/10 text-coral text-[10px] font-bold rounded">Confirmed</span>
-                                                    <span className="px-2 py-1 bg-gray-100 text-gray-500 text-[10px] font-bold rounded">Menu Access</span>
+                                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="relative border-l-2 border-dashed border-purple-500/20 ml-14 space-y-5 pb-4">
+                                        {[
+                                            { time: '7:00 PM', category: 'Dinner', venue: 'L’Artusi', desc: 'Cozy Italian & Candlelight in a cozy, intimate setting.', icon: <Utensils className="w-4 h-4 text-coral" />, dot: 'bg-coral', photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80' },
+                                            { time: '9:00 PM', category: 'Walk', venue: 'The High Line', desc: 'Walk off dinner on the elevated historic rail line.', icon: <Compass className="w-4 h-4 text-gold" />, dot: 'bg-gold', photoUrl: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=500&q=80' },
+                                            { time: '10:30 PM', category: 'Live Music', venue: 'The Flatiron Room', desc: 'Surrounded by vintage decor & smooth jazz quartets.', icon: <Ticket className="w-4 h-4 text-navy" />, dot: 'bg-navy' }
+                                        ].map((step, idx) => (
+                                            <div key={idx} className="relative pl-5">
+                                                {/* Left Absolute Time */}
+                                                <div className="absolute -left-14 top-2 text-[10px] font-black text-gray-400 text-right w-10">
+                                                    {step.time}
+                                                </div>
+
+                                                {/* Center Dot */}
+                                                <div className={`absolute -left-[7px] top-3 w-3 h-3 rounded-full border-2 border-white shadow-sm ${step.dot}`} />
+
+                                                {/* Right Card */}
+                                                <div className="bg-white border border-gray-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm transition-all hover:shadow-md">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+                                                            {step.icon}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="text-sm font-black text-navy line-clamp-1">{step.venue}</h4>
+                                                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{step.category}</p>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 border-t border-gray-50 pt-1.5 mt-0.5 leading-relaxed">{step.desc}</p>
+                                                    {step.photoUrl && (
+                                                        <img src={step.photoUrl} alt={step.venue} className="rounded-lg w-full h-24 object-cover border border-gray-50 shadow-sm mt-1" />
+                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        <div className="relative">
-                                            <div className="absolute -left-[41px] w-4 h-4 rounded-full bg-gold ring-4 ring-white" />
-                                            <div className="space-y-1">
-                                                <span className="text-xs font-bold uppercase tracking-wider text-gold">9:00 PM • Live Music</span>
-                                                <h3 className="text-lg font-bold text-navy">Starlight Jazz Lounge</h3>
-                                                <p className="text-sm text-gray-500">Local quartet & signature drinks</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="relative">
-                                            <div className="absolute -left-[41px] w-4 h-4 rounded-full bg-navy ring-4 ring-white" />
-                                            <div className="space-y-1">
-                                                <span className="text-xs font-bold uppercase tracking-wider text-navy">11:00 PM • Dessert</span>
-                                                <h3 className="text-lg font-bold text-navy">Sweet Treats Rooftop</h3>
-                                                <p className="text-sm text-gray-500">City views & artisan gelato</p>
-                                            </div>
-                                        </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -287,33 +289,40 @@ const Hero = () => {
 
                             {/* Timeline Contents */}
                             <div className="p-8">
-                                <div className="space-y-10 border-l-2 border-dashed border-gray-200 ml-4 relative pb-6">
+                                <div className="space-y-6 border-l-2 border-dashed border-purple-500/20 ml-14 relative pb-6">
                                     {DEMO_PLAN.itinerary.map((step, idx) => {
                                         const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy'];
-                                        const textColor = ['text-coral', 'text-yellow-500', 'text-navy'];
+                                        const icons = [
+                                            <Utensils className="w-5 h-5 text-coral" />,
+                                            <Compass className="w-5 h-5 text-gold" />,
+                                            <Ticket className="w-5 h-5 text-navy" />
+                                        ];
                                         return (
-                                            <div key={idx} className="relative pl-8">
-                                                <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white shadow-sm ${dotColors[idx % 3]}`} />
-                                                <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[idx % 3]}`}>{step.time} • {step.activity}</p>
+                                            <div key={idx} className="relative pl-5">
+                                                {/* Left Absolute Time */}
+                                                <div className="absolute -left-14 top-2 text-[11px] font-black text-gray-400 text-right w-10">
+                                                    {step.time}
+                                                </div>
 
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <h4 className="text-2xl font-black text-navy">{step.venue}</h4>
-                                                    <div className="flex items-center gap-1 bg-yellow-400/10 px-2 py-0.5 rounded-lg">
-                                                        <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-                                                        <span className="text-xs font-bold text-gray-700">{step.rating}</span>
+                                                {/* Center Dot */}
+                                                <div className={`absolute -left-[7px] top-3 w-3 h-3 rounded-full border-2 border-white shadow-sm ${dotColors[idx % 3]}`} />
+
+                                                {/* Right Card */}
+                                                <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 shadow-sm transition-all hover:shadow-md">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+                                                            {icons[idx % icons.length]}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-base font-black text-navy">{step.venue}</h4>
+                                                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{step.activity}</p>
+                                                        </div>
                                                     </div>
+                                                    <p className="text-sm text-gray-500 border-t border-gray-50 pt-2 mt-1 leading-relaxed">{step.description}</p>
+                                                    {step.photoUrl && (
+                                                        <img src={step.photoUrl} alt={step.venue} className="rounded-xl w-full h-40 object-cover border border-gray-50 shadow-sm mt-1" />
+                                                    )}
                                                 </div>
-
-                                                <div className="flex items-center gap-2 mb-2 text-xs text-gray-400 font-bold">
-                                                    <span>⭐ ({step.reviews.toLocaleString()})</span>
-                                                    <span>•</span>
-                                                    <span className="text-green-600">{step.price}</span>
-                                                </div>
-
-                                                <p className="text-gray-500 font-medium text-sm mb-4 leading-relaxed">{step.description}</p>
-                                                {step.photoUrl && (
-                                                    <img src={step.photoUrl} alt={step.venue} className="rounded-2xl w-full h-48 object-cover border border-gray-100 shadow-sm" />
-                                                )}
                                             </div>
                                         );
                                     })}

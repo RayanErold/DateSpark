@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown } from 'lucide-react';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const GeneratePlan = () => {
@@ -17,7 +17,15 @@ const GeneratePlan = () => {
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [showAiAddonModal, setShowAiAddonModal] = useState(false);
     const [showDietaryOptions, setShowDietaryOptions] = useState(false);
+    const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
     const [error, setError] = useState(null);
+
+    const nycNeighborhoods = [
+        "West Village", "Soho", "Lower East Side", "Greenwich Village", "East Village", 
+        "Chelsea", "Tribeca", "Gramercy", "Upper West Side", "Upper East Side",
+        "Williamsburg", "Dumbo", "Greenpoint", "Astoria", "Long Island City",
+        "Financial District", "Battery Park City", "Murray Hill", "Hell's Kitchen"
+    ];
 
     // AI Custom Uses tracking for Free users
     const [aiCustomUses, setAiCustomUses] = useState(() => {
@@ -57,6 +65,7 @@ const GeneratePlan = () => {
         activities: '',
         radius: 8046, // Default to 5 Miles
         dietary: [],
+        neighborhoods: [], // Array of selected neighborhoods (max 3)
     });
 
     const [isLocating, setIsLocating] = useState(false);
@@ -581,6 +590,66 @@ const GeneratePlan = () => {
                                             <option value={16093}>10 Miles</option>
                                             <option value={24140}>Citywide (15+ Miles)</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                {/* Neighborhood Input Multi-Select */}
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                        <Compass className="text-coral w-4 h-4" /> Specific Neighborhoods (Max 3)
+                                    </label>
+                                    <div className="relative">
+                                        <div
+                                             onClick={() => setShowNeighborhoodDropdown(!showNeighborhoodDropdown)}
+                                             className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl flex items-center justify-between text-[15px] font-medium text-gray-700 transition-colors hover:border-coral cursor-pointer"
+                                         >
+                                             <div className="flex flex-wrap gap-1.5">
+                                                 {(formData.neighborhoods || []).length === 0 ? (
+                                                     <span className="text-gray-400">Select Up to 3 Neighborhoods (Leave blank for random)</span>
+                                                 ) : (
+                                                     (formData.neighborhoods || []).map(nb => (
+                                                         <span key={nb} className="bg-coral/10 text-coral text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                                             {nb}
+                                                             <div className="hover:text-navy cursor-pointer ml-1" onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, neighborhoods: (formData.neighborhoods || []).filter(n => n !== nb) }); }}>
+                                                                 ×
+                                                             </div>
+                                                         </span>
+                                                     ))
+                                                 )}
+                                             </div>
+                                             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showNeighborhoodDropdown ? 'rotate-180' : ''}`} />
+                                         </div>
+
+                                        {showNeighborhoodDropdown && (
+                                            <div className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <div className="grid grid-cols-2 gap-1">                                                     {nycNeighborhoods.map(nb => {
+                                                         const currentNb = formData.neighborhoods || [];
+                                                         const isChecked = currentNb.includes(nb);
+                                                         const isDisabled = !isChecked && currentNb.length >= 3;
+                                                         return (
+                                                             <button
+                                                                 type="button"
+                                                                 key={nb}
+                                                                 disabled={isDisabled}
+                                                                 onClick={() => {
+                                                                     if (isChecked) {
+                                                                         setFormData({ ...formData, neighborhoods: currentNb.filter(n => n !== nb) });
+                                                                     } else if (currentNb.length < 3) {
+                                                                         setFormData({ ...formData, neighborhoods: [...currentNb, nb] });
+                                                                     }
+                                                                 }}
+                                                                 className={`flex items-center gap-2 p-2.5 rounded-xl text-[13px] font-medium transition-colors text-left ${isChecked ? 'bg-coral/5 text-coral' : 'hover:bg-gray-50 text-gray-700'} ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                             >
+                                                                 <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isChecked ? 'bg-coral border-coral text-white' : 'border-gray-300'}`}>
+                                                                     {isChecked && <Check className="w-2.5 h-2.5" />}
+                                                                 </div>
+                                                                 {nb}
+                                                             </button>
+                                                         );
+                                                     })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

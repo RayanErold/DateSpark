@@ -6,6 +6,7 @@
   --color-gold: #ffd700;
   --color-soft-pink: #fce4ec;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-outfit: 'Outfit', sans-serif;
 
   /* Animations */
   --animate-shimmer-fast: shimmer 2s infinite linear;
@@ -69,3 +70,51 @@ body {
 .btn-secondary {
   @apply border-2 border-coral text-coral px-6 py-3 rounded-full font-semibold transition-all hover:bg-coral hover:text-white active:scale-95;
 }
+
+/* --- THEME OVERRIDES --- */
+body.theme-dark {
+  @apply bg-[#0f172a] text-white; /* Slate-900 base */
+}
+body.theme-dark .bg-white {
+  background-color: #1e293b !important; /* Darker slate for cards */
+}
+body.theme-dark .bg-gray-50 {
+  background-color: #0f172a !important;
+}
+body.theme-dark .text-navy {
+  color: #f8fafc !important;
+}
+body.theme-dark .border-gray-100 {
+  border-color: #334155 !important;
+}
+body.theme-dark .bg-gray-200\/50 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+body.theme-sunset {
+  background: linear-gradient(135deg, #ff7f50 0%, #ec4899 100%) !important;
+  color: #ffffff !important;
+}
+body.theme-sunset .bg-white {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(8px);
+}
+body.theme-sunset .text-navy {
+  color: #0f172a !important;
+}
+
+body.theme-lavender {
+  background-color: #f5f3ff !important; /* Soft purple */
+  color: #4c1d95 !important;
+}
+body.theme-lavender .bg-white {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #ddd6fe !important;
+}
+body.theme-lavender .text-navy {
+  color: #4c1d95 !important;
+}
+body.theme-lavender .border-gray-100 {
+  border-color: #ddd6fe !important;
+}
+

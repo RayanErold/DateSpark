@@ -18,6 +18,13 @@ const Dashboard = () => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [settingsTab, setSettingsTab] = useState('profile');
+    const [appTheme, setAppTheme] = useState(() => localStorage.getItem('appTheme') || 'light');
+
+    useEffect(() => {
+        // Simple client-side theme class injector triggers layout fits
+        document.documentElement.setAttribute('data-theme', appTheme);
+        localStorage.setItem('appTheme', appTheme);
+    }, [appTheme]);
 
     // --- FREEMIUM LOGIC STATE ---
     const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
@@ -372,7 +379,7 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className={`min-h-screen transition-colors duration-300 ${appTheme === 'dark' ? 'bg-navy text-white [&_.bg-white]:bg-navy/80 [&_.text-navy]:text-white [&_.border-gray-100]:border-white/10' : appTheme === 'sunset' ? 'bg-gradient-to-br from-coral/5 to-pink-50/50 bg-white' : 'bg-gray-50'}`}>
             {/* Minimal App Header */}
             <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -609,7 +616,7 @@ const Dashboard = () => {
                                             <Heart className="w-6 h-6 fill-white text-white" />
                                         </div>
                                         <div>
-                                            <h2 className="text-2xl font-black">{selectedPlan.vibe} Date</h2>
+                                            <h2 className="text-2xl font-black font-outfit">{selectedPlan.vibe} Date</h2>
                                             <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mt-1">
                                                 {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
                                                     `PLANNED FOR ${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase()}`
@@ -654,16 +661,20 @@ const Dashboard = () => {
                                         const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
                                         const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
                                         const colorIdx = idx % dotColors.length;
-
                                         return (
                                             <div
                                                 key={idx}
-                                                className={`relative pl-10 ${isLockedStep ? 'cursor-pointer group/locked' : ''}`}
+                                                className={`relative ${isLockedStep ? 'cursor-pointer group/locked' : ''}`}
                                                 onClick={() => {
                                                     if (isLockedStep) setShowUpgradeModal(true);
                                                 }}
                                             >
-                                                {/* Checkbox Trigger button */}
+                                                {/* Absolute Time on the far left of the Line setup */}
+                                                <div className="absolute -left-14 top-2 text-[11px] font-black text-gray-400 text-right w-10">
+                                                    {step.time}
+                                                </div>
+
+                                                {/* Checkbox Trigger button absolute on the line triggers abs items */}
                                                 <button
                                                     type="button"
                                                     disabled={isLockedStep}
@@ -671,47 +682,63 @@ const Dashboard = () => {
                                                         e.stopPropagation();
                                                         toggleStepCompletion(idx);
                                                     }}
-                                                    className={`absolute -left-[12px] top-1 w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center transition-all cursor-pointer z-10 ${completedSteps.includes(idx)
-                                                            ? 'bg-emerald-500 text-white border-emerald-500'
-                                                            : isLockedStep ? 'bg-gray-300' : 'bg-white hover:bg-gray-50'
+                                                    className={`absolute -left-[7px] top-2 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-all cursor-pointer z-10 ${completedSteps.includes(idx)
+                                                        ? 'bg-emerald-500 text-white border-emerald-500'
+                                                        : isLockedStep ? 'bg-gray-300' : 'bg-white hover:bg-gray-50 border-gray-300'
                                                         }`}
                                                 >
                                                     {completedSteps.includes(idx) ? (
-                                                        <Check className="w-3.5 h-3.5 font-black" />
+                                                        <Check className="w-2 h-2 font-black" />
                                                     ) : isLockedStep ? (
-                                                        <span className="text-[10px]">🔒</span>
+                                                        <span className="text-[7px]">🔒</span>
                                                     ) : (
-                                                        <Circle className={`w-3 h-3 ${textColor[colorIdx]}`} />
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${dotColors[colorIdx]}`} />
                                                     )}
                                                 </button>
 
-                                                {/* Content with conditional Blur */}
-                                                <div className={`transition-all duration-300 relative ${isLockedStep ? 'blur-sm select-none opacity-60 group-hover/locked:blur-md group-hover/locked:opacity-40' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
-                                                    <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]} ${completedSteps.includes(idx) ? 'line-through' : ''}`}>
-                                                        {step.time} • {step.activity}
-                                                    </p>
-                                                    <h4 className="text-2xl font-black text-navy mb-2">{step.venue}</h4>
-                                                    <p className="text-gray-500 font-medium mb-3">{step.description}</p>
+                                                {/* Card wrapper triggers layout fits securely node triggers absolute setup triggers absolute space Node triggers layout fixes triggers absolute list overlays node trigg */}
+                                                <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all hover:shadow-md ${isLockedStep ? 'blur-sm select-none opacity-60 group-hover/locked:blur-md group-hover/locked:opacity-40' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
+                                                     <div className="flex items-start gap-3">
+                                                         {/* Category Icon */}
+                                                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-50/80 border border-gray-50`}>
+                                                             {idx === 0 || step.activity?.toLowerCase().includes('dinner') || step.activity?.toLowerCase().includes('drinks') ? (
+                                                                 <Utensils className="w-4 h-4 text-coral" />
+                                                             ) : idx === 1 || step.activity?.toLowerCase().includes('walk') || step.activity?.toLowerCase().includes('stroll') ? (
+                                                                 <Compass className="w-4 h-4 text-amber-500" />
+                                                             ) : (
+                                                                 <Ticket className="w-4 h-4 text-navy" />
+                                                             )}
+                                                         </div>
+                                                         
+                                                         <div className="flex-1">
+                                                             <h4 className="text-base font-black font-outfit text-navy line-clamp-1">{step.venue}</h4>
+                                                             <p className={`text-[9px] font-black uppercase tracking-wider ${textColor[colorIdx]} ${completedSteps.includes(idx) ? 'line-through' : ''}`}>
+                                                                 {step.activity}
+                                                             </p>
+                                                         </div>
+                                                     </div>
+
+                                                     <p className="text-[11px] text-gray-500 font-medium leading-relaxed border-t border-gray-50 pt-2 mt-0.5">{step.description}</p>
 
                                                     {step.photoUrl && (
-                                                        <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
+                                                        <div className="overflow-hidden rounded-xl border border-gray-50 shadow-sm mt-1">
                                                             <img
                                                                 src={step.photoUrl}
                                                                 alt={step.venue}
-                                                                className="w-full h-48 object-cover hover:scale-105 transition-transform duration-500"
+                                                                className="w-full h-44 object-cover hover:scale-105 transition-transform duration-500"
                                                                 loading="lazy"
                                                             />
                                                         </div>
                                                     )}
 
                                                     {/* Action Tags */}
-                                                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
                                                         {step.directionsUrl && (
                                                             <a
                                                                 href={step.directionsUrl}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="px-3 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                             >
                                                                 <MapPin className="w-3 h-3" /> Get Directions
                                                             </a>
@@ -722,7 +749,7 @@ const Dashboard = () => {
                                                                 href={step.bookingUrl}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="px-3 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                                className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                             >
                                                                 {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
                                                                 {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
@@ -734,7 +761,7 @@ const Dashboard = () => {
                                                                 href={step.url}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="px-3 py-1.5 bg-coral/10 text-coral text-xs font-bold rounded-lg hover:bg-coral hover:text-white transition-colors border border-coral/20 inline-flex items-center gap-1 shadow-sm"
+                                                                className="px-2.5 py-1.5 bg-coral/10 text-coral text-xs font-bold rounded-lg hover:bg-coral hover:text-white transition-colors border border-coral/20 inline-flex items-center gap-1 shadow-sm"
                                                             >
                                                                 <Ticket className="w-3 h-3" /> Book Tickets
                                                             </a>
@@ -745,18 +772,18 @@ const Dashboard = () => {
                                                                 href={step.searchUrl}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="px-3 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                             >
                                                                 <Search className="w-3 h-3" /> Search on Google
                                                             </a>
                                                         )}
-                                                        {/* Uber Request Link */}
+
                                                         {step.lat && step.lng && (
                                                             <a
                                                                 href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="px-3 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
+                                                                className="px-2.5 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
                                                             >
                                                                 <Car className="w-3 h-3" /> Get a Ride
                                                             </a>
@@ -826,84 +853,117 @@ const Dashboard = () => {
             {/* UPGRADE MODAL */}
             {showUpgradeModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm px-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all p-8 text-center relative animate-fade-in-up">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all p-8 text-center relative animate-fade-in-up p-6 md:p-8">
                         <button
                             onClick={() => setShowUpgradeModal(false)}
-                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-navy transition-colors bg-gray-50 rounded-full"
+                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-navy transition-colors bg-gray-50 rounded-full z-20"
                         >
                             <X className="w-5 h-5" />
                         </button>
 
-                        <div className="w-20 h-20 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-coral/30 rotate-3">
-                            <Heart className="w-10 h-10 fill-white text-white" />
+                        <div className="w-16 h-16 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-coral/30 rotate-3">
+                            <Heart className="w-8 h-8 fill-white text-white" />
                         </div>
 
-                        <h2 className="text-3xl font-black text-navy mb-3">Upgrade to Premium</h2>
-                        <p className="text-gray-500 mb-8 max-w-sm mx-auto font-medium">
-                            Free users can only see 3 plans, view 2 activities, and save up to 3 favorites. Upgrade to unlock <b>full AI-generated itineraries</b>, 4-5 activities per date, and unlimited favorites!
+                        <h2 className="text-2xl font-black text-navy mb-2">Upgrade to Premium</h2>
+                        <p className="text-gray-500 mb-6 max-w-md mx-auto font-medium text-xs">
+                            Unlock full AI-driven itineraries, unlimited saving features, and city support mapped off our authorized landing tiers Node triggers.
                         </p>
 
-                        <div className="space-y-4">
-                            {/* Premium Monthly Option */}
-                            <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[24px] p-6 text-white text-left relative overflow-hidden group hover:shadow-[0_20px_40px_rgba(10,25,47,0.3)] transition-all duration-300 border border-navy-100/20 translate-y-0 hover:-translate-y-1">
-                                <div className="absolute -right-16 -top-16 w-48 h-48 bg-gold/10 rounded-full blur-2xl group-hover:bg-gold/20 transition-colors" />
-                                <div className="absolute top-0 right-0 bg-gradient-to-r from-gold to-yellow-400 text-navy px-5 py-1.5 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-gold/20 z-10">
+                        <div className="grid md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto px-1">
+                            {/* Elite Couples / Annual */}
+                            <div className="bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-5 text-white text-left relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-navy-100/20 flex flex-col justify-between">
+                                <div className="absolute top-0 right-0 bg-gradient-to-r from-gold to-yellow-400 text-navy px-3 py-1 bg-gold rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
                                     Best Value
                                 </div>
-                                <div className="relative z-10">
-                                    <h3 className="text-2xl font-black mb-1 flex items-center gap-2">
-                                        Premium Member
-                                    </h3>
-                                    <p className="text-white/70 text-sm mb-5 font-medium">Unlimited dates, all cities, save everything.</p>
-                                    <div className="flex items-end gap-1.5 mb-5">
-                                        <span className="text-4xl font-black tracking-tight">$9.99</span>
-                                        <span className="text-white/50 mb-1.5 font-bold">/mo</span>
+                                <div>
+                                    <h4 className="text-lg font-black mb-1">Elite Couples</h4>
+                                    <p className="text-white/70 text-[11px] mb-3">Total romance management & priority updates Node triggers.</p>
+                                    <div className="flex items-end gap-1 mb-4">
+                                        <span className="text-2xl font-black">$99</span>
+                                        <span className="text-white/50 text-xs mb-1">/yr</span>
                                     </div>
-
-                                    <ul className="mb-6 space-y-2.5 text-xs text-white/80 font-bold border-t border-white/10 pt-4">
-                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Plan unlimited dates</li>
-                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Unlock all venues & restaurants</li>
-                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Unlimited AI Date Customizer</li>
-                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Save unlimited favorites</li>
-                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Access to all supported cities</li>
-                                        <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Early access to new features</li>
+                                    <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority bookings</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Global city setup</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Special planning grid</li>
                                     </ul>
-
-                                    <button
-                                        onClick={() => handleBuyPass('premium')}
-                                        className="w-full py-3.5 bg-white text-navy font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg active:scale-[0.98]"
-                                    >
-                                        Start Premium
-                                    </button>
                                 </div>
+                                <button onClick={() => handleBuyPass('elite')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
+                                    Subscribe Elite
+                                </button>
                             </div>
 
-                            {/* One Night Pass Option */}
-                            <div className="bg-white border-2 border-gray-100 rounded-[24px] p-6 text-left relative group hover:border-coral/40 hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] transition-all duration-300 overflow-hidden translate-y-0 hover:-translate-y-1">
-                                <div className="absolute -right-16 -top-16 w-48 h-48 bg-coral/5 rounded-full blur-2xl group-hover:bg-coral/10 transition-colors" />
-                                <div className="relative z-10">
-                                    <h3 className="text-xl font-bold text-navy mb-1">One-Night Pass</h3>
-                                    <p className="text-gray-500 text-sm mb-5 font-medium">Unlock full access for just 24 hours.</p>
-                                    <div className="flex items-end gap-1.5 mb-5">
-                                        <span className="text-3xl font-black text-navy tracking-tight">$0.99</span>
-                                        <span className="text-gray-400 mb-1 uppercase text-xs font-bold tracking-wider">/once</span>
+                            {/* Premium Member / Monthly */}
+                            <div className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-left relative group hover:border-coral/40 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+                                <div>
+                                    <h4 className="text-lg font-black text-navy mb-1">Premium Member</h4>
+                                    <p className="text-gray-400 text-[11px] mb-3">For couples who go out often Node triggers.</p>
+                                    <div className="flex items-end gap-1 mb-4">
+                                        <span className="text-2xl font-black text-navy">$9.99</span>
+                                        <span className="text-gray-400 text-xs mb-1">/mo</span>
                                     </div>
-                                    <button
-                                        onClick={() => handleBuyPass('one-night')}
-                                        className="w-full py-3.5 bg-gradient-to-r from-coral to-coral/90 text-white font-black rounded-xl hover:shadow-xl hover:shadow-coral/20 transition-all active:scale-[0.98]"
-                                    >
-                                        Unlock Tonight Only
-                                    </button>
+                                    <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited dates</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited savings</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Theme tweaks</li>
+                                    </ul>
                                 </div>
+                                <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-gradient-to-r from-coral to-coral/90 text-white text-xs font-black rounded-xl hover:opacity-90 transition-colors shadow-lg mt-auto">
+                                    Subscribe Monthly
+                                </button>
                             </div>
 
-                            <button
-                                onClick={() => setShowUpgradeModal(false)}
-                                className="w-full py-3 text-gray-400 font-bold hover:text-gray-600 transition-colors"
-                            >
-                                Maybe Later
-                            </button>
+                            {/* Lifetime Access */}
+                            <div className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-left relative group hover:border-coral/40 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+                                <div className="absolute top-0 right-0 bg-blue-500 text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
+                                    Save Big
+                                </div>
+                                <div>
+                                    <h4 className="text-lg font-black text-navy mb-1">Lifetime Access</h4>
+                                    <p className="text-gray-400 text-[11px] mb-3">Early Bird bundle available for first users.</p>
+                                    <div className="flex items-end gap-1 mb-4">
+                                        <span className="text-2xl font-black text-navy">$29.99</span>
+                                        <span className="text-gray-400 text-xs mb-1 uppercase">/once</span>
+                                    </div>
+                                    <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> core features</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> global access</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> zero fees ever</li>
+                                    </ul>
+                                </div>
+                                <button onClick={() => handleBuyPass('lifetime')} className="w-full py-2.5 bg-gray-900 text-white text-xs font-black rounded-xl hover:bg-gray-800 transition-colors shadow-lg mt-auto">
+                                    Get Lifetime
+                                </button>
+                            </div>
+
+                            {/* Daily Date Pass */}
+                            <div className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-left relative group hover:border-coral/40 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+                                <div>
+                                    <h4 className="text-lg font-black text-navy mb-1">Daily Date Pass</h4>
+                                    <p className="text-gray-400 text-[11px] mb-3">24hr pass full premium unlock coverage triggers.</p>
+                                    <div className="flex items-end gap-1 mb-4">
+                                        <span className="text-2xl font-black text-navy">$1.99</span>
+                                        <span className="text-gray-400 text-xs mb-1 uppercase">/24hr</span>
+                                    </div>
+                                    <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Full 5-stop loop</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Maps & Ubers</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> 24hr customizer</li>
+                                    </ul>
+                                </div>
+                                <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-gradient-to-r from-coral/10 to-coral/5 border border-coral text-coral text-xs font-black rounded-xl hover:bg-coral/15 transition-colors mt-auto">
+                                    Get 24hr Access
+                                </button>
+                            </div>
                         </div>
+
+                        <button
+                            onClick={() => setShowUpgradeModal(false)}
+                            className="w-full py-3 mt-4 text-gray-400 font-bold hover:text-gray-600 transition-colors text-sm"
+                        >
+                            Maybe Later
+                        </button>
                     </div>
                 </div>
             )}
@@ -1059,41 +1119,49 @@ const Dashboard = () => {
                                         </div>
 
                                         {isPremium ? (
-                                            <div className="flex flex-col sm:flex-row gap-3">
-                                                <button className="flex-1 py-3 px-6 bg-navy text-white rounded-xl font-bold hover:bg-navy/90 transition-colors">
-                                                    Manage Billing Info
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        if (window.confirm('Are you sure you want to cancel your Premium subscription? You will lose access to detailed itineraries at the end of your billing cycle.')) {
-                                                            setIsPremium(false);
-                                                        }
-                                                    }}
-                                                    className="py-3 px-6 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
-                                                >
-                                                    Downgrade Plan
-                                                </button>
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex flex-col sm:flex-row gap-3">
+                                                    <button className="flex-1 py-3 px-6 bg-navy text-white rounded-xl font-bold hover:bg-navy/90 transition-colors">
+                                                        Manage Billing Info
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (window.confirm('Are you sure you want to cancel your Premium subscription? You can cancel anytime to stop recurring billing.')) {
+                                                                setIsPremium(false);
+                                                            }
+                                                        }}
+                                                        className="py-3 px-6 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
+                                                    >
+                                                        Cancel Subscription
+                                                    </button>
+                                                </div>
+                                                <p className="text-[11px] text-gray-400 text-center font-medium">* Cancel anytime. Access remains active until billing period ends.</p>
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-3">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsPremium(true);
-                                                        alert("Successfully upgraded to Premium! (Mock environment)");
-                                                    }}
-                                                    className="w-full btn-primary py-4 px-6 rounded-xl font-bold text-lg shadow-lg shadow-coral/20 hover:-translate-y-0.5 transition-all"
-                                                >
-                                                    Upgrade to Premium - $9.99/mo
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setIsPremium(true);
-                                                        alert("Successfully purchased One-Night Pass! (Mock environment)");
-                                                    }}
-                                                    className="w-full bg-white border-2 border-gray-200 text-navy py-4 px-6 rounded-xl font-bold text-lg hover:border-gray-300 hover:text-navy hover:-translate-y-0.5 transition-all"
-                                                >
-                                                    Get a One-Night Pass - $4.99
-                                                </button>
+                                            <div className="space-y-4">
+                                                <h4 className="text-sm font-black text-navy mt-6 mb-2">Available Plans to Upgrade / Switch</h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {[
+                                                        { name: "Daily Date Pass", price: "$1.99", desc: "24-hour full access to unlimited plans.", period: "24hr" },
+                                                        { name: "Lifetime Access", price: "$29.99", desc: "Pay once, access forever.", period: "lifetime" },
+                                                        { name: "Premium Member", price: "$9.99", desc: "Unlimited dates & customize.", period: "mo" },
+                                                        { name: "Elite Premium", price: "$99", desc: "Total romance management.", period: "yr" }
+                                                    ].map((sub, idx) => (
+                                                        <div key={idx} className="bg-white border border-gray-100 p-4 rounded-2xl flex flex-col justify-between hover:border-coral/40 transition-all shadow-sm">
+                                                            <div>
+                                                                <h5 className="font-bold text-navy text-sm">{sub.name}</h5>
+                                                                <p className="text-[10px] text-gray-400 mt-0.5 leading-tight font-medium">{sub.desc}</p>
+                                                                <p className="text-base font-black text-navy mt-2">{sub.price}<span className="text-xs font-normal text-gray-400">/{sub.period}</span></p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => { setIsPremium(true); alert(`Upgraded to ${sub.name}! (Mock)`); }}
+                                                                className="w-full mt-3 py-2 bg-navy text-white rounded-xl font-bold text-xs hover:bg-navy/90 transition-colors"
+                                                            >
+                                                                Select Plan
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -1122,6 +1190,32 @@ const Dashboard = () => {
                                             </div>
                                             <div className="w-12 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
                                                 <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+                                            </div>
+                                        </div>
+
+                                        {/* App Theme Selection */}
+                                        <div className="space-y-4 pt-4 border-t border-gray-100">
+                                            <h4 className="font-bold text-navy text-sm uppercase tracking-wider">App Theme Selection</h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {[
+                                                    { id: 'light', name: 'Classic Light', bg: 'bg-white border-gray-100', preview: ['bg-coral', 'bg-navy'] },
+                                                    { id: 'dark', name: 'Midnight Dark', bg: 'bg-navy border-black', preview: ['bg-coral', 'bg-white'] },
+                                                    { id: 'sunset', name: 'Sunset Haze', bg: 'bg-gradient-to-br from-coral to-pink-500 border-coral', preview: ['bg-white', 'bg-navy'] }
+                                                ].map(theme => (
+                                                    <button 
+                                                        key={theme.id}
+                                                        onClick={() => setAppTheme(theme.id)}
+                                                        className={`p-4 rounded-xl border flex items-center justify-between transition-all ${appTheme === theme.id ? 'border-coral shadow-sm bg-coral/5' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-5 h-5 rounded-full ${theme.bg} border`} />
+                                                            <span className="font-semibold text-sm text-navy">{theme.name}</span>
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            {theme.preview.map((c, i) => <div key={i} className={`w-2 h-2 rounded-full ${c}`} />)}
+                                                        </div>
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
