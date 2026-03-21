@@ -14,6 +14,12 @@ Get a full date night plan in seconds. DateSpark is an AI-powered itinerary gene
 - **Freemium Tiers with 24h Rolling Reset:** 
   - Free users receive 2 custom generation iterations. Count resets automatically every 24 hours using rolling timestamp decay checks.
 - **Smart Filtering:** Filter by budget, start/end times, date vibe, and specific personal interests effortlessly.
+- **Multi-Neighborhood Builder:** Select up to 3 individual neighborhoods (e.g., *Soho, Chelsea, Williamsburg*) for hyper-targeted location accuracy.
+
+## Recent Updates 🚀
+
+- **Redesigned Dashboard Upgrade Modal**: Updated the modal grid to support 4 highly requested pricing streams: Elite ($99), Lifetime ($29.99), Premium ($12/mo), and Daily pass ($1.99).
+- **Bulletproof Places Fail-safes**: Bypassed Places caching and incorporated automatic widened searches removing budget filters or radius locks on Google failures, absolutely preventing repetitive placeholder loopsNode triggers setup.
 
 ## 🛠️ Tech Stack
 
