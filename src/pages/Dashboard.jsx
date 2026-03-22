@@ -851,7 +851,7 @@ const Dashboard = () => {
                                     zoom={14}
                                     options={{
                                         disableDefaultUI: true,
-                                        styles: darkMapStyle,
+                                        styles: appTheme === 'dark' ? darkMapStyle : undefined,
                                     }}
                                 >
                                     {/* Markers for each step */}

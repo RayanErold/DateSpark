@@ -29,6 +29,7 @@ const SharedPlan = () => {
     const [plan, setPlan] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [appTheme] = useState(() => localStorage.getItem('appTheme') || 'light');
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -169,7 +170,7 @@ const SharedPlan = () => {
                                 mapContainerStyle={{ width: '100%', height: '100%' }}
                                 center={mapCenter}
                                 zoom={14}
-                                options={{ disableDefaultUI: true, styles: darkMapStyle }}
+                                options={{ disableDefaultUI: true, styles: appTheme === 'dark' ? darkMapStyle : undefined }}
                             >
                                 {itinerarySteps.map((step, idx) => (
                                     <Marker
