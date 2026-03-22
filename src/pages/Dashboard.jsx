@@ -6,6 +6,27 @@ import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#111827' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#111827' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#f43f5e' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#064e3b' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#10b981' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#374151' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#d1d5db' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#111827' }] },
+  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#030712' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4b5563' }] },
+  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
+];
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
@@ -599,10 +620,10 @@ const Dashboard = () => {
                     <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
 
                         {/* Left Column: Timeline UI */}
-                        <div className="flex-1 overflow-y-auto bg-white flex flex-col">
+                        <div className="flex-1 overflow-y-auto bg-transparent md:bg-white flex flex-col z-10">
 
                             {/* Navy Header Section */}
-                            <div className="bg-[#0f172a] text-white p-8 pb-12 relative rounded-bl-[2rem] md:rounded-bl-none">
+                            <div className="bg-[#0f172a]/90 backdrop-blur-md text-white p-6 sm:p-8 pb-10 sm:pb-12 relative rounded-bl-[2rem] md:rounded-bl-none sticky top-0 z-20">
                                 <button
                                     onClick={() => setSelectedPlan(null)}
                                     className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors md:hidden"
@@ -652,7 +673,9 @@ const Dashboard = () => {
                             </div>
 
                             {/* Vertical Timeline */}
-                            <div className="p-8 pt-10">
+                            {/* Spacer for Map on Mobile */}
+                            <div className="h-[250px] md:hidden flex-shrink-0"></div>
+                            <div className="p-6 sm:p-8 pt-10 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none">
                                 <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
                                     {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.map((step, idx) => {
                                         const isLockedStep = !isPremium && idx >= 2;
@@ -807,7 +830,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Right Column: Embedded Google Map */}
-                        <div className="hidden md:flex flex-col w-[350px] lg:w-[450px] bg-gray-50 relative border-l border-gray-200">
+                        <div className="absolute inset-0 md:relative md:flex flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200 z-0">
                             <div className="absolute top-4 right-4 z-10">
                                 <button
                                     onClick={() => setSelectedPlan(null)}
@@ -828,6 +851,7 @@ const Dashboard = () => {
                                     zoom={14}
                                     options={{
                                         disableDefaultUI: true,
+                                        styles: darkMapStyle,
                                     }}
                                 >
                                     {/* Markers for each step */}

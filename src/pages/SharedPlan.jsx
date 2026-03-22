@@ -3,6 +3,27 @@ import { useParams, Link } from 'react-router-dom';
 import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#111827' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#111827' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#f43f5e' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#064e3b' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#10b981' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#374151' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#d1d5db' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#111827' }] },
+  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#030712' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4b5563' }] },
+  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
+];
+
 const SharedPlan = () => {
     const { id } = useParams();
     const [plan, setPlan] = useState(null);
@@ -93,11 +114,14 @@ const SharedPlan = () => {
                 </div>
 
                 {/* Split View: Timeline + Map */}
-                <div className="w-full bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-700 delay-100 border border-gray-100">
+                <div className="w-full bg-transparent md:bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-700 delay-100 border border-gray-100">
 
                     {/* Left Column: Timeline UI */}
-                    <div className="flex-1 md:w-1/2 p-8 md:p-12 md:max-h-[700px] overflow-y-auto">
-                        <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-12 pb-8">
+                    <div className="flex-1 md:w-1/2 bg-transparent md:bg-white p-6 sm:p-8 md:p-12 md:max-h-[700px] overflow-y-auto z-10">
+                            {/* Spacer for Map on Mobile */}
+                            <div className="h-[200px] md:hidden flex-shrink-0"></div>
+                            <div className="bg-white md:bg-transparent rounded-t-[2.5rem] p-6 md:p-0 shadow-sm md:shadow-none">
+                                <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-12 pb-8">
                             {itinerarySteps.map((step, idx) => {
                                 const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
                                 const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
@@ -136,15 +160,16 @@ const SharedPlan = () => {
                             })}
                         </div>
                     </div>
+                    </div>
 
                     {/* Right Column: Google Map */}
-                    <div className="w-full md:w-1/2 h-[400px] md:h-auto bg-gray-50 relative border-t md:border-t-0 md:border-l border-gray-100">
+                    <div className="absolute inset-0 md:relative md:w-1/2 h-full md:h-auto bg-gray-50 border-t md:border-t-0 md:border-l border-gray-100 z-0">
                         {isLoaded ? (
                             <GoogleMap
                                 mapContainerStyle={{ width: '100%', height: '100%' }}
                                 center={mapCenter}
                                 zoom={14}
-                                options={{ disableDefaultUI: true }}
+                                options={{ disableDefaultUI: true, styles: darkMapStyle }}
                             >
                                 {itinerarySteps.map((step, idx) => (
                                     <Marker
