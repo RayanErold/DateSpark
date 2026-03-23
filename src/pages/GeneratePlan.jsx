@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import BottomNav from '../components/BottomNav';
 
 const GeneratePlan = () => {
     const navigate = useNavigate();
@@ -919,6 +920,7 @@ const GeneratePlan = () => {
                     </div>
                 )
             }
+            <BottomNav onProfileClick={() => navigate('/dashboard')} />
         </div >
     );
 };

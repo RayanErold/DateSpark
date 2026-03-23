@@ -1,0 +1,1174 @@
+1: Curl[0] Div[0] -> import React, { useEffect, useState } from 'react';
+2: Curl[0] Div[0] -> import { supabase } from '../lib/supabase';
+3: Curl[0] Div[0] -> import { useNavigate, Link } from 'react-router-dom';
+4: Curl[0] Div[0] -> import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2 } from 'lucide-react';
+5: Curl[0] Div[0] -> import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+6: Curl[0] Div[0] -> import axios from 'axios';
+7: Curl[0] Div[0] -> import { loadStripe } from '@stripe/stripe-js';
+8: Curl[0] Div[0] -> 
+9: Curl[1] Div[0] -> const Dashboard = () => {
+10: Curl[1] Div[0] -> const navigate = useNavigate();
+11: Curl[1] Div[0] -> const [user, setUser] = useState(null);
+12: Curl[1] Div[0] -> const [plans, setPlans] = useState([]);
+13: Curl[1] Div[0] -> const [isLoading, setIsLoading] = useState(true);
+14: Curl[1] Div[0] -> const [selectedPlan, setSelectedPlan] = useState(null);
+15: Curl[1] Div[0] -> const [activeTab, setActiveTab] = useState('all');
+16: Curl[1] Div[0] -> 
+17: Curl[1] Div[0] -> // --- SETTINGS STATE ---
+18: Curl[1] Div[0] -> const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+19: Curl[1] Div[0] -> const [showSettingsModal, setShowSettingsModal] = useState(false);
+20: Curl[1] Div[0] -> const [settingsTab, setSettingsTab] = useState('profile');
+21: Curl[1] Div[0] -> 
+22: Curl[1] Div[0] -> // --- FREEMIUM LOGIC STATE ---
+23: Curl[1] Div[0] -> const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
+24: Curl[1] Div[0] -> const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+25: Curl[1] Div[0] -> const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
+26: Curl[1] Div[0] -> const [completedSteps, setCompletedSteps] = useState([]);
+27: Curl[1] Div[0] -> const [selectedTheme, setSelectedTheme] = useState('light');
+28: Curl[1] Div[0] -> 
+29: Curl[2] Div[0] -> useEffect(() => {
+30: Curl[2] Div[0] -> // Remove all theme classes first
+31: Curl[2] Div[0] -> const classes = Array.from(document.body.classList).filter(c => c.startsWith('theme-'));
+32: Curl[2] Div[0] -> classes.forEach(c => document.body.classList.remove(c));
+33: Curl[2] Div[0] -> 
+34: Curl[3] Div[0] -> if (selectedTheme !== 'light') {
+35: Curl[3] Div[0] -> document.body.classList.add(`theme-${selectedTheme}`);
+36: Curl[2] Div[0] -> }
+37: Curl[1] Div[0] -> }, [selectedTheme]);
+38: Curl[1] Div[0] -> 
+39: Curl[2] Div[0] -> useEffect(() => {
+40: Curl[3] Div[0] -> if (selectedPlan && selectedPlan.id) {
+41: Curl[3] Div[0] -> const saved = localStorage.getItem(`completed_steps_${selectedPlan.id}`);
+42: Curl[3] Div[0] -> setCompletedSteps(saved ? JSON.parse(saved) : []);
+43: Curl[2] Div[0] -> }
+44: Curl[1] Div[0] -> }, [selectedPlan]);
+45: Curl[1] Div[0] -> 
+46: Curl[2] Div[0] -> const toggleStepCompletion = (idx) => {
+47: Curl[3] Div[0] -> setCompletedSteps(prev => {
+48: Curl[3] Div[0] -> const updated = prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx];
+49: Curl[4] Div[0] -> if (selectedPlan && selectedPlan.id) {
+50: Curl[4] Div[0] -> localStorage.setItem(`completed_steps_${selectedPlan.id}`, JSON.stringify(updated));
+51: Curl[3] Div[0] -> }
+52: Curl[3] Div[0] -> return updated;
+53: Curl[2] Div[0] -> });
+54: Curl[1] Div[0] -> };
+55: Curl[1] Div[0] -> 
+56: Curl[2] Div[0] -> const handleBuyPass = async (planType) => {
+57: Curl[3] Div[0] -> try {
+58: Curl[3] Div[0] -> const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+59: Curl[3] Div[0] -> if (!stripe) throw new Error("Stripe Failed to Load");
+60: Curl[3] Div[0] -> 
+61: Curl[3] Div[0] -> const response = await axios.post('/api/create-checkout-session', { planType });
+62: Curl[3] Div[0] -> const { id, url } = response.data;
+63: Curl[3] Div[0] -> 
+64: Curl[3] Div[0] -> // Redirect to Stripe Checkout using session URL or ID
+65: Curl[4] Div[0] -> if (url) {
+66: Curl[4] Div[0] -> window.location.href = url; // Standard redirect
+67: Curl[4] Div[0] -> } else {
+68: Curl[4] Div[0] -> await stripe.redirectToCheckout({ sessionId: id });
+69: Curl[3] Div[0] -> }
+70: Curl[3] Div[0] -> } catch (err) {
+71: Curl[3] Div[0] -> console.error('Checkout error:', err);
+72: Curl[3] Div[0] -> alert(`Payment failed: ${err.response?.data?.error || err.message}`);
+73: Curl[2] Div[0] -> }
+74: Curl[1] Div[0] -> };
+75: Curl[1] Div[0] -> 
+76: Curl[2] Div[0] -> const { isLoaded } = useJsApiLoader({
+77: Curl[2] Div[0] -> id: 'google-map-script',
+78: Curl[2] Div[0] -> googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+79: Curl[1] Div[0] -> });
+80: Curl[1] Div[0] -> 
+81: Curl[2] Div[0] -> const mapContainerStyle = {
+82: Curl[2] Div[0] -> width: '100%',
+83: Curl[2] Div[0] -> height: '300px',
+84: Curl[2] Div[0] -> borderRadius: '1rem'
+85: Curl[1] Div[0] -> };
+86: Curl[1] Div[0] -> 
+87: Curl[2] Div[0] -> useEffect(() => {
+88: Curl[3] Div[0] -> const fetchUserData = async () => {
+89: Curl[3] Div[0] -> const { data: { user } } = await supabase.auth.getUser();
+90: Curl[3] Div[0] -> setUser(user);
+91: Curl[3] Div[0] -> 
+92: Curl[4] Div[0] -> if (user) {
+93: Curl[4] Div[0] -> // Fetch user's plans
+94: Curl[4] Div[0] -> const { data, error } = await supabase
+95: Curl[4] Div[0] -> .from('plans')
+96: Curl[4] Div[0] -> .select('*')
+97: Curl[4] Div[0] -> .eq('user_id', user.id)
+98: Curl[4] Div[0] -> .order('created_at', { ascending: false });
+99: Curl[4] Div[0] -> 
+100: Curl[5] Div[0] -> if (!error && data) {
+101: Curl[5] Div[0] -> setPlans(data);
+102: Curl[4] Div[0] -> }
+103: Curl[3] Div[0] -> }
+104: Curl[3] Div[0] -> setIsLoading(false);
+105: Curl[2] Div[0] -> };
+106: Curl[2] Div[0] -> 
+107: Curl[2] Div[0] -> fetchUserData();
+108: Curl[1] Div[0] -> }, []);
+109: Curl[1] Div[0] -> 
+110: Curl[2] Div[0] -> useEffect(() => {
+111: Curl[2] Div[0] -> const queryParams = new URLSearchParams(window.location.search);
+112: Curl[2] Div[0] -> const stripePayment = queryParams.get('stripe_payment');
+113: Curl[2] Div[0] -> 
+114: Curl[3] Div[0] -> if (stripePayment === 'success') {
+115: Curl[3] Div[0] -> setIsPremium(true);
+116: Curl[3] Div[0] -> localStorage.setItem('isPremium', 'true'); // Persist local testing flag
+117: Curl[3] Div[0] -> alert('🎉 Payment Successful! You are now a Premium Member.');
+118: Curl[3] Div[0] -> // Clean up URL
+119: Curl[3] Div[0] -> window.history.replaceState({}, document.title, window.location.pathname);
+120: Curl[3] Div[0] -> } else if (stripePayment === 'canceled') {
+121: Curl[3] Div[0] -> alert('❌ Payment Canceled.');
+122: Curl[3] Div[0] -> window.history.replaceState({}, document.title, window.location.pathname);
+123: Curl[2] Div[0] -> }
+124: Curl[1] Div[0] -> }, []);
+125: Curl[1] Div[0] -> 
+126: Curl[2] Div[0] -> const handleDelete = async (planId, e) => {
+127: Curl[2] Div[0] -> e.stopPropagation();
+128: Curl[2] Div[0] -> 
+129: Curl[2] Div[0] -> const isFavoritesTab = activeTab === 'favorites';
+130: Curl[2] Div[0] -> const confirmMsg = isFavoritesTab
+131: Curl[2] Div[0] -> ? 'Are you sure you want to permanently delete this favorited plan?'
+132: Curl[2] Div[0] -> : 'Are you sure you want to remove this plan from your dashboard?';
+133: Curl[2] Div[0] -> 
+134: Curl[2] Div[0] -> if (!window.confirm(confirmMsg)) return;
+135: Curl[2] Div[0] -> 
+136: Curl[3] Div[0] -> try {
+137: Curl[4] Div[0] -> if (isFavoritesTab) {
+138: Curl[4] Div[0] -> // Hard delete from favorites tab
+139: Curl[4] Div[0] -> const { error } = await supabase
+140: Curl[4] Div[0] -> .from('plans')
+141: Curl[4] Div[0] -> .delete()
+142: Curl[4] Div[0] -> .eq('id', planId);
+143: Curl[4] Div[0] -> 
+144: Curl[4] Div[0] -> if (error) throw error;
+145: Curl[4] Div[0] -> setPlans(plans.filter(p => p.id !== planId));
+146: Curl[4] Div[0] -> } else {
+147: Curl[4] Div[0] -> // Soft delete (archive) from main dashboard
+148: Curl[4] Div[0] -> const { error } = await supabase
+149: Curl[4] Div[0] -> .from('plans')
+150: Curl[4] Div[0] -> .update({ is_archived: true })
+151: Curl[4] Div[0] -> .eq('id', planId);
+152: Curl[4] Div[0] -> 
+153: Curl[4] Div[0] -> if (error) throw error;
+154: Curl[4] Div[0] -> setPlans(plans.map(p => p.id === planId ? { ...p, is_archived: true } : p));
+155: Curl[3] Div[0] -> }
+156: Curl[3] Div[0] -> 
+157: Curl[3] Div[0] -> if (selectedPlan && selectedPlan.id === planId) setSelectedPlan(null);
+158: Curl[3] Div[0] -> } catch (err) {
+159: Curl[3] Div[0] -> console.error('Error removing plan:', err.message);
+160: Curl[3] Div[0] -> alert('Failed to remove plan.');
+161: Curl[2] Div[0] -> }
+162: Curl[1] Div[0] -> };
+163: Curl[1] Div[0] -> 
+164: Curl[2] Div[0] -> const handleToggleFavorite = async (plan, e) => {
+165: Curl[2] Div[0] -> e.stopPropagation();
+166: Curl[2] Div[0] -> 
+167: Curl[2] Div[0] -> // --- FREEMIUM FAVORITE LIMIT LOGIC ---
+168: Curl[3] Div[0] -> if (!plan.is_favorite && !isPremium) {
+169: Curl[3] Div[0] -> const currentFavoritesCount = plans.filter(p => p.is_favorite).length;
+170: Curl[4] Div[0] -> if (currentFavoritesCount >= 3) {
+171: Curl[4] Div[0] -> setShowUpgradeModal(true);
+172: Curl[4] Div[0] -> return; // Block saving
+173: Curl[3] Div[0] -> }
+174: Curl[2] Div[0] -> }
+175: Curl[2] Div[0] -> 
+176: Curl[2] Div[0] -> const newStatus = !plan.is_favorite;
+177: Curl[2] Div[0] -> 
+178: Curl[3] Div[0] -> try {
+179: Curl[3] Div[0] -> const { error } = await supabase
+180: Curl[3] Div[0] -> .from('plans')
+181: Curl[3] Div[0] -> .update({ is_favorite: newStatus })
+182: Curl[3] Div[0] -> .eq('id', plan.id);
+183: Curl[3] Div[0] -> 
+184: Curl[3] Div[0] -> if (error) throw error;
+185: Curl[3] Div[0] -> setPlans(plans.map(p => p.id === plan.id ? { ...p, is_favorite: newStatus } : p));
+186: Curl[3] Div[0] -> } catch (err) {
+187: Curl[3] Div[0] -> console.error('Error toggling favorite:', err.message);
+188: Curl[3] Div[0] -> alert('Failed to update favorite status.');
+189: Curl[2] Div[0] -> }
+190: Curl[1] Div[0] -> };
+191: Curl[1] Div[0] -> 
+192: Curl[2] Div[0] -> const handleSync = () => {
+193: Curl[2] Div[0] -> if (!selectedPlan) return;
+194: Curl[2] Div[0] -> 
+195: Curl[2] Div[0] -> const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
+196: Curl[2] Div[0] -> const formattedStops = steps.map((step) => `${step.time} - ${step.venue}`).join('\n');
+197: Curl[2] Div[0] -> 
+198: Curl[2] Div[0] -> const eventName = encodeURIComponent(`Date Night: ${selectedPlan.vibe} Plan`);
+199: Curl[2] Div[0] -> const details = encodeURIComponent(`DateSpark Itinerary:\n${formattedStops}`);
+200: Curl[2] Div[0] -> const loc = encodeURIComponent(selectedPlan.location);
+201: Curl[2] Div[0] -> const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventName}&details=${details}&location=${loc}`;
+202: Curl[2] Div[0] -> window.open(url, '_blank');
+203: Curl[1] Div[0] -> };
+204: Curl[1] Div[0] -> 
+205: Curl[2] Div[0] -> const handleShare = async () => {
+206: Curl[2] Div[0] -> if (!selectedPlan) return;
+207: Curl[2] Div[0] -> 
+208: Curl[2] Div[0] -> const domain = window.location.origin;
+209: Curl[2] Div[0] -> const shareLink = `${domain}/shared/${selectedPlan.id}`;
+210: Curl[2] Div[0] -> 
+211: Curl[2] Div[0] -> const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
+212: Curl[2] Div[0] -> const formattedStops = steps.map((step, index) => `${index + 1}. ${step.time} - ${step.venue}`).join('\n');
+213: Curl[2] Div[0] -> 
+214: Curl[2] Div[0] -> const text = `✨ Our custom ${selectedPlan.vibe} date plan carefully crafted by DateSpark!\n\nTimeline:\n${formattedStops}\n\nCheck out the full interactive map here:`;
+215: Curl[2] Div[0] -> 
+216: Curl[3] Div[0] -> if (navigator.share) {
+217: Curl[4] Div[0] -> try {
+218: Curl[5] Div[0] -> await navigator.share({
+219: Curl[5] Div[0] -> title: `${selectedPlan.vibe} Date Plan`,
+220: Curl[5] Div[0] -> text: text,
+221: Curl[5] Div[0] -> url: shareLink,
+222: Curl[4] Div[0] -> });
+223: Curl[4] Div[0] -> } catch (err) {
+224: Curl[4] Div[0] -> console.error('Share failed:', err);
+225: Curl[3] Div[0] -> }
+226: Curl[3] Div[0] -> } else {
+227: Curl[4] Div[0] -> try {
+228: Curl[4] Div[0] -> await navigator.clipboard.writeText(`${text}\n${shareLink}`);
+229: Curl[4] Div[0] -> alert('Detailed DateSpark link copied to clipboard!');
+230: Curl[4] Div[0] -> } catch (err) {
+231: Curl[4] Div[0] -> alert('Failed to copy to clipboard.');
+232: Curl[3] Div[0] -> }
+233: Curl[2] Div[0] -> }
+234: Curl[1] Div[0] -> };
+235: Curl[1] Div[0] -> 
+236: Curl[2] Div[0] -> const handleBudget = () => {
+237: Curl[2] Div[0] -> if (!selectedPlan) return;
+238: Curl[2] Div[0] -> let estimate = '';
+239: Curl[2] Div[0] -> if (selectedPlan.budget.toLowerCase().includes('cheap') || selectedPlan.budget.toLowerCase().includes('$')) estimate = 'Estimated cost: $30 - $60 total.';
+240: Curl[2] Div[0] -> else if (selectedPlan.budget.toLowerCase().includes('expensive') || selectedPlan.budget.toLowerCase().includes('$$$')) estimate = 'Estimated cost: $150+ total.';
+241: Curl[2] Div[0] -> else estimate = 'Estimated cost: $60 - $120 total.';
+242: Curl[2] Div[0] -> 
+243: Curl[2] Div[0] -> alert(`Budget Tier: ${selectedPlan.budget.toUpperCase()}\n\n${estimate}\nThis accounts for dinner and standard event tickets.`);
+244: Curl[1] Div[0] -> };
+245: Curl[1] Div[0] -> 
+246: Curl[2] Div[0] -> const handleSignOut = async () => {
+247: Curl[2] Div[0] -> await supabase.auth.signOut();
+248: Curl[2] Div[0] -> navigate('/login');
+249: Curl[1] Div[0] -> };
+250: Curl[1] Div[0] -> 
+251: Curl[2] Div[0] -> const getGroupedFavorites = () => {
+252: Curl[2] Div[0] -> const favorites = plans.filter(p => p.is_favorite);
+253: Curl[2] Div[0] -> const grouped = {};
+254: Curl[2] Div[0] -> 
+255: Curl[3] Div[0] -> favorites.forEach(plan => {
+256: Curl[3] Div[0] -> let planDateStr = null;
+257: Curl[4] Div[0] -> if (!Array.isArray(plan.itinerary) && plan.itinerary?.metadata?.planDate) {
+258: Curl[4] Div[0] -> planDateStr = plan.itinerary.metadata.planDate;
+259: Curl[4] Div[0] -> } else {
+260: Curl[4] Div[0] -> planDateStr = plan.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
+261: Curl[3] Div[0] -> }
+262: Curl[3] Div[0] -> 
+263: Curl[3] Div[0] -> const [year, month, day] = planDateStr.split('-');
+264: Curl[3] Div[0] -> const monthNames = ["January", "February", "March", "April", "May", "June",
+265: Curl[3] Div[0] -> "July", "August", "September", "October", "November", "December"];
+266: Curl[3] Div[0] -> const monthYear = `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+267: Curl[3] Div[0] -> 
+268: Curl[3] Div[0] -> const category = plan.vibe || 'Other';
+269: Curl[3] Div[0] -> 
+270: Curl[3] Div[0] -> if (!grouped[monthYear]) grouped[monthYear] = {};
+271: Curl[3] Div[0] -> if (!grouped[monthYear][category]) grouped[monthYear][category] = [];
+272: Curl[3] Div[0] -> 
+273: Curl[3] Div[0] -> grouped[monthYear][category].push(plan);
+274: Curl[2] Div[0] -> });
+275: Curl[2] Div[0] -> 
+276: Curl[2] Div[0] -> return grouped;
+277: Curl[1] Div[0] -> };
+278: Curl[1] Div[0] -> 
+279: Curl[1] Div[0] -> const groupedFavorites = getGroupedFavorites();
+280: Curl[1] Div[0] -> const hasFavorites = plans.some(p => p.is_favorite);
+281: Curl[1] Div[0] -> 
+282: Curl[2] Div[0] -> const renderPlanCard = (plan, planIdx, enforceLocked = false, isCompact = false) => {
+283: Curl[2] Div[0] -> const isLockedPlan = enforceLocked || (!isPremium && activeTab === 'all' && planIdx >= 3);
+284: Curl[2] Div[0] -> 
+285: Curl[2] Div[0] -> return (
+286: Curl[2] Div[1] -> <div
+287: Curl[2] Div[1] -> key={plan.id}
+288: Curl[2] Div[1] -> className={`bg-white rounded-3xl border border-gray-100 ${isCompact ? 'p-4' : 'p-6'} shadow-sm transition-all group relative overflow-hidden ${isLockedPlan ? 'cursor-not-allowed border-gray-200' : 'hover:shadow-md'}`}
+289: Curl[4] Div[1] -> onClick={() => {
+290: Curl[5] Div[1] -> if (isLockedPlan) {
+291: Curl[5] Div[1] -> setShowUpgradeModal(true);
+292: Curl[4] Div[1] -> }
+293: Curl[2] Div[1] -> }}
+294: Curl[2] Div[1] -> >
+295: Curl[2] Div[1] -> {/* Blur Overlay for Locked Plans */}
+296: Curl[3] Div[1] -> {isLockedPlan && (
+297: Curl[3] Div[2] -> <div className="absolute inset-0 z-10 backdrop-blur-[6px] bg-white/40 flex flex-col items-center justify-center pointer-events-none">
+298: Curl[3] Div[3] -> <div className="w-12 h-12 bg-navy rounded-full flex items-center justify-center mb-3 shadow-lg">
+299: Curl[3] Div[3] -> <span className="text-white text-xl">🔒</span>
+300: Curl[3] Div[2] -> </div>
+301: Curl[3] Div[2] -> <h4 className="text-lg font-black text-navy px-4 text-center">Premium Plan</h4>
+302: Curl[3] Div[2] -> <p className="text-sm font-bold text-coral mt-1">Click to Unlock</p>
+303: Curl[3] Div[1] -> </div>
+304: Curl[2] Div[1] -> )}
+305: Curl[2] Div[2] -> <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
+306: Curl[2] Div[2] -> <button
+307: Curl[2] Div[2] -> onClick={(e) => handleToggleFavorite(plan, e)}
+308: Curl[2] Div[2] -> className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-white rounded-full shadow-sm"
+309: Curl[2] Div[2] -> title={plan.is_favorite ? "Remove from Favorites" : "Mark as Favorite"}
+310: Curl[2] Div[2] -> >
+311: Curl[2] Div[2] -> <Heart className={`w-5 h-5 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
+312: Curl[2] Div[2] -> </button>
+313: Curl[2] Div[2] -> <button
+314: Curl[2] Div[2] -> onClick={(e) => handleDelete(plan.id, e)}
+315: Curl[2] Div[2] -> className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-white rounded-full shadow-sm"
+316: Curl[2] Div[2] -> title="Delete Plan"
+317: Curl[2] Div[2] -> >
+318: Curl[2] Div[2] -> <Trash2 className="w-5 h-5" />
+319: Curl[2] Div[2] -> </button>
+320: Curl[2] Div[1] -> </div>
+321: Curl[2] Div[2] -> <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4 pr-8">
+322: Curl[2] Div[3] -> <div className="space-y-1">
+323: Curl[2] Div[3] -> <h3 className={`${isCompact ? 'text-lg' : 'text-xl'} font-bold text-navy capitalize`}>{plan.vibe} Date</h3>
+324: Curl[2] Div[4] -> <div className="flex flex-col gap-1.5 mt-2">
+325: Curl[2] Div[5] -> <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
+326: Curl[2] Div[5] -> <MapPin className="w-4 h-4 text-coral" /> {plan.location}
+327: Curl[2] Div[4] -> </div>
+328: Curl[3] Div[4] -> {!Array.isArray(plan.itinerary) && plan.itinerary?.metadata?.planDate && (
+329: Curl[3] Div[5] -> <div className="flex items-center gap-2 text-sm text-navy font-bold">
+330: Curl[4] Div[5] -> <Calendar className="w-4 h-4 text-navy" /> Planned for: {
+331: Curl[4] Div[5] -> new Date(plan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+332: Curl[3] Div[5] -> }
+333: Curl[3] Div[4] -> </div>
+334: Curl[2] Div[4] -> )}
+335: Curl[2] Div[3] -> </div>
+336: Curl[2] Div[2] -> </div>
+337: Curl[2] Div[1] -> </div>
+338: Curl[2] Div[1] -> 
+339: Curl[2] Div[1] -> <span className="inline-block px-3 py-1 mb-4 bg-green-50 text-green-700 text-xs font-bold uppercase rounded-full tracking-wider border border-green-100">
+340: Curl[2] Div[1] -> {plan.budget}
+341: Curl[2] Div[1] -> </span>
+342: Curl[2] Div[1] -> 
+343: Curl[3] Div[1] -> {!isCompact && (
+344: Curl[3] Div[2] -> <div className="space-y-4 mb-6">
+345: Curl[4] Div[2] -> {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.slice(0, 2).map((step, idx) => (
+346: Curl[4] Div[3] -> <div key={idx} className="flex gap-3">
+347: Curl[4] Div[4] -> <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 text-navy">
+348: Curl[4] Div[4] -> <Clock className="w-4 h-4" />
+349: Curl[4] Div[3] -> </div>
+350: Curl[4] Div[4] -> <div>
+351: Curl[4] Div[4] -> <p className="text-sm font-bold text-navy">{step.time}</p>
+352: Curl[4] Div[4] -> <p className="text-sm text-gray-600 line-clamp-1">{step.activity}</p>
+353: Curl[4] Div[3] -> </div>
+354: Curl[4] Div[2] -> </div>
+355: Curl[3] Div[2] -> ))}
+356: Curl[4] Div[2] -> {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.length > 2 && (
+357: Curl[4] Div[2] -> <p className="text-sm text-coral font-medium pl-11">
+358: Curl[4] Div[2] -> + {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps)?.length - 2} more activities {isLockedPlan ? '(Locked)' : ''}
+359: Curl[4] Div[2] -> </p>
+360: Curl[3] Div[2] -> )}
+361: Curl[3] Div[1] -> </div>
+362: Curl[2] Div[1] -> )}
+363: Curl[2] Div[1] -> <button
+364: Curl[4] Div[1] -> onClick={(e) => {
+365: Curl[5] Div[1] -> if (isLockedPlan) {
+366: Curl[5] Div[1] -> e.stopPropagation();
+367: Curl[5] Div[1] -> setShowUpgradeModal(true);
+368: Curl[5] Div[1] -> } else {
+369: Curl[5] Div[1] -> setSelectedPlan(plan);
+370: Curl[4] Div[1] -> }
+371: Curl[2] Div[1] -> }}
+372: Curl[4] Div[1] -> className={`w-full py-2.5 font-bold rounded-xl border transition-colors ${isLockedPlan ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-gray-50 text-navy border-gray-100 group-hover:bg-coral group-hover:text-white group-hover:border-coral'
+373: Curl[2] Div[1] -> }`}
+374: Curl[2] Div[1] -> >
+375: Curl[2] Div[1] -> {isLockedPlan ? 'Unlock Plan' : 'View Full Plan'}
+376: Curl[2] Div[1] -> </button>
+377: Curl[2] Div[0] -> </div>
+378: Curl[2] Div[0] -> );
+379: Curl[1] Div[0] -> };
+380: Curl[1] Div[0] -> 
+381: Curl[2] Div[0] -> if (isLoading) {
+382: Curl[2] Div[0] -> return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+383: Curl[1] Div[0] -> }
+384: Curl[1] Div[0] -> 
+385: Curl[1] Div[0] -> return (
+386: Curl[1] Div[1] -> <div className="min-h-screen bg-gray-50">
+387: Curl[1] Div[1] -> {/* Minimal App Header */}
+388: Curl[1] Div[1] -> <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
+389: Curl[1] Div[2] -> <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+390: Curl[1] Div[2] -> <Link to="/dashboard" className="flex items-center gap-2">
+391: Curl[1] Div[2] -> <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-8 h-8 rounded-lg shadow-md object-cover bg-white" />
+392: Curl[1] Div[2] -> <span className="text-lg font-bold text-navy">DateSpark</span>
+393: Curl[1] Div[2] -> </Link>
+394: Curl[1] Div[2] -> 
+395: Curl[1] Div[3] -> <div className="flex items-center gap-4 relative">
+396: Curl[1] Div[3] -> {/* Mock Toggle for testing Premium Features in Header */}
+397: Curl[1] Div[4] -> <div className="hidden sm:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
+398: Curl[1] Div[4] -> <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
+399: Curl[1] Div[4] -> <button
+400: Curl[3] Div[4] -> onClick={() => {
+401: Curl[3] Div[4] -> const newVal = !isPremium;
+402: Curl[3] Div[4] -> setIsPremium(newVal);
+403: Curl[3] Div[4] -> localStorage.setItem('isPremium', newVal.toString());
+404: Curl[1] Div[4] -> }}
+405: Curl[1] Div[4] -> className={`w-10 h-5 rounded-full transition-colors relative flex items-center ${isPremium ? 'bg-navy' : 'bg-gray-200'}`}
+406: Curl[1] Div[4] -> title="Toggle Premium Status for Testing"
+407: Curl[1] Div[4] -> >
+408: Curl[1] Div[5] -> <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-transform ${isPremium ? 'translate-x-[22px]' : 'translate-x-[3px]'}`} />
+409: Curl[1] Div[5] -> </button>
+410: Curl[1] Div[5] -> <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
+411: Curl[1] Div[4] -> </div>
+412: Curl[1] Div[4] -> 
+413: Curl[1] Div[4] -> <button
+414: Curl[1] Div[4] -> onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+415: Curl[1] Div[4] -> className="flex items-center gap-2 hover:bg-gray-50 p-1.5 rounded-xl transition-colors outline-none"
+416: Curl[1] Div[4] -> >
+417: Curl[1] Div[5] -> <div className="w-9 h-9 bg-navy text-white rounded-lg flex items-center justify-center font-bold shadow-sm">
+418: Curl[1] Div[5] -> {user?.user_metadata?.first_name?.[0] || 'U'}
+419: Curl[1] Div[4] -> </div>
+420: Curl[1] Div[4] -> <span className="text-sm font-bold text-navy hidden sm:block">
+421: Curl[1] Div[4] -> {user?.user_metadata?.first_name || 'User'}
+422: Curl[1] Div[4] -> </span>
+423: Curl[1] Div[4] -> <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+424: Curl[1] Div[4] -> </button>
+425: Curl[1] Div[4] -> 
+426: Curl[1] Div[4] -> {/* Dropdown Menu */}
+427: Curl[2] Div[4] -> {isDropdownOpen && (
+428: Curl[2] Div[5] -> <div className="absolute top-14 right-0 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+429: Curl[2] Div[6] -> <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+430: Curl[2] Div[6] -> <p className="font-bold text-navy truncate">{user?.user_metadata?.first_name} {user?.user_metadata?.last_name}</p>
+431: Curl[2] Div[6] -> <p className="text-xs text-gray-500 truncate mt-0.5">{user?.email}</p>
+432: Curl[2] Div[5] -> </div>
+433: Curl[2] Div[6] -> <div className="p-2 space-y-1">
+434: Curl[2] Div[6] -> <button
+435: Curl[2] Div[6] -> onClick={() => { setShowSettingsModal(true); setSettingsTab('profile'); setIsDropdownOpen(false); }}
+436: Curl[2] Div[6] -> className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-navy rounded-xl transition-colors text-left"
+437: Curl[2] Div[6] -> >
+438: Curl[2] Div[6] -> <User className="w-4 h-4 text-gray-400" /> Account Profile
+439: Curl[2] Div[6] -> </button>
+440: Curl[2] Div[6] -> <button
+441: Curl[2] Div[6] -> onClick={() => { setShowSettingsModal(true); setSettingsTab('subscription'); setIsDropdownOpen(false); }}
+442: Curl[2] Div[6] -> className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-navy rounded-xl transition-colors text-left"
+443: Curl[2] Div[6] -> >
+444: Curl[2] Div[6] -> <CreditCard className="w-4 h-4 text-gray-400" /> Subscription & Billing
+445: Curl[2] Div[6] -> </button>
+446: Curl[2] Div[6] -> <button
+447: Curl[2] Div[6] -> onClick={() => { setShowSettingsModal(true); setSettingsTab('preferences'); setIsDropdownOpen(false); }}
+448: Curl[2] Div[6] -> className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-navy rounded-xl transition-colors text-left"
+449: Curl[2] Div[6] -> >
+450: Curl[2] Div[6] -> <Settings className="w-4 h-4 text-gray-400" /> Preferences
+451: Curl[2] Div[6] -> </button>
+452: Curl[2] Div[5] -> </div>
+453: Curl[2] Div[6] -> <div className="p-2 border-t border-gray-50">
+454: Curl[2] Div[6] -> <button
+455: Curl[2] Div[6] -> onClick={handleSignOut}
+456: Curl[2] Div[6] -> className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left"
+457: Curl[2] Div[6] -> >
+458: Curl[2] Div[6] -> <LogOut className="w-4 h-4" /> Sign Out
+459: Curl[2] Div[6] -> </button>
+460: Curl[2] Div[5] -> </div>
+461: Curl[2] Div[4] -> </div>
+462: Curl[1] Div[4] -> )}
+463: Curl[1] Div[3] -> </div>
+464: Curl[1] Div[2] -> </div>
+465: Curl[1] Div[2] -> </header>
+466: Curl[1] Div[2] -> 
+467: Curl[1] Div[2] -> <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+468: Curl[1] Div[3] -> <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+469: Curl[1] Div[4] -> <div>
+470: Curl[1] Div[4] -> <h1 className="text-3xl font-black text-navy">Your Date Plans</h1>
+471: Curl[1] Div[4] -> <p className="text-gray-500 mt-1">Manage and view your generated itineraries.</p>
+472: Curl[1] Div[3] -> </div>
+473: Curl[1] Div[4] -> <div className="flex items-center gap-4">
+474: Curl[1] Div[4] -> <Link
+475: Curl[1] Div[4] -> to="/generate"
+476: Curl[1] Div[4] -> className="btn-primary py-3 px-6 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-coral/20 hover:-translate-y-0.5 transition-all"
+477: Curl[1] Div[4] -> >
+478: Curl[1] Div[4] -> <Plus className="w-5 h-5" /> New Plan
+479: Curl[1] Div[4] -> </Link>
+480: Curl[1] Div[3] -> </div>
+481: Curl[1] Div[2] -> </div>
+482: Curl[1] Div[2] -> 
+483: Curl[1] Div[2] -> {/* Tabs */}
+484: Curl[2] Div[2] -> {plans.length > 0 && (
+485: Curl[2] Div[3] -> <div className="flex bg-gray-200/50 p-1.5 rounded-2xl mb-8 border border-gray-100 max-w-sm">
+486: Curl[2] Div[3] -> <button
+487: Curl[2] Div[3] -> onClick={() => setActiveTab('all')}
+488: Curl[2] Div[3] -> className={`flex-1 py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'all' ? 'bg-white text-navy shadow-sm' : 'text-gray-500 hover:text-navy'}`}
+489: Curl[2] Div[3] -> >
+490: Curl[2] Div[3] -> <LayoutGrid className="w-4 h-4" /> All Plans
+491: Curl[2] Div[3] -> </button>
+492: Curl[2] Div[3] -> <button
+493: Curl[2] Div[3] -> onClick={() => setActiveTab('favorites')}
+494: Curl[2] Div[3] -> className={`flex-1 py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'favorites' ? 'bg-white text-coral shadow-sm' : 'text-gray-500 hover:text-navy'}`}
+495: Curl[2] Div[3] -> >
+496: Curl[2] Div[3] -> <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-coral text-coral' : ''}`} /> Favorites
+497: Curl[2] Div[3] -> </button>
+498: Curl[2] Div[2] -> </div>
+499: Curl[1] Div[2] -> )}
+500: Curl[1] Div[2] -> 
+501: Curl[1] Div[2] -> {/* OUR VISION BANNER */}
+502: Curl[1] Div[3] -> <div className="bg-gradient-to-r from-violet-500/10 via-coral/5 to-white rounded-3xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between border border-gray-100 shadow-sm animate-in fade-in duration-500">
+503: Curl[1] Div[4] -> <div className="flex items-center gap-4">
+504: Curl[1] Div[5] -> <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-sm">
+505: Curl[1] Div[5] -> <Heart className="w-6 h-6 fill-coral text-coral" />
+506: Curl[1] Div[4] -> </div>
+507: Curl[1] Div[5] -> <div>
+508: Curl[1] Div[5] -> <h3 className="text-lg font-black text-navy flex items-center gap-2">Why I built DateSpark <span className="text-xl">💖</span></h3>
+509: Curl[1] Div[5] -> <p className="text-gray-500 text-sm font-medium mt-0.5 max-w-lg">
+510: Curl[1] Div[5] -> Tired of date night decision fatigue? I built DateSpark to make creating unforgettable memories stress-free and enjoyable.
+511: Curl[1] Div[5] -> </p>
+512: Curl[1] Div[4] -> </div>
+513: Curl[1] Div[3] -> </div>
+514: Curl[1] Div[3] -> <button
+515: Curl[1] Div[3] -> onClick={() => setShowVisionModal(true)}
+516: Curl[1] Div[3] -> className="mt-4 md:mt-0 px-5 py-2.5 bg-navy text-white text-xs font-bold rounded-xl hover:bg-navy/90 transition-all shadow-sm outline outline-1 outline-white/10"
+517: Curl[1] Div[3] -> >
+518: Curl[1] Div[3] -> Read Our Story
+519: Curl[1] Div[3] -> </button>
+520: Curl[1] Div[2] -> </div>
+521: Curl[1] Div[2] -> 
+522: Curl[2] Div[2] -> {plans.filter(p => !p.is_archived || p.is_favorite).length === 0 ? (
+523: Curl[2] Div[3] -> <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-xl border border-navy-100/20 max-w-2xl mx-auto my-8 animate-in fade-in zoom-in-95 duration-500">
+524: Curl[2] Div[3] -> {/* Ambient decorative gradient bubbles */}
+525: Curl[2] Div[4] -> <div className="absolute -right-16 -top-16 w-64 h-64 bg-coral/20 rounded-full blur-3xl animate-pulse" />
+526: Curl[2] Div[5] -> <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-violet-500/20 rounded-full blur-3xl" />
+527: Curl[2] Div[5] -> 
+528: Curl[2] Div[6] -> <div className="relative z-10 space-y-4">
+529: Curl[2] Div[7] -> <div className="w-20 h-20 bg-gradient-to-br from-coral to-pink-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-coral/30 rotate-6 hover:rotate-0 transition-transform duration-300">
+530: Curl[2] Div[7] -> <Heart className="w-10 h-10 fill-white text-white" />
+531: Curl[2] Div[6] -> </div>
+532: Curl[2] Div[6] -> 
+533: Curl[2] Div[6] -> <h2 className="text-4xl font-black text-white tracking-tight">Let’s plan your next date 💖</h2>
+534: Curl[2] Div[6] -> <p className="text-white/80 max-w-md mx-auto font-medium text-lg">
+535: Curl[2] Div[6] -> Stop deciding, start dating. Generate custom timelines and interactive maps in seconds.
+536: Curl[2] Div[6] -> </p>
+537: Curl[2] Div[6] -> 
+538: Curl[2] Div[7] -> <div className="pt-4">
+539: Curl[2] Div[7] -> <Link
+540: Curl[2] Div[7] -> to="/generate"
+541: Curl[2] Div[7] -> className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-navy font-black rounded-2xl hover:bg-coral hover:text-white transition-all shadow-xl hover:-translate-y-1 active:scale-[0.98] group"
+542: Curl[2] Div[7] -> >
+543: Curl[2] Div[7] -> Start your first plan <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+544: Curl[2] Div[7] -> </Link>
+545: Curl[2] Div[6] -> </div>
+546: Curl[2] Div[5] -> </div>
+547: Curl[2] Div[4] -> </div>
+548: Curl[2] Div[4] -> ) : activeTab === 'favorites' && !hasFavorites ? (
+549: Curl[2] Div[5] -> <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm animate-in fade-in duration-300">
+550: Curl[2] Div[6] -> <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-coral">
+551: Curl[2] Div[6] -> <Heart className="w-8 h-8 fill-coral text-coral" />
+552: Curl[2] Div[5] -> </div>
+553: Curl[2] Div[5] -> <h3 className="text-xl font-bold text-navy mb-2">No favorites yet</h3>
+554: Curl[2] Div[5] -> <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+555: Curl[2] Div[5] -> Click the heart icon on any plan to save it to your favorites.
+556: Curl[2] Div[5] -> </p>
+557: Curl[2] Div[5] -> <button
+558: Curl[2] Div[5] -> onClick={() => setActiveTab('all')}
+559: Curl[2] Div[5] -> className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-colors"
+560: Curl[2] Div[5] -> >
+561: Curl[2] Div[5] -> View All Plans
+562: Curl[2] Div[5] -> </button>
+563: Curl[2] Div[4] -> </div>
+564: Curl[2] Div[4] -> ) : activeTab === 'all' ? (
+565: Curl[2] Div[5] -> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+566: Curl[2] Div[5] -> {plans.filter(p => !p.is_archived).map((plan, planIdx) => renderPlanCard(plan, planIdx, false))}
+567: Curl[2] Div[4] -> </div>
+568: Curl[2] Div[4] -> ) : (
+569: Curl[2] Div[5] -> <div className="space-y-12 pb-12 animate-in fade-in duration-500">
+570: Curl[3] Div[5] -> {Object.entries(groupedFavorites).map(([monthYear, categories]) => (
+571: Curl[3] Div[6] -> <div key={monthYear} className="bg-white p-6 sm:p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+572: Curl[3] Div[6] -> <h2 className="text-3xl font-black text-navy mb-8 flex items-center gap-3">
+573: Curl[3] Div[7] -> <div className="w-12 h-12 bg-coral rounded-2xl flex items-center justify-center shadow-md shadow-coral/20">
+574: Curl[3] Div[7] -> <Calendar className="w-6 h-6 text-white" />
+575: Curl[3] Div[6] -> </div>
+576: Curl[3] Div[6] -> {monthYear}
+577: Curl[3] Div[6] -> </h2>
+578: Curl[3] Div[7] -> <div className="space-y-10">
+579: Curl[4] Div[7] -> {Object.entries(categories).map(([category, categoryPlans]) => (
+580: Curl[4] Div[8] -> <div key={category} className="pl-4 sm:pl-6 border-l-4 border-gray-100 relative">
+581: Curl[4] Div[8] -> {/* Decorative dot */}
+582: Curl[4] Div[8] -> <div className="absolute top-1.5 -left-2.5 w-4 h-4 bg-gray-200 border-4 border-white rounded-full"></div>
+583: Curl[4] Div[8] -> 
+584: Curl[4] Div[8] -> <h3 className="text-xl font-bold text-gray-800 uppercase tracking-wide mb-6 flex items-center gap-3">
+585: Curl[4] Div[8] -> {category} Dates
+586: Curl[4] Div[8] -> <span className="bg-gray-100 text-gray-500 px-3 py-1 text-xs rounded-full">{categoryPlans.length}</span>
+587: Curl[4] Div[8] -> </h3>
+588: Curl[4] Div[9] -> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+589: Curl[4] Div[9] -> {categoryPlans.map((plan, idx) => renderPlanCard(plan, idx, false, true))}
+590: Curl[4] Div[8] -> </div>
+591: Curl[4] Div[7] -> </div>
+592: Curl[3] Div[7] -> ))}
+593: Curl[3] Div[6] -> </div>
+594: Curl[3] Div[5] -> </div>
+595: Curl[2] Div[5] -> ))}
+596: Curl[2] Div[4] -> </div>
+597: Curl[1] Div[4] -> )}
+598: Curl[1] Div[4] -> </main>
+599: Curl[1] Div[4] -> 
+600: Curl[1] Div[4] -> {/* View Plan Modal (Sleek Timeline UI) */}
+601: Curl[2] Div[4] -> {selectedPlan && (
+602: Curl[2] Div[5] -> <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/50 backdrop-blur-sm">
+603: Curl[2] Div[6] -> <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-row relative">
+604: Curl[2] Div[6] -> 
+605: Curl[2] Div[6] -> {/* Left Column: Timeline UI */}
+606: Curl[2] Div[7] -> <div className="flex-1 overflow-y-auto bg-white flex flex-col border-r border-gray-100">
+607: Curl[2] Div[7] -> 
+608: Curl[2] Div[7] -> {/* Navy Header Section */}
+609: Curl[2] Div[8] -> <div className="bg-[#0f172a] text-white p-4 md:p-8 pb-8 relative rounded-bl-[2rem] md:rounded-bl-none">
+610: Curl[2] Div[8] -> <button
+611: Curl[2] Div[8] -> onClick={() => setSelectedPlan(null)}
+612: Curl[2] Div[8] -> className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+613: Curl[2] Div[8] -> >
+614: Curl[2] Div[8] -> <X className="w-5 h-5" />
+615: Curl[2] Div[8] -> </button>
+616: Curl[2] Div[8] -> 
+617: Curl[2] Div[9] -> <div className="flex justify-between items-start">
+618: Curl[2] Div[10] -> <div className="flex gap-4 items-center">
+619: Curl[2] Div[11] -> <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+620: Curl[2] Div[11] -> <Heart className="w-6 h-6 fill-white text-white" />
+621: Curl[2] Div[10] -> </div>
+622: Curl[2] Div[11] -> <div>
+623: Curl[2] Div[11] -> <h2 className="text-lg md:text-2xl font-black">{selectedPlan.vibe} Date</h2>
+624: Curl[2] Div[11] -> <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-widest font-black mt-1">
+625: Curl[3] Div[11] -> {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
+626: Curl[3] Div[11] -> `PLANNED FOR ${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase()}`
+627: Curl[2] Div[11] -> : 'PLANNED FOR TONIGHT'}
+628: Curl[2] Div[11] -> </p>
+629: Curl[2] Div[10] -> </div>
+630: Curl[2] Div[9] -> </div>
+631: Curl[2] Div[10] -> <div className="text-right hidden sm:block">
+632: Curl[2] Div[10] -> <h3 className="text-xl font-bold">{(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.[0]?.time || 'TBD'}</h3>
+633: Curl[2] Div[10] -> <p className="text-xs text-gray-400 font-bold uppercase mt-1">{selectedPlan.location}</p>
+634: Curl[2] Div[9] -> </div>
+635: Curl[2] Div[8] -> </div>
+636: Curl[2] Div[8] -> {/* Floating Tab Bar */ }
+637: Curl[2] Div[9] -> <div className="px-2 md:px-8 -mt-6 z-10 w-full flex justify-center">
+638: Curl[2] Div[10] -> <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex justify-between items-center text-xs font-bold text-gray-500 w-full max-w-sm">
+639: Curl[2] Div[10] -> <button className="flex-1 flex flex-col items-center gap-1 py-1.5 text-navy bg-gray-50 rounded-xl">
+640: Curl[2] Div[10] -> <Ticket className="w-4 h-4" /> <span className="text-[9px] md:text-xs">Itinerary</span>
+641: Curl[2] Div[10] -> </button>
+642: Curl[2] Div[10] -> <button onClick={handleSync} className="flex-1 flex flex-col items-center gap-1 py-1.5 hover:text-navy transition-colors">
+643: Curl[2] Div[10] -> <Calendar className="w-4 h-4" /> <span className="text-[9px] md:text-xs">Sync</span>
+644: Curl[2] Div[10] -> </button>
+645: Curl[2] Div[10] -> <button onClick={handleShare} className="flex-1 flex flex-col items-center gap-1 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl transition-colors border border-violet-100 shadow-sm relative overflow-hidden group">
+646: Curl[2] Div[11] -> <div className="absolute inset-0 bg-gradient-to-r from-violet-200/0 via-violet-200/50 to-violet-200/0 -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
+647: Curl[2] Div[11] -> <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-4 h-4 rounded object-cover shadow-sm bg-white z-10" />
+648: Curl[2] Div[11] -> <span className="text-[9px] font-black tracking-wide uppercase z-10 line-clamp-1 w-full text-center px-1">Share</span>
+649: Curl[2] Div[11] -> </button>
+650: Curl[2] Div[11] -> <button onClick={handleBudget} className="flex-1 flex flex-col items-center gap-1 py-1.5 hover:text-navy transition-colors">
+651: Curl[2] Div[11] -> <Wallet className="w-4 h-4" /> <span className="text-[9px] md:text-xs">Budget</span>
+652: Curl[2] Div[11] -> </button>
+653: Curl[2] Div[10] -> </div>
+654: Curl[2] Div[9] -> </div>
+655: Curl[2] Div[9] -> 
+656: Curl[2] Div[9] -> {/* Vertical Timeline */}
+657: Curl[2] Div[10] -> <div className="p-4 md:p-8 pt-10">
+658: Curl[2] Div[11] -> <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
+659: Curl[4] Div[11] -> {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.map((step, idx) => {
+660: Curl[4] Div[11] -> const isLockedStep = !isPremium && idx >= 2;
+661: Curl[4] Div[11] -> 
+662: Curl[4] Div[11] -> // Assign specific colors for styling dots
+663: Curl[4] Div[11] -> const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
+664: Curl[4] Div[11] -> const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
+665: Curl[4] Div[11] -> const borderColor = ['border-coral', 'border-yellow-500', 'border-navy', 'border-emerald-600', 'border-purple-600'];
+666: Curl[4] Div[11] -> const colorIdx = idx % dotColors.length;
+667: Curl[4] Div[11] -> 
+668: Curl[4] Div[11] -> return (
+669: Curl[4] Div[12] -> <div
+670: Curl[4] Div[12] -> key={idx}
+671: Curl[4] Div[12] -> className={`relative pl-10 ${isLockedStep ? 'cursor-pointer group/locked' : ''}`}
+672: Curl[6] Div[12] -> onClick={() => {
+673: Curl[6] Div[12] -> if (isLockedStep) setShowUpgradeModal(true);
+674: Curl[4] Div[12] -> }}
+675: Curl[4] Div[12] -> >
+676: Curl[4] Div[12] -> {/* Checkbox Trigger button */}
+677: Curl[4] Div[12] -> <button
+678: Curl[4] Div[12] -> type="button"
+679: Curl[4] Div[12] -> disabled={isLockedStep}
+680: Curl[6] Div[12] -> onClick={(e) => {
+681: Curl[6] Div[12] -> e.stopPropagation();
+682: Curl[6] Div[12] -> toggleStepCompletion(idx);
+683: Curl[4] Div[12] -> }}
+684: Curl[6] Div[12] -> className={`absolute -left-[12px] top-1 w-6 h-6 rounded-full border-2 shadow-md flex items-center justify-center transition-all cursor-pointer z-10 ${completedSteps.includes(idx)
+685: Curl[6] Div[12] -> ? 'bg-emerald-500 text-white border-emerald-500'
+686: Curl[6] Div[12] -> : isLockedStep ? 'bg-gray-300 border-gray-300' : `bg-white hover:bg-gray-50 ${borderColor[colorIdx]}`
+687: Curl[4] Div[12] -> }`}
+688: Curl[4] Div[12] -> >
+689: Curl[5] Div[12] -> {completedSteps.includes(idx) ? (
+690: Curl[5] Div[12] -> <Check className="w-3.5 h-3.5 font-black" />
+691: Curl[5] Div[12] -> ) : isLockedStep ? (
+692: Curl[5] Div[12] -> <span className="text-[10px]">🔒</span>
+693: Curl[5] Div[12] -> ) : (
+694: Curl[5] Div[12] -> null
+695: Curl[4] Div[12] -> )}
+696: Curl[4] Div[12] -> </button>
+697: Curl[4] Div[12] -> 
+698: Curl[4] Div[12] -> {/* Content with conditional Blur */}
+699: Curl[4] Div[13] -> <div className={`transition-all duration-300 relative ${isLockedStep ? 'blur-sm select-none opacity-60 group-hover/locked:blur-md group-hover/locked:opacity-40' : ''} ${completedSteps.includes(idx) ? 'opacity-50' : ''}`}>
+700: Curl[4] Div[13] -> <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]} ${completedSteps.includes(idx) ? 'line-through' : ''}`}>
+701: Curl[4] Div[13] -> {step.time} • {step.activity}
+702: Curl[4] Div[13] -> </p>
+703: Curl[4] Div[13] -> <h4 className={`text-2xl font-black text-navy mb-2 ${completedSteps.includes(idx) ? 'line-through' : ''}`}>{step.venue}</h4>
+704: Curl[4] Div[13] -> <p className="text-gray-500 font-medium mb-3">{step.description}</p>
+705: Curl[4] Div[13] -> 
+706: Curl[5] Div[13] -> {step.photoUrl && (
+707: Curl[5] Div[14] -> <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
+708: Curl[5] Div[14] -> <img
+709: Curl[5] Div[14] -> src={step.photoUrl}
+710: Curl[5] Div[14] -> alt={step.venue}
+711: Curl[5] Div[14] -> className="w-full h-48 object-cover hover:scale-105 transition-transform duration-500"
+712: Curl[5] Div[14] -> loading="lazy"
+713: Curl[5] Div[14] -> />
+714: Curl[5] Div[13] -> </div>
+715: Curl[4] Div[13] -> )}
+716: Curl[4] Div[13] -> 
+717: Curl[4] Div[13] -> {/* Action Tags */}
+718: Curl[4] Div[14] -> <div className="flex flex-wrap items-center gap-2 mt-2">
+719: Curl[5] Div[14] -> {step.directionsUrl && (
+720: Curl[5] Div[14] -> <a
+721: Curl[5] Div[14] -> href={step.directionsUrl}
+722: Curl[5] Div[14] -> target="_blank"
+723: Curl[5] Div[14] -> rel="noreferrer"
+724: Curl[5] Div[14] -> className="px-3 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+725: Curl[5] Div[14] -> >
+726: Curl[5] Div[14] -> <MapPin className="w-3 h-3" /> Get Directions
+727: Curl[5] Div[14] -> </a>
+728: Curl[4] Div[14] -> )}
+729: Curl[4] Div[14] -> 
+730: Curl[5] Div[14] -> {step.bookingUrl && (
+731: Curl[5] Div[14] -> <a
+732: Curl[5] Div[14] -> href={step.bookingUrl}
+733: Curl[5] Div[14] -> target="_blank"
+734: Curl[5] Div[14] -> rel="noreferrer"
+735: Curl[5] Div[14] -> className="px-3 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+736: Curl[5] Div[14] -> >
+737: Curl[5] Div[14] -> {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
+738: Curl[5] Div[14] -> {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
+739: Curl[5] Div[14] -> </a>
+740: Curl[4] Div[14] -> )}
+741: Curl[4] Div[14] -> 
+742: Curl[5] Div[14] -> {step.url && step.url !== '#' && (
+743: Curl[5] Div[14] -> <a
+744: Curl[5] Div[14] -> href={step.url}
+745: Curl[5] Div[14] -> target="_blank"
+746: Curl[5] Div[14] -> rel="noreferrer"
+747: Curl[5] Div[14] -> className="px-3 py-1.5 bg-coral/10 text-coral text-xs font-bold rounded-lg hover:bg-coral hover:text-white transition-colors border border-coral/20 inline-flex items-center gap-1 shadow-sm"
+748: Curl[5] Div[14] -> >
+749: Curl[5] Div[14] -> <Ticket className="w-3 h-3" /> Book Tickets
+750: Curl[5] Div[14] -> </a>
+751: Curl[4] Div[14] -> )}
+752: Curl[4] Div[14] -> 
+753: Curl[5] Div[14] -> {!step.url && step.searchUrl && (
+754: Curl[5] Div[14] -> <a
+755: Curl[5] Div[14] -> href={step.searchUrl}
+756: Curl[5] Div[14] -> target="_blank"
+757: Curl[5] Div[14] -> rel="noreferrer"
+758: Curl[5] Div[14] -> className="px-3 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+759: Curl[5] Div[14] -> >
+760: Curl[5] Div[14] -> <Search className="w-3 h-3" /> Search on Google
+761: Curl[5] Div[14] -> </a>
+762: Curl[4] Div[14] -> )}
+763: Curl[4] Div[14] -> {/* Uber Request Link */}
+764: Curl[5] Div[14] -> {step.lat && step.lng && (
+765: Curl[5] Div[14] -> <a
+766: Curl[5] Div[14] -> href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
+767: Curl[5] Div[14] -> target="_blank"
+768: Curl[5] Div[14] -> rel="noreferrer"
+769: Curl[5] Div[14] -> className="px-3 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
+770: Curl[5] Div[14] -> >
+771: Curl[5] Div[14] -> <Car className="w-3 h-3" /> Get a Ride
+772: Curl[5] Div[14] -> </a>
+773: Curl[4] Div[14] -> )}
+774: Curl[4] Div[13] -> </div>
+775: Curl[4] Div[12] -> </div>
+776: Curl[4] Div[12] -> 
+777: Curl[4] Div[12] -> {/* Upgrade Overlay Text pointing specifically at the locked content */}
+778: Curl[5] Div[12] -> {isLockedStep && (
+779: Curl[5] Div[13] -> <div className="absolute inset-0 z-10 flex flex-col items-center justify-center opacity-0 group-hover/locked:opacity-100 transition-opacity">
+780: Curl[5] Div[13] -> <span className="bg-navy text-white px-4 py-2 rounded-xl font-bold shadow-xl flex items-center gap-2">
+781: Curl[5] Div[13] -> Unlock Premium Dates
+782: Curl[5] Div[13] -> </span>
+783: Curl[5] Div[12] -> </div>
+784: Curl[4] Div[12] -> )}
+785: Curl[4] Div[11] -> </div>
+786: Curl[4] Div[11] -> );
+787: Curl[2] Div[11] -> })}
+788: Curl[2] Div[10] -> </div>
+789: Curl[2] Div[9] -> </div>
+790: Curl[2] Div[8] -> </div>
+791: Curl[2] Div[8] -> 
+792: Curl[2] Div[8] -> {/* Right Column: Embedded Google Map */}
+793: Curl[2] Div[9] -> <div className="flex flex-col w-2/5 md:w-[350px] lg:w-[450px] h-full bg-gray-50 relative border-l border-gray-200 flex-shrink-0">
+794: Curl[2] Div[10] -> <div className="absolute top-4 right-4 z-10">
+795: Curl[2] Div[10] -> <button
+796: Curl[2] Div[10] -> onClick={() => setSelectedPlan(null)}
+797: Curl[2] Div[10] -> className="p-2 bg-white text-gray-500 hover:text-navy shadow-md rounded-full transition-colors pointer-events-auto"
+798: Curl[2] Div[10] -> >
+799: Curl[2] Div[10] -> <X className="w-5 h-5" />
+800: Curl[2] Div[10] -> </button>
+801: Curl[2] Div[9] -> </div>
+802: Curl[2] Div[9] -> 
+803: Curl[3] Div[9] -> {isLoaded ? (
+804: Curl[3] Div[9] -> <GoogleMap
+805: Curl[3] Div[9] -> mapContainerStyle={{ width: '100%', height: '100%' }}
+806: Curl[4] Div[9] -> center={
+807: Curl[4] Div[9] -> (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.length > 0
+808: Curl[4] Div[9] -> ? { lat: (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)[0].lat, lng: (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)[0].lng }
+809: Curl[4] Div[9] -> : { lat: 40.7128, lng: -74.0060 } // Default to NYC if no coordinates
+810: Curl[3] Div[9] -> }
+811: Curl[3] Div[9] -> zoom={14}
+812: Curl[5] Div[9] -> options={{
+813: Curl[5] Div[9] -> disableDefaultUI: true,
+814: Curl[3] Div[9] -> }}
+815: Curl[3] Div[9] -> >
+816: Curl[3] Div[9] -> {/* Markers for each step */}
+817: Curl[4] Div[9] -> {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || []).map((step, idx) => (
+818: Curl[4] Div[9] -> <Marker
+819: Curl[4] Div[9] -> key={idx}
+820: Curl[4] Div[9] -> position={{ lat: step.lat, lng: step.lng }}
+821: Curl[4] Div[9] -> label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
+822: Curl[4] Div[9] -> />
+823: Curl[3] Div[9] -> ))}
+824: Curl[3] Div[9] -> </GoogleMap>
+825: Curl[3] Div[9] -> ) : (
+826: Curl[3] Div[10] -> <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+827: Curl[3] Div[10] -> <MapIcon className="w-12 h-12 mb-4 opacity-50" />
+828: Curl[3] Div[10] -> <p className="font-medium">Please add your Google Maps API Key to view the map.</p>
+829: Curl[3] Div[9] -> </div>
+830: Curl[2] Div[9] -> )}
+831: Curl[2] Div[8] -> </div>
+832: Curl[2] Div[7] -> </div>
+833: Curl[2] Div[6] -> </div>
+834: Curl[1] Div[6] -> )}
+835: Curl[1] Div[6] -> 
+836: Curl[1] Div[6] -> {/* UPGRADE MODAL */}
+837: Curl[2] Div[6] -> {showUpgradeModal && (
+838: Curl[2] Div[7] -> <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm px-4">
+839: Curl[2] Div[8] -> <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all p-8 text-center relative animate-fade-in-up">
+840: Curl[2] Div[8] -> <button
+841: Curl[2] Div[8] -> onClick={() => setShowUpgradeModal(false)}
+842: Curl[2] Div[8] -> className="absolute top-4 right-4 p-2 text-gray-400 hover:text-navy transition-colors bg-gray-50 rounded-full"
+843: Curl[2] Div[8] -> >
+844: Curl[2] Div[8] -> <X className="w-5 h-5" />
+845: Curl[2] Div[8] -> </button>
+846: Curl[2] Div[8] -> 
+847: Curl[2] Div[9] -> <div className="w-20 h-20 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-coral/30 rotate-3">
+848: Curl[2] Div[9] -> <Heart className="w-10 h-10 fill-white text-white" />
+849: Curl[2] Div[8] -> </div>
+850: Curl[2] Div[8] -> 
+851: Curl[2] Div[8] -> <h2 className="text-3xl font-black text-navy mb-3">Upgrade to Premium</h2>
+852: Curl[2] Div[8] -> <p className="text-gray-500 mb-8 max-w-sm mx-auto font-medium">
+853: Curl[2] Div[8] -> Free users can only see 3 plans, view 2 activities, and save up to 3 favorites. Upgrade to unlock <b>full AI-generated itineraries</b>, 4-5 activities per date, and unlimited favorites!
+854: Curl[2] Div[8] -> </p>
+855: Curl[2] Div[8] -> 
+856: Curl[2] Div[9] -> <div className="space-y-4">
+857: Curl[2] Div[9] -> {/* Premium Monthly Option */}
+858: Curl[2] Div[10] -> <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[24px] p-6 text-white text-left relative overflow-hidden group hover:shadow-[0_20px_40px_rgba(10,25,47,0.3)] transition-all duration-300 border border-navy-100/20 translate-y-0 hover:-translate-y-1">
+859: Curl[2] Div[11] -> <div className="absolute -right-16 -top-16 w-48 h-48 bg-gold/10 rounded-full blur-2xl group-hover:bg-gold/20 transition-colors" />
+860: Curl[2] Div[12] -> <div className="absolute top-0 right-0 bg-gradient-to-r from-gold to-yellow-400 text-navy px-5 py-1.5 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-gold/20 z-10">
+861: Curl[2] Div[12] -> Best Value
+862: Curl[2] Div[11] -> </div>
+863: Curl[2] Div[12] -> <div className="relative z-10">
+864: Curl[2] Div[12] -> <h3 className="text-2xl font-black mb-1 flex items-center gap-2">
+865: Curl[2] Div[12] -> Premium Member
+866: Curl[2] Div[12] -> </h3>
+867: Curl[2] Div[12] -> <p className="text-white/70 text-sm mb-5 font-medium">Unlimited dates, all cities, save everything.</p>
+868: Curl[2] Div[13] -> <div className="flex items-end gap-1.5 mb-5">
+869: Curl[2] Div[13] -> <span className="text-4xl font-black tracking-tight">$9.99</span>
+870: Curl[2] Div[13] -> <span className="text-white/50 mb-1.5 font-bold">/mo</span>
+871: Curl[2] Div[12] -> </div>
+872: Curl[2] Div[12] -> 
+873: Curl[2] Div[12] -> <ul className="mb-6 space-y-2.5 text-xs text-white/80 font-bold border-t border-white/10 pt-4">
+874: Curl[2] Div[12] -> <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Plan unlimited dates</li>
+875: Curl[2] Div[12] -> <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Unlock all venues & restaurants</li>
+876: Curl[2] Div[12] -> <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Unlimited AI Date Customizer</li>
+877: Curl[2] Div[12] -> <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Save unlimited favorites</li>
+878: Curl[2] Div[12] -> <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Access to all supported cities</li>
+879: Curl[2] Div[12] -> <li className="flex items-center gap-2"><Check className="w-4 h-4 text-gold flex-shrink-0" /> Early access to new features</li>
+880: Curl[2] Div[12] -> </ul>
+881: Curl[2] Div[12] -> 
+882: Curl[2] Div[12] -> <button
+883: Curl[2] Div[12] -> onClick={() => handleBuyPass('premium')}
+884: Curl[2] Div[12] -> className="w-full py-3.5 bg-white text-navy font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg active:scale-[0.98]"
+885: Curl[2] Div[12] -> >
+886: Curl[2] Div[12] -> Start Premium
+887: Curl[2] Div[12] -> </button>
+888: Curl[2] Div[11] -> </div>
+889: Curl[2] Div[10] -> </div>
+890: Curl[2] Div[10] -> 
+891: Curl[2] Div[10] -> {/* One Night Pass Option */}
+892: Curl[2] Div[11] -> <div className="bg-white border-2 border-gray-100 rounded-[24px] p-6 text-left relative group hover:border-coral/40 hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] transition-all duration-300 overflow-hidden translate-y-0 hover:-translate-y-1">
+893: Curl[2] Div[12] -> <div className="absolute -right-16 -top-16 w-48 h-48 bg-coral/5 rounded-full blur-2xl group-hover:bg-coral/10 transition-colors" />
+894: Curl[2] Div[13] -> <div className="relative z-10">
+895: Curl[2] Div[13] -> <h3 className="text-xl font-bold text-navy mb-1">One-Night Pass</h3>
+896: Curl[2] Div[13] -> <p className="text-gray-500 text-sm mb-5 font-medium">Unlock full access for just 24 hours.</p>
+897: Curl[2] Div[14] -> <div className="flex items-end gap-1.5 mb-5">
+898: Curl[2] Div[14] -> <span className="text-3xl font-black text-navy tracking-tight">$0.99</span>
+899: Curl[2] Div[14] -> <span className="text-gray-400 mb-1 uppercase text-xs font-bold tracking-wider">/once</span>
+900: Curl[2] Div[13] -> </div>
+901: Curl[2] Div[13] -> <button
+902: Curl[2] Div[13] -> onClick={() => handleBuyPass('one-night')}
+903: Curl[2] Div[13] -> className="w-full py-3.5 bg-gradient-to-r from-coral to-coral/90 text-white font-black rounded-xl hover:shadow-xl hover:shadow-coral/20 transition-all active:scale-[0.98]"
+904: Curl[2] Div[13] -> >
+905: Curl[2] Div[13] -> Unlock Tonight Only
+906: Curl[2] Div[13] -> </button>
+907: Curl[2] Div[12] -> </div>
+908: Curl[2] Div[11] -> </div>
+909: Curl[2] Div[11] -> 
+910: Curl[2] Div[11] -> <button
+911: Curl[2] Div[11] -> onClick={() => setShowUpgradeModal(false)}
+912: Curl[2] Div[11] -> className="w-full py-3 text-gray-400 font-bold hover:text-gray-600 transition-colors"
+913: Curl[2] Div[11] -> >
+914: Curl[2] Div[11] -> Maybe Later
+915: Curl[2] Div[11] -> </button>
+916: Curl[2] Div[10] -> </div>
+917: Curl[2] Div[9] -> </div>
+918: Curl[2] Div[8] -> </div>
+919: Curl[1] Div[8] -> )}
+920: Curl[1] Div[8] -> 
+921: Curl[1] Div[8] -> {/* OUR VISION MODAL */}
+922: Curl[2] Div[8] -> {showVisionModal && (
+923: Curl[2] Div[9] -> <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-navy/60 backdrop-blur-sm">
+924: Curl[2] Div[10] -> <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+925: Curl[2] Div[10] -> <div className="bg-gradient-to-r from-violet-500 to-coral h-2.5 w-full"></div>
+926: Curl[2] Div[10] -> 
+927: Curl[2] Div[11] -> <div className="p-8 pb-12 flex-1 overflow-y-auto">
+928: Curl[2] Div[12] -> <div className="w-16 h-16 bg-coral/10 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+929: Curl[2] Div[12] -> <Heart className="w-8 h-8 fill-coral text-coral" />
+930: Curl[2] Div[11] -> </div>
+931: Curl[2] Div[11] -> 
+932: Curl[2] Div[11] -> <h2 className="text-2xl font-black text-navy text-center mb-2">The Vision Behind DateSpark</h2>
+933: Curl[2] Div[11] -> <p className="text-xs text-gray-400 uppercase tracking-widest font-black text-center mb-6">Designed by Couples, For Couples</p>
+934: Curl[2] Div[11] -> 
+935: Curl[2] Div[12] -> <div className="space-y-4 text-gray-600 font-normal leading-relaxed text-sm">
+936: Curl[2] Div[12] -> <p>
+937: Curl[2] Div[12] -> Like many couples, my partner and I always hit the same wall on Friday night: <strong>"What are we doing tonight?"</strong> Standard map searches give you random scattered places, not an actual execution plan with timings and sequence flow.
+938: Curl[2] Div[12] -> </p>
+939: Curl[2] Div[12] -> <p>
+940: Curl[2] Div[12] -> I built <strong>DateSpark</strong> to solve decision fatigue by planning structured chronological timelines absolute map route iterations that make sense.
+941: Curl[2] Div[12] -> </p>
+942: Curl[2] Div[12] -> <p>
+943: Curl[2] Div[12] -> Whether it's matching dinner sequences perfectly inside coordinates or automating ticket search deep-links, the goal is always the same: <strong>More deep memories with less stress</strong>.
+944: Curl[2] Div[12] -> </p>
+945: Curl[2] Div[12] -> <p className="pt-4 font-black text-navy text-center border-t border-gray-100 mt-6">
+946: Curl[2] Div[12] -> Thanks for riding along on the journey to better dates! 💖
+947: Curl[2] Div[12] -> </p>
+948: Curl[2] Div[11] -> </div>
+949: Curl[2] Div[11] -> 
+950: Curl[2] Div[11] -> <button
+951: Curl[2] Div[11] -> onClick={() => setShowVisionModal(false)}
+952: Curl[2] Div[11] -> className="w-full mt-8 py-3.5 bg-navy text-white font-black rounded-xl hover:bg-navy/90 transition-all active:scale-[0.98] shadow-sm"
+953: Curl[2] Div[11] -> >
+954: Curl[2] Div[11] -> Close story
+955: Curl[2] Div[11] -> </button>
+956: Curl[2] Div[10] -> </div>
+957: Curl[2] Div[9] -> </div>
+958: Curl[2] Div[8] -> </div>
+959: Curl[1] Div[8] -> )}
+960: Curl[1] Div[8] -> 
+961: Curl[1] Div[8] -> {/* ACCOUNT SETTINGS MODAL */}
+962: Curl[2] Div[8] -> {showSettingsModal && (
+963: Curl[2] Div[9] -> <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-navy/60 backdrop-blur-sm">
+964: Curl[2] Div[10] -> <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] md:h-[600px] overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-200">
+965: Curl[2] Div[10] -> {/* Sidebar */}
+966: Curl[2] Div[11] -> <div className="w-full md:w-64 bg-gray-50 border-b md:border-r border-gray-100 flex flex-col md:flex-col p-4 md:p-6 gap-4 md:gap-0">
+967: Curl[2] Div[11] -> <h2 className="text-xl font-black text-navy md:mb-8 flex-shrink-0">Settings</h2>
+968: Curl[2] Div[11] -> <nav className="flex flex-row md:flex-col gap-2 flex-1 md:space-y-2 w-full overflow-x-auto pb-2 md:pb-0">
+969: Curl[2] Div[11] -> <button
+970: Curl[2] Div[11] -> onClick={() => setSettingsTab('profile')}
+971: Curl[2] Div[11] -> className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-bold transition-all text-xs md:text-md text-left ${settingsTab === 'profile' ? 'bg-white text-navy shadow-sm border border-gray-100' : 'text-gray-500 hover:text-navy hover:bg-gray-100/50'}`}
+972: Curl[2] Div[11] -> >
+973: Curl[2] Div[11] -> <User className={`w-4 h-4 md:w-5 md:h-5 ${settingsTab === 'profile' ? 'text-coral' : 'text-gray-400'}`} /> Profile
+974: Curl[2] Div[11] -> </button>
+975: Curl[2] Div[11] -> <button
+976: Curl[2] Div[11] -> onClick={() => setSettingsTab('subscription')}
+977: Curl[2] Div[11] -> className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-bold transition-all text-xs md:text-md text-left ${settingsTab === 'subscription' ? 'bg-white text-navy shadow-sm border border-gray-100' : 'text-gray-500 hover:text-navy hover:bg-gray-100/50'}`}
+978: Curl[2] Div[11] -> >
+979: Curl[2] Div[11] -> <CreditCard className={`w-4 h-4 md:w-5 md:h-5 ${settingsTab === 'subscription' ? 'text-coral' : 'text-gray-400'}`} /> <span className="hidden md:inline">Subscription</span><span className="md:hidden">Plan</span>
+980: Curl[2] Div[11] -> </button>
+981: Curl[2] Div[11] -> <button
+982: Curl[2] Div[11] -> onClick={() => setSettingsTab('preferences')}
+983: Curl[2] Div[11] -> className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-bold transition-all text-xs md:text-md text-left ${settingsTab === 'preferences' ? 'bg-white text-navy shadow-sm border border-gray-100' : 'text-gray-500 hover:text-navy hover:bg-gray-100/50'}`}
+984: Curl[2] Div[11] -> >
+985: Curl[2] Div[11] -> <Bell className={`w-4 h-4 md:w-5 md:h-5 ${settingsTab === 'preferences' ? 'text-coral' : 'text-gray-400'}`} /> <span className="hidden md:inline">Preferences</span><span className="md:hidden">Prefs</span>
+986: Curl[2] Div[11] -> </button>
+987: Curl[2] Div[11] -> </nav>
+988: Curl[2] Div[10] -> </div>
+989: Curl[2] Div[10] -> 
+990: Curl[2] Div[10] -> {/* Content Area */}
+991: Curl[2] Div[11] -> <div className="flex-1 overflow-y-auto p-8 lg:p-12 relative">
+992: Curl[2] Div[11] -> <button
+993: Curl[2] Div[11] -> onClick={() => setShowSettingsModal(false)}
+994: Curl[2] Div[11] -> className="absolute top-6 right-6 p-2 text-gray-400 hover:text-navy hover:bg-gray-100 rounded-full transition-colors"
+995: Curl[2] Div[11] -> >
+996: Curl[2] Div[11] -> <X className="w-5 h-5" />
+997: Curl[2] Div[11] -> </button>
+998: Curl[2] Div[11] -> 
+999: Curl[3] Div[11] -> {settingsTab === 'profile' && (
+1000: Curl[3] Div[12] -> <div className="max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
+1001: Curl[3] Div[12] -> <h3 className="text-2xl font-black text-navy mb-2">Account Profile</h3>
+1002: Curl[3] Div[12] -> <p className="text-gray-500 mb-8 font-medium">Manage your personal information and email.</p>
+1003: Curl[3] Div[12] -> 
+1004: Curl[3] Div[13] -> <div className="space-y-5">
+1005: Curl[3] Div[14] -> <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+1006: Curl[3] Div[15] -> <div>
+1007: Curl[3] Div[15] -> <label className="block text-sm font-bold text-gray-700 mb-1">First Name</label>
+1008: Curl[3] Div[15] -> <input type="text" disabled value={user?.user_metadata?.first_name || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
+1009: Curl[3] Div[14] -> </div>
+1010: Curl[3] Div[15] -> <div>
+1011: Curl[3] Div[15] -> <label className="block text-sm font-bold text-gray-700 mb-1">Last Name</label>
+1012: Curl[3] Div[15] -> <input type="text" disabled value={user?.user_metadata?.last_name || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
+1013: Curl[3] Div[14] -> </div>
+1014: Curl[3] Div[13] -> </div>
+1015: Curl[3] Div[14] -> <div>
+1016: Curl[3] Div[14] -> <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+1017: Curl[3] Div[14] -> <input type="email" disabled value={user?.email || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
+1018: Curl[3] Div[13] -> </div>
+1019: Curl[3] Div[13] -> <button className="btn-primary py-3 px-6 rounded-xl font-bold opacity-50 cursor-not-allowed w-full mt-4">
+1020: Curl[3] Div[13] -> Update Profile
+1021: Curl[3] Div[13] -> </button>
+1022: Curl[3] Div[12] -> </div>
+1023: Curl[3] Div[11] -> </div>
+1024: Curl[2] Div[11] -> )}
+1025: Curl[2] Div[11] -> 
+1026: Curl[3] Div[11] -> {settingsTab === 'subscription' && (
+1027: Curl[3] Div[12] -> <div className="max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+1028: Curl[3] Div[12] -> <h3 className="text-2xl font-black text-navy mb-2">Subscription & Billing</h3>
+1029: Curl[3] Div[12] -> <p className="text-gray-500 mb-8 font-medium">Manage your DateSpark Premium plan and billing details.</p>
+1030: Curl[3] Div[12] -> 
+1031: Curl[3] Div[13] -> <div className={`p-6 md:p-8 rounded-3xl border-2 ${isPremium ? 'border-coral/20 bg-coral/5' : 'border-gray-100 bg-white shadow-sm'}`}>
+1032: Curl[3] Div[14] -> <div className="flex items-center justify-between mb-6">
+1033: Curl[3] Div[15] -> <div>
+1034: Curl[3] Div[15] -> <h4 className="text-lg font-black text-navy">{isPremium ? 'DateSpark Premium' : 'DateSpark Free'}</h4>
+1035: Curl[3] Div[15] -> <p className="text-gray-500 font-medium mt-1">{isPremium ? 'Active Subscription' : 'Current Plan'}</p>
+1036: Curl[3] Div[14] -> </div>
+1037: Curl[3] Div[15] -> <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-white">
+1038: Curl[3] Div[15] -> {isPremium ? <Heart className="w-6 h-6 fill-coral text-coral" /> : <div className="font-black text-navy text-xl">F</div>}
+1039: Curl[3] Div[14] -> </div>
+1040: Curl[3] Div[13] -> </div>
+1041: Curl[3] Div[13] -> 
+1042: Curl[3] Div[14] -> <div className="space-y-3 mb-8">
+1043: Curl[3] Div[15] -> <div className="flex items-center gap-3">
+1044: Curl[3] Div[16] -> <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
+1045: Curl[3] Div[16] -> {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
+1046: Curl[3] Div[15] -> </div>
+1047: Curl[3] Div[15] -> <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>Ultra-detailed AI generated itineraries</span>
+1048: Curl[3] Div[14] -> </div>
+1049: Curl[3] Div[15] -> <div className="flex items-center gap-3">
+1050: Curl[3] Div[16] -> <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
+1051: Curl[3] Div[16] -> {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
+1052: Curl[3] Div[15] -> </div>
+1053: Curl[3] Div[15] -> <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>All 4-5 activities unlocked per plan</span>
+1054: Curl[3] Div[14] -> </div>
+1055: Curl[3] Div[15] -> <div className="flex items-center gap-3">
+1056: Curl[3] Div[16] -> <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+1057: Curl[3] Div[16] -> <Check className="w-3.5 h-3.5 text-green-600 font-bold" />
+1058: Curl[3] Div[15] -> </div>
+1059: Curl[3] Div[15] -> <span className="text-gray-600 font-medium">
+1060: Curl[3] Div[15] -> Save up to {isPremium ? "unlimited favorites" : "3 favorites"}
+1061: Curl[3] Div[15] -> </span>
+1062: Curl[3] Div[14] -> </div>
+1063: Curl[3] Div[15] -> <div className="flex items-center gap-3">
+1064: Curl[3] Div[16] -> <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
+1065: Curl[3] Div[16] -> {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
+1066: Curl[3] Div[15] -> </div>
+1067: Curl[3] Div[15] -> <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>Unlimited plan generations</span>
+1068: Curl[3] Div[14] -> </div>
+1069: Curl[3] Div[13] -> </div>
+1070: Curl[3] Div[13] -> 
+1071: Curl[4] Div[13] -> {isPremium ? (
+1072: Curl[4] Div[14] -> <div className="flex flex-col sm:flex-row gap-3">
+1073: Curl[4] Div[14] -> <button className="flex-1 py-3 px-6 bg-navy text-white rounded-xl font-bold hover:bg-navy/90 transition-colors">
+1074: Curl[4] Div[14] -> Manage Billing Info
+1075: Curl[4] Div[14] -> </button>
+1076: Curl[4] Div[14] -> <button
+1077: Curl[6] Div[14] -> onClick={() => {
+1078: Curl[7] Div[14] -> if (window.confirm('Are you sure you want to cancel your Premium subscription? You will lose access to detailed itineraries at the end of your billing cycle.')) {
+1079: Curl[7] Div[14] -> setIsPremium(false);
+1080: Curl[6] Div[14] -> }
+1081: Curl[4] Div[14] -> }}
+1082: Curl[4] Div[14] -> className="py-3 px-6 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
+1083: Curl[4] Div[14] -> >
+1084: Curl[4] Div[14] -> Downgrade Plan
+1085: Curl[4] Div[14] -> </button>
+1086: Curl[4] Div[13] -> </div>
+1087: Curl[4] Div[13] -> ) : (
+1088: Curl[4] Div[14] -> <div className="flex flex-col gap-3">
+1089: Curl[4] Div[14] -> <button
+1090: Curl[6] Div[14] -> onClick={() => {
+1091: Curl[6] Div[14] -> setIsPremium(true);
+1092: Curl[6] Div[14] -> alert("Successfully upgraded to Premium! (Mock environment)");
+1093: Curl[4] Div[14] -> }}
+1094: Curl[4] Div[14] -> className="w-full btn-primary py-4 px-6 rounded-xl font-bold text-lg shadow-lg shadow-coral/20 hover:-translate-y-0.5 transition-all"
+1095: Curl[4] Div[14] -> >
+1096: Curl[4] Div[14] -> Upgrade to Premium - $9.99/mo
+1097: Curl[4] Div[14] -> </button>
+1098: Curl[4] Div[14] -> <button
+1099: Curl[6] Div[14] -> onClick={() => {
+1100: Curl[6] Div[14] -> setIsPremium(true);
+1101: Curl[6] Div[14] -> alert("Successfully purchased One-Night Pass! (Mock environment)");
+1102: Curl[4] Div[14] -> }}
+1103: Curl[4] Div[14] -> className="w-full bg-white border-2 border-gray-200 text-navy py-4 px-6 rounded-xl font-bold text-lg hover:border-gray-300 hover:text-navy hover:-translate-y-0.5 transition-all"
+1104: Curl[4] Div[14] -> >
+1105: Curl[4] Div[14] -> Get a One-Night Pass - $4.99
+1106: Curl[4] Div[14] -> </button>
+1107: Curl[4] Div[13] -> </div>
+1108: Curl[3] Div[13] -> )}
+1109: Curl[3] Div[12] -> </div>
+1110: Curl[3] Div[11] -> </div>
+1111: Curl[2] Div[11] -> )}
+1112: Curl[2] Div[11] -> 
+1113: Curl[3] Div[11] -> {settingsTab === 'preferences' && (
+1114: Curl[3] Div[12] -> <div className="max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
+1115: Curl[3] Div[12] -> <h3 className="text-2xl font-black text-navy mb-2">Preferences</h3>
+1116: Curl[3] Div[12] -> <p className="text-gray-500 mb-8 font-medium">Customize your DateSpark experience.</p>
+1117: Curl[3] Div[12] -> 
+1118: Curl[3] Div[13] -> <div className="space-y-6">
+1119: Curl[3] Div[14] -> <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
+1120: Curl[3] Div[15] -> <div>
+1121: Curl[3] Div[15] -> <h4 className="font-bold text-navy">Email Reminders</h4>
+1122: Curl[3] Div[15] -> <p className="text-sm text-gray-500 mt-0.5">Get reminded the day before your planned date.</p>
+1123: Curl[3] Div[14] -> </div>
+1124: Curl[3] Div[15] -> <div className="w-12 h-6 bg-navy rounded-full relative cursor-pointer">
+1125: Curl[3] Div[15] -> <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+1126: Curl[3] Div[14] -> </div>
+1127: Curl[3] Div[13] -> </div>
+1128: Curl[3] Div[14] -> <div className="space-y-4">
+1129: Curl[3] Div[15] -> <div className="flex items-center justify-between">
+1130: Curl[3] Div[15] -> <h4 className="font-bold text-navy text-sm uppercase tracking-wider">App Theme Selection</h4>
+1131: Curl[3] Div[14] -> </div>
+1132: Curl[3] Div[15] -> <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+1133: Curl[4] Div[15] -> {[
+1134: Curl[4] Div[15] -> { id: 'light', name: 'Classic Light', bg: 'bg-gray-50', preview: ['bg-white', 'bg-coral', 'bg-navy'] },
+1135: Curl[4] Div[15] -> { id: 'dark', name: 'Midnight Glow', bg: 'bg-navy', preview: ['bg-navy', 'bg-coral', 'bg-white'] },
+1136: Curl[4] Div[15] -> { id: 'sunset', name: 'Sunset Haze', bg: 'bg-gradient-to-br from-coral to-pink-500', preview: ['bg-coral', 'bg-pink-500'] },
+1137: Curl[4] Div[15] -> { id: 'lavender', name: 'Lavender Dreams', bg: 'bg-violet-100', preview: ['bg-violet-50', 'bg-violet-500'] }
+1138: Curl[4] Div[15] -> ].map((theme) => (
+1139: Curl[4] Div[15] -> <button
+1140: Curl[4] Div[15] -> key={theme.id}
+1141: Curl[4] Div[15] -> type="button"
+1142: Curl[4] Div[15] -> onClick={(e) => { e.stopPropagation(); setSelectedTheme(theme.id); }}
+1143: Curl[4] Div[15] -> className={`p-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 cursor-pointer relative select-none ${selectedTheme === theme.id ? 'border-coral ring-2 ring-coral/20 shadow-md bg-white' : 'border-gray-100 hover:border-gray-200 bg-white hover:shadow-sm'}`}
+1144: Curl[4] Div[15] -> >
+1145: Curl[5] Div[15] -> {selectedTheme === theme.id && (
+1146: Curl[5] Div[16] -> <div className="absolute top-1 right-1 w-5 h-5 bg-coral rounded-full flex items-center justify-center text-white shadow-sm z-10 animate-in zoom-in duration-200">
+1147: Curl[5] Div[16] -> <Check className="w-3 h-3 font-black" />
+1148: Curl[5] Div[15] -> </div>
+1149: Curl[4] Div[15] -> )}
+1150: Curl[4] Div[16] -> <div className={`w-full h-10 rounded-xl ${theme.bg} border border-gray-100 flex items-center justify-center gap-1.5 shadow-inner px-2 overflow-hidden`}>
+1151: Curl[5] Div[16] -> {theme.preview.map((color, i) => (
+1152: Curl[5] Div[17] -> <div key={i} className={`w-3.5 h-3.5 rounded-full border border-white/20 ${color} shadow-sm`} />
+1153: Curl[4] Div[17] -> ))}
+1154: Curl[4] Div[16] -> </div>
+1155: Curl[4] Div[16] -> <span className="text-[11px] font-bold text-navy tracking-wide">{theme.name}</span>
+1156: Curl[4] Div[16] -> </button>
+1157: Curl[3] Div[16] -> ))}
+1158: Curl[3] Div[15] -> </div>
+1159: Curl[3] Div[14] -> </div>
+1160: Curl[3] Div[13] -> </div>
+1161: Curl[3] Div[12] -> </div>
+1162: Curl[2] Div[12] -> )}
+1163: Curl[2] Div[11] -> </div>
+1164: Curl[2] Div[10] -> </div>
+1165: Curl[2] Div[9] -> </div>
+1166: Curl[1] Div[9] -> )}
+1167: Curl[1] Div[9] -> 
+1168: Curl[1] Div[9] -> 
+1169: Curl[1] Div[9] -> 
+1170: Curl[1] Div[8] -> </div>
+1171: Curl[1] Div[8] -> );
+1172: Curl[0] Div[8] -> };
+1173: Curl[0] Div[8] -> 
+1174: Curl[0] Div[8] -> export default Dashboard;

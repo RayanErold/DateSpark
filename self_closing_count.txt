@@ -1,0 +1,10 @@
+Count: 7
+[
+  "<div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-transform ${isPremium ? 'translate-x-[22px]' : 'translate-x-[3px]'}`} />",
+  "<div className=\"absolute -right-16 -top-16 w-64 h-64 bg-coral/20 rounded-full blur-3xl animate-pulse\" />",
+  "<div className=\"absolute -left-16 -bottom-16 w-64 h-64 bg-violet-500/20 rounded-full blur-3xl\" />",
+  "<div className=\"absolute inset-0 bg-gradient-to-r from-violet-200/0 via-violet-200/50 to-violet-200/0 -translate-x-full group-hover:animate-[shimmer_2s_infinite]\" />",
+  "<div className=\"absolute -right-16 -top-16 w-48 h-48 bg-gold/10 rounded-full blur-2xl group-hover:bg-gold/20 transition-colors\" />",
+  "<div className=\"absolute -right-16 -top-16 w-48 h-48 bg-coral/5 rounded-full blur-2xl group-hover:bg-coral/10 transition-colors\" />",
+  "<div key={i} className={`w-3.5 h-3.5 rounded-full border border-white/20 ${color} shadow-sm`} />"
+]
