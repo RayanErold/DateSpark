@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Compass, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,98 @@ const FeedbackBot = () => {
     const [feedbackText, setFeedbackText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     const [user, setUser] = useState(null);
+
+    // Draggable State Hook
+    const [position, setPosition] = useState({ x: 0, y: 0 }); // Defer initialization to layout effect
+    const [isDragging, setIsDragging] = useState(false);
+    const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0, hasMoved: false });
+
+    // Initialize position safely after paint
+    useLayoutEffect(() => {
+        if (typeof window !== 'undefined') {
+            setPosition({
+                x: window.innerWidth - 64, // Start pinned strictly to right edge
+                y: window.innerHeight / 2 - 30 // Start mid-screen vertically
+            });
+        }
+        
+        // Handle window resize to keep it snapped to the edge
+        const handleResize = () => {
+            setPosition(prev => ({
+                x: prev.x > window.innerWidth / 2 ? window.innerWidth - 64 : 16,
+                y: Math.min(prev.y, window.innerHeight - 80)
+            }));
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Drag tracking logic
+    useEffect(() => {
+        if (!isDragging) return;
+        
+        const handleMove = (e) => {
+            // Prevent default touch scrolling when dragging
+            if (e.cancelable && e.type.includes('touch')) e.preventDefault();
+            
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            
+            const deltaX = clientX - dragRef.current.startX;
+            const deltaY = clientY - dragRef.current.startY;
+
+            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                dragRef.current.hasMoved = true;
+            }
+
+            if (dragRef.current.hasMoved) {
+                setPosition({
+                    x: Math.max(0, Math.min(window.innerWidth - 64, dragRef.current.initialX + deltaX)),
+                    y: Math.max(0, Math.min(window.innerHeight - 80, dragRef.current.initialY + deltaY))
+                });
+            }
+        };
+
+        const handleUp = () => {
+            setIsDragging(false);
+            if (dragRef.current.hasMoved) {
+                // Snap to the closest side (left or right edge)
+                setPosition(prev => ({
+                    x: prev.x > window.innerWidth / 2 ? window.innerWidth - 64 : 16,
+                    y: prev.y
+                }));
+            }
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleUp);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleUp);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('touchend', handleUp);
+        };
+    }, [isDragging]);
+
+    const handleDown = (e) => {
+        setIsDragging(true);
+        dragRef.current = {
+            startX: e.type.includes('mouse') ? e.clientX : e.touches[0].clientX,
+            startY: e.type.includes('mouse') ? e.clientY : e.touches[0].clientY,
+            initialX: position.x,
+            initialY: position.y,
+            hasMoved: false
+        };
+    };
+
+    const handleClick = () => {
+        if (!dragRef.current.hasMoved) {
+            setShowFeedbackModal(true);
+        }
+    };
 
     useEffect(() => {
         const getUser = async () => {
@@ -39,19 +131,27 @@ const FeedbackBot = () => {
         }
     };
 
+    // Don't render until layout gives us a valid position
+    if (position.x === 0 && position.y === 0) return null;
+
     return (
         <>
             {/* Feedback Bot Floating Trigger */}
-            <div className="fixed bottom-8 right-8 z-[90]">
+            <div 
+                className={`fixed z-[90] touch-none ${!isDragging ? 'transition-all duration-300 ease-out' : ''}`}
+                style={{ left: `${position.x}px`, top: `${position.y}px` }}
+            >
                 <button
-                    onClick={() => setShowFeedbackModal(true)}
-                    className="p-4 bg-gradient-to-br from-coral to-pink-500 text-white rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center group relative border border-white/20"
+                    onMouseDown={handleDown}
+                    onTouchStart={handleDown}
+                    onClick={handleClick}
+                    className={`p-4 bg-gradient-to-br from-coral to-pink-500 text-white rounded-full shadow-2xl transition-transform flex items-center justify-center group relative border border-white/20 hover:scale-105 ${isDragging ? 'scale-95 cursor-grabbing' : 'cursor-pointer active:scale-95'}`}
                     title="Send Feedback"
                 >
-                    <div className="absolute -top-10 right-0 bg-navy text-white text-[11px] font-black px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none whitespace-nowrap">
+                    <div className="absolute -top-10 right-0 bg-navy text-white text-[11px] font-black px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none whitespace-nowrap hidden md:block">
                         Suggest Ideas 💡
                     </div>
-                    <Compass className="w-6 h-6 animate-[spin_20s_linear_infinite]" />
+                    <Compass className={`w-6 h-6 ${isDragging ? '' : 'animate-[spin_20s_linear_infinite]'}`} />
                 </button>
             </div>
 

@@ -678,11 +678,11 @@ const Dashboard = () => {
                             </div>
 
                             {/* Spacer for Background Map Visualization on Mobile */}
-                            <div className="h-[200px] md:hidden relative flex items-end justify-center pb-4 flex-shrink-0">
+                            <div className="h-[200px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
                                 {/* Mobile Map Toggle Button */}
                                 <button 
                                     onClick={() => setShowMapMobile(true)}
-                                    className="bg-navy/95 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 border border-white/20 transform transition-all active:scale-95"
+                                    className="bg-navy/95 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 border border-white/20 transform transition-all active:scale-95 mt-auto"
                                 >
                                     <MapIcon className="w-3.5 h-3.5" />
                                     Expand Map
@@ -844,7 +844,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Right Column: Embedded Google Map */}
-                        <div className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50' : 'absolute inset-0 z-0 md:relative md:flex'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}>
+                        <div className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}>
                             {showMapMobile && (
                                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 md:hidden">
                                     <button

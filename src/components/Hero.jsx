@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon, Utensils, Compass } from 'lucide-react';
+import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon, Utensils, Compass, Car, Search } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const DEMO_PLAN = {
@@ -13,7 +13,8 @@ const DEMO_PLAN = {
             description: 'Start your evening with signature handmade pasta and a curated wine list in a cozy, intimate setting.',
             photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80',
             lat: 40.7338, lng: -74.0056,
-            rating: 4.6, reviews: 2432, price: '$$$'
+            rating: 4.6, reviews: 2432, price: '$$$',
+            directionsUrl: '#', bookingUrl: '#', bookingType: 'opentable'
         },
         {
             time: '9:00 PM',
@@ -22,7 +23,8 @@ const DEMO_PLAN = {
             description: 'Walk off dinner on the elevated historic rail line with gorgeous skyline and Hudson River views.',
             photoUrl: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=500&q=80',
             lat: 40.7480, lng: -74.0048,
-            rating: 4.8, reviews: 34102, price: 'Free'
+            rating: 4.8, reviews: 34102, price: 'Free',
+            directionsUrl: '#'
         },
         {
             time: '10:30 PM',
@@ -31,7 +33,8 @@ const DEMO_PLAN = {
             description: 'Finsih the night surrounded by vintage decor, smooth jazz quartets, and artisanal dessert menus.',
             photoUrl: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=500&q=80',
             lat: 40.7444, lng: -73.9904,
-            rating: 4.5, reviews: 1890, price: '$$'
+            rating: 4.5, reviews: 1890, price: '$$',
+            directionsUrl: '#', searchUrl: '#'
         }
     ]
 };
@@ -39,6 +42,7 @@ const DEMO_PLAN = {
 const Hero = () => {
     const [activeFeature, setActiveFeature] = useState('itinerary');
     const [showDemoModal, setShowDemoModal] = useState(false);
+    const [showMapMobile, setShowMapMobile] = useState(false);
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -98,9 +102,9 @@ const Hero = () => {
 
                 <div className="relative">
                     {/* App Mockup Placeholder */}
-                    <div className="relative z-10 bg-white rounded-[40px] shadow-2xl border-8 border-navy/5 overflow-hidden w-full max-w-[420px] mx-auto">
+                    <div className="relative z-10 bg-white rounded-[40px] shadow-2xl border-8 border-navy/5 overflow-hidden w-full max-w-[420px] mx-auto h-[600px] flex flex-col">
                         {/* Mockup Header */}
-                        <div className="p-6 bg-navy text-white">
+                        <div className="p-6 bg-navy text-white flex-shrink-0">
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -136,7 +140,7 @@ const Hero = () => {
                         </div>
 
                         {/* Mockup Content Body */}
-                        <div className="p-8 min-h-[420px] bg-gray-50/50">
+                        <div className="p-8 bg-gray-50/50 flex-1 overflow-y-auto custom-scrollbar">
                             {activeFeature === 'itinerary' && (
                                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="relative border-l-2 border-dashed border-purple-500/20 ml-14 space-y-5 pb-4">
@@ -262,37 +266,50 @@ const Hero = () => {
             {/* Interactive Demo Modal */}
             {showDemoModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
-                    <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative animate-in zoom-in-95 duration-300">
+                    <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-4xl h-full md:h-auto max-h-full md:max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative animate-in zoom-in-95 duration-300">
 
                         {/* Left Sidebar - Timeline */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-transparent md:bg-white z-10">
+                        <div className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-transparent md:bg-white flex-col z-10 ${showMapMobile ? 'hidden md:flex' : 'flex'}`}>
                             {/* Sticky Top Banner inside Modal */}
-                            <div className="bg-navy/90 backdrop-blur-md p-6 md:p-8 text-white relative flex justify-between items-center sticky top-0 z-20">
+                            <div className="bg-[#0f172a]/90 backdrop-blur-md p-4 sm:p-6 pb-6 sm:pb-8 text-white relative flex justify-between items-center rounded-bl-[2rem] md:rounded-bl-none sticky top-0 z-20">
                                 <div>
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
                                             <Heart className="w-5 h-5 fill-white text-white" />
                                         </div>
                                         <div>
-                                            <h2 className="text-xl font-bold">{DEMO_PLAN.vibe} Date</h2>
-                                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Planned for Tonight</p>
+                                            <h2 className="text-lg font-black font-outfit leading-tight">{DEMO_PLAN.vibe} Date</h2>
+                                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mt-1">Planned for Tonight</p>
                                         </div>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setShowDemoModal(false)}
-                                    className="p-2 text-white/60 hover:text-white bg-white/10 rounded-full transition-colors"
+                                    onClick={() => {
+                                        setShowDemoModal(false);
+                                        setShowMapMobile(false);
+                                    }}
+                                    className="p-2 text-white/60 hover:text-white bg-white/10 rounded-full transition-colors self-start"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
 
                             {/* Timeline Contents */}
-                            <div className="p-6 sm:p-8 pb-12">
-                                {/* Spacer for Map on Mobile */}
-                                <div className="h-[200px] md:hidden flex-shrink-0"></div>
-                                <div className="p-4 bg-white rounded-t-[2.5rem] md:rounded-none md:p-0 shadow-sm md:shadow-none">
-                                <div className="space-y-6 border-l-2 border-dashed border-purple-500/20 ml-14 relative pb-6">
+                            <div className="relative flex-1 p-0 sm:p-8 sm:pt-4 pb-12 w-full">
+                                {/* Spacer for Background Map Visualization on Mobile */}
+                                <div className="h-[250px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
+                                    {/* Mobile Map Toggle Button */}
+                                    <button 
+                                        onClick={() => setShowMapMobile(true)}
+                                        className="bg-navy/95 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 border border-white/20 transform transition-all active:scale-95"
+                                    >
+                                        <MapIcon className="w-3.5 h-3.5" />
+                                        Expand Map
+                                    </button>
+                                </div>
+
+                                <div className="p-6 sm:p-8 pt-10 bg-white md:bg-white rounded-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative z-10 mt-[-2rem]">
+                                <div className="space-y-6 border-l-2 border-dashed border-purple-500/20 ml-6 sm:ml-14 relative pb-6">
                                     {DEMO_PLAN.itinerary.map((step, idx) => {
                                         const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy'];
                                         const icons = [
@@ -331,8 +348,44 @@ const Hero = () => {
                                                     </div>
                                                     <p className="text-sm text-gray-500 border-t border-gray-50 pt-2 mt-1 leading-relaxed">{step.description}</p>
                                                     {step.photoUrl && (
-                                                        <img src={step.photoUrl} alt={step.venue} className="rounded-xl w-full h-40 object-cover border border-gray-50 shadow-sm mt-1" />
+                                                        <img src={step.photoUrl} alt={step.venue} className="rounded-xl w-full h-40 object-cover border border-gray-50 shadow-sm mt-1 mb-2" />
                                                     )}
+                                                    
+                                                    {/* Action Tags */}
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                        {step.directionsUrl && (
+                                                            <button
+                                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                            >
+                                                                <MapPin className="w-3 h-3" /> Get Directions
+                                                            </button>
+                                                        )}
+
+                                                        {step.bookingUrl && (
+                                                            <button
+                                                                className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                            >
+                                                                {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
+                                                                {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
+                                                            </button>
+                                                        )}
+
+                                                        {step.searchUrl && (
+                                                            <button
+                                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                            >
+                                                                <Search className="w-3 h-3" /> Search on Google
+                                                            </button>
+                                                        )}
+
+                                                        {step.lat && step.lng && (
+                                                            <button
+                                                                className="px-2.5 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                            >
+                                                                <Car className="w-3 h-3" /> Get a Ride
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -340,10 +393,15 @@ const Hero = () => {
                                 </div>
                             </div>
 
-                                <div className="pt-4">
+                                <div className="mt-8 -ml-14 bg-gray-50 p-6 rounded-3xl border border-gray-100 flex flex-col items-center justify-center text-center space-y-4">
+                                    <div className="w-12 h-12 bg-coral/10 text-coral rounded-2xl flex items-center justify-center">
+                                        <Heart className="w-6 h-6 fill-current" />
+                                    </div>
+                                    <h4 className="font-bold text-navy text-lg">Ready to spark something?</h4>
                                     <button
                                         onClick={() => {
                                             setShowDemoModal(false);
+                                            setShowMapMobile(false);
                                             window.location.hash = 'waitlist';
                                         }}
                                         className="w-full bg-navy text-white py-4 px-6 rounded-2xl font-black text-center flex items-center justify-center gap-2 hover:bg-coral transition-colors shadow-lg group shadow-coral/5"
@@ -355,14 +413,28 @@ const Hero = () => {
                         </div>
 
                         {/* Right Panel - Embedded Google Map */}
-                        <div className="absolute inset-0 md:relative md:flex flex-col w-full md:w-5/12 bg-gray-50 border-l border-gray-200 z-0">
+                        <div className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-5/12 bg-gray-50 border-l border-gray-200`}>
+                            {showMapMobile && (
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 md:hidden">
+                                    <button
+                                        onClick={() => setShowMapMobile(false)}
+                                        className="bg-white text-navy px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 border border-gray-100 transform transition-all active:scale-95"
+                                    >
+                                        <Ticket className="w-5 h-5 text-coral" />
+                                        Back to Itinerary
+                                    </button>
+                                </div>
+                            )}
+
                             {isLoaded ? (
+                                <div className="flex-1 w-full relative min-h-[50vh]">
                                 <GoogleMap
-                                    mapContainerStyle={{ width: '100%', height: '100%' }}
+                                    mapContainerStyle={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
                                     center={{ lat: 40.7400, lng: -73.9980 }} // Center on mapped area
                                     zoom={14}
                                     options={{
                                         disableDefaultUI: true,
+                                        gestureHandling: 'greedy',
                                     }}
                                 >
                                     {DEMO_PLAN.itinerary.map((step, idx) => (
@@ -373,8 +445,9 @@ const Hero = () => {
                                         />
                                     ))}
                                 </GoogleMap>
+                                </div>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center bg-gray-100/50">
+                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center bg-gray-100/50 min-h-[50vh]">
                                     <MapIcon className="w-12 h-12 mb-4 opacity-50" />
                                     <p className="font-medium">Please add your Google Maps API Key to view the map.</p>
                                 </div>
