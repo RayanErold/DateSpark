@@ -1210,7 +1210,7 @@ const Dashboard = () => {
                                         <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
                                             <div>
                                                 <h4 className="font-bold text-navy">Dark Mode</h4>
-                                                <p className="text-sm text-gray-500 mt-0.5">Switch app to dark theme layout overlays.</p>
+                                                <p className="text-sm text-gray-500 mt-0.5">Switch app to dark theme (Coming Soon).</p>
                                             </div>
                                             <div className="w-12 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
                                                 <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
