@@ -374,7 +374,7 @@ const GeneratePlan = () => {
                 {mode === 'ai_custom' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
                         {aiConcepts.length === 0 ? (
-                            <div className="bg-white rounded-3xl shadow-[0_2px_40px_rgba(0,0,0,0.04)] border border-gray-100 p-8 sm:p-10">
+                            <div className="bg-white rounded-3xl shadow-[0_2px_40px_rgba(0,0,0,0.04)] border border-gray-100 p-8 sm:p-10 mb-24">
                                 <form onSubmit={handleSuggestConcepts} className="space-y-6">
                                     <div className="space-y-4">
                                         <label className="flex items-center gap-2 text-[16px] font-bold text-navy">
