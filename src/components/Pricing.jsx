@@ -26,7 +26,7 @@ const Pricing = () => {
                 { text: "Unlock full 5-stop itineraries", comingSoon: false },
                 { text: "Book tables, get directions, order Ubers", comingSoon: false },
                 { text: "Save favorites to your dashboard", comingSoon: false },
-                { text: "Unlimited AI Customizer (24hr access)", comingSoon: false }
+                { text: "Unlimited AI Customizer (24hr access)", comingSoon: true }
             ],
             cta: "Unlock 24hr Access",
             highlight: true,
