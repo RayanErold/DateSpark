@@ -57,9 +57,9 @@ const Signup = () => {
 
         try {
             const { error } = await supabase.auth.verifyOtp({
-                email: formData.email,
-                token: verificationCode,
-                type: 'signup'
+                email: formData.email.trim(),
+                token: verificationCode.replace(/\s/g, ''),
+                type: 'email'
             });
 
             if (error) throw error;
