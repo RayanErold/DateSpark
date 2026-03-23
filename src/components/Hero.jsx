@@ -265,9 +265,9 @@ const Hero = () => {
                     <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative animate-in zoom-in-95 duration-300">
 
                         {/* Left Sidebar - Timeline */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-transparent md:bg-white z-10">
                             {/* Sticky Top Banner inside Modal */}
-                            <div className="bg-navy p-6 md:p-8 text-white relative flex justify-between items-center">
+                            <div className="bg-navy/90 backdrop-blur-md p-6 md:p-8 text-white relative flex justify-between items-center sticky top-0 z-20">
                                 <div>
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
@@ -288,7 +288,10 @@ const Hero = () => {
                             </div>
 
                             {/* Timeline Contents */}
-                            <div className="p-8">
+                            <div className="p-6 sm:p-8 pb-12">
+                                {/* Spacer for Map on Mobile */}
+                                <div className="h-[200px] md:hidden flex-shrink-0"></div>
+                                <div className="p-4 bg-white rounded-t-[2.5rem] md:rounded-none md:p-0 shadow-sm md:shadow-none">
                                 <div className="space-y-6 border-l-2 border-dashed border-purple-500/20 ml-14 relative pb-6">
                                     {DEMO_PLAN.itinerary.map((step, idx) => {
                                         const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy'];
@@ -313,8 +316,16 @@ const Hero = () => {
                                                         <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
                                                             {icons[idx % icons.length]}
                                                         </div>
-                                                        <div>
-                                                            <h4 className="text-base font-black text-navy">{step.venue}</h4>
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <h4 className="text-base font-black text-navy">{step.venue}</h4>
+                                                                {step.rating && (
+                                                                    <div className="flex items-center gap-1 bg-amber-50 text-amber-500 px-1.5 py-0.5 rounded-md text-xs font-bold border border-amber-100 flex-shrink-0">
+                                                                        <Star className="w-3.5 h-3.5 fill-current" />
+                                                                        {step.rating}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{step.activity}</p>
                                                         </div>
                                                     </div>
@@ -327,6 +338,7 @@ const Hero = () => {
                                         );
                                     })}
                                 </div>
+                            </div>
 
                                 <div className="pt-4">
                                     <button
@@ -343,7 +355,7 @@ const Hero = () => {
                         </div>
 
                         {/* Right Panel - Embedded Google Map */}
-                        <div className="hidden md:flex flex-col w-5/12 bg-gray-50 relative border-l border-gray-200">
+                        <div className="absolute inset-0 md:relative md:flex flex-col w-full md:w-5/12 bg-gray-50 border-l border-gray-200 z-0">
                             {isLoaded ? (
                                 <GoogleMap
                                     mapContainerStyle={{ width: '100%', height: '100%' }}
