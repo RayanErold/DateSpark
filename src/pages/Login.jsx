@@ -11,6 +11,8 @@ const Login = () => {
         email: '',
         password: '',
     });
+    const [isResetMode, setIsResetMode] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -39,6 +41,24 @@ const Login = () => {
         }
     };
 
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
+            setResetSent(true);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -57,7 +77,17 @@ const Login = () => {
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="bg-white py-8 px-4 shadow sm:rounded-2xl sm:px-10 border border-gray-100">
-                    <form className="space-y-6" onSubmit={handleLogin}>
+                    {resetSent ? (
+                        <div className="text-center space-y-4">
+                            <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500">
+                                <Heart className="w-6 h-6 fill-current" />
+                            </div>
+                            <h3 className="text-xl font-bold text-navy">Check your email</h3>
+                            <p className="text-sm text-gray-500">We've sent a link to reset your password to {formData.email}</p>
+                            <button onClick={() => { setIsResetMode(false); setResetSent(false); }} className="text-sm font-semibold text-coral mt-4">Back to Sign In</button>
+                        </div>
+                    ) : (
+                        <form className="space-y-6" onSubmit={isResetMode ? handleResetPassword : handleLogin}>
                         {error && (
                             <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium">
                                 {error}
@@ -78,19 +108,24 @@ const Login = () => {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700">Password</label>
-                            <div className="mt-1">
-                                <input
-                                    name="password"
-                                    type="password"
-                                    required
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all sm:text-sm"
-                                />
+                        {!isResetMode && (
+                            <div>
+                                <div className="flex items-center justify-between">
+                                    <label className="block text-sm font-bold text-gray-700">Password</label>
+                                    <button type="button" onClick={() => setIsResetMode(true)} className="text-xs font-semibold text-coral hover:underline">Forgot password?</button>
+                                </div>
+                                <div className="mt-1">
+                                    <input
+                                        name="password"
+                                        type="password"
+                                        required
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all sm:text-sm"
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <div>
                             <button
@@ -98,10 +133,14 @@ const Login = () => {
                                 disabled={isLoading}
                                 className="w-full btn-primary py-3 rounded-xl flex justify-center items-center gap-2"
                             >
-                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Sign in'}
+                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : isResetMode ? 'Send Reset Link' : 'Sign in'}
                             </button>
+                            {isResetMode && (
+                                <button type="button" onClick={() => setIsResetMode(false)} className="w-full text-center text-sm font-semibold text-gray-400 hover:text-navy mt-4">Back to Sign In</button>
+                            )}
                         </div>
                     </form>
+                    )}
                 </div>
             </div>
         </div>
