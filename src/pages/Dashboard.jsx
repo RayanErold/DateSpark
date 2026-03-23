@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2 } from 'lucide-react';
+import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2, Lock } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
@@ -1210,7 +1210,7 @@ const Dashboard = () => {
                                         <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
                                             <div>
                                                 <h4 className="font-bold text-navy">Dark Mode</h4>
-                                                <p className="text-sm text-gray-500 mt-0.5">Switch app to dark theme (Coming Soon).</p>
+                                                <p className="text-sm text-gray-500 mt-0.5">Switch app to dark theme layout overlays.</p>
                                             </div>
                                             <div className="w-12 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
                                                 <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
@@ -1228,12 +1228,23 @@ const Dashboard = () => {
                                                 ].map(theme => (
                                                     <button 
                                                         key={theme.id}
-                                                        onClick={() => setAppTheme(theme.id)}
-                                                        className={`p-4 rounded-xl border flex items-center justify-between transition-all ${appTheme === theme.id ? 'border-coral shadow-sm bg-coral/5' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                                                        onClick={() => {
+                                                            if (!isPremium && theme.id !== 'theme_light_id_placeholder') { // Wait, or just theme.id !== 'light'
+                                                                if (!isPremium && theme.id !== 'light') {
+                                                                    setShowUpgradeModal(true);
+                                                                } else {
+                                                                    setAppTheme(theme.id);
+                                                                }
+                                                            } else {
+                                                                setAppTheme(theme.id);
+                                                            }
+                                                        }}
+                                                        className={`p-4 rounded-xl border flex items-center justify-between transition-all ${appTheme === theme.id ? 'border-coral shadow-sm bg-coral/5' : 'border-gray-100 hover:border-gray-200 bg-white'} ${!isPremium && theme.id !== 'light' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
                                                     >
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-5 h-5 rounded-full ${theme.bg} border`} />
                                                             <span className="font-semibold text-sm text-navy">{theme.name}</span>
+                                                            {!isPremium && theme.id !== 'light' && <Lock className="w-3.5 h-3.5 text-coral flex-shrink-0" />}
                                                         </div>
                                                         <div className="flex gap-1">
                                                             {theme.preview.map((c, i) => <div key={i} className={`w-2 h-2 rounded-full ${c}`} />)}

@@ -57,7 +57,7 @@ const Pricing = () => {
                 { text: "Unlock unlimited date plans", comingSoon: false },
                 { text: "Unlimited favorite savings", comingSoon: false },
                 { text: "Custom Font personalization", comingSoon: false },
-                { text: "Theme Customization", comingSoon: true },
+                { text: "Theme Customization", comingSoon: false },
                 { text: "Unlimited AI Date Customizer", comingSoon: true }
             ],
             cta: "Subscribe Now",
