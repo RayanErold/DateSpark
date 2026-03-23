@@ -622,10 +622,10 @@ const Dashboard = () => {
                     <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
 
                         {/* Left Column: Timeline UI */}
-                        <div className={`flex-1 overflow-y-auto bg-transparent md:bg-white flex flex-col z-10 ${showMapMobile ? 'hidden md:flex' : ''}`}>
+                        <div className={`flex-1 overflow-y-auto bg-transparent md:bg-white flex-col z-10 ${showMapMobile ? 'hidden md:flex' : 'flex'}`}>
 
                             {/* Navy Header Section */}
-                            <div className="bg-[#0f172a]/90 backdrop-blur-md text-white p-6 sm:p-8 pb-10 sm:pb-12 relative rounded-bl-[2rem] md:rounded-bl-none sticky top-0 z-20">
+                            <div className="bg-[#0f172a]/90 backdrop-blur-md text-white p-4 sm:p-6 pb-6 sm:pb-8 relative rounded-bl-[2rem] md:rounded-bl-none sticky top-0 z-20">
                                 <button
                                     onClick={() => {
                                         setSelectedPlan(null);
@@ -636,13 +636,13 @@ const Dashboard = () => {
                                     <X className="w-5 h-5" />
                                 </button>
 
-                                <div className="flex justify-between items-start">
-                                    <div className="flex gap-4 items-center">
-                                        <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
-                                            <Heart className="w-6 h-6 fill-white text-white" />
+                                <div className="flex justify-between items-start mt-2">
+                                    <div className="flex gap-3 items-center">
+                                        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                                            <Heart className="w-5 h-5 fill-white text-white" />
                                         </div>
                                         <div>
-                                            <h2 className="text-xl font-black font-outfit">{selectedPlan.vibe} Date</h2>
+                                            <h2 className="text-lg font-black font-outfit leading-tight">{selectedPlan.vibe} Date</h2>
                                             <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mt-1">
                                                 {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
                                                     `PLANNED FOR ${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase()}`
@@ -658,8 +658,8 @@ const Dashboard = () => {
                             </div>
 
                             {/* Floating Tab Bar */}
-                            <div className="px-4 md:px-8 -mt-6 z-10 w-full flex justify-center">
-                                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-2 flex justify-between items-center text-sm font-bold text-gray-500 w-full max-w-sm">
+                            <div className="px-4 md:px-8 -mt-5 z-10 w-full flex justify-center">
+                                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex justify-between items-center text-xs font-bold text-gray-500 w-full max-w-sm">
                                     <button className="flex-1 flex flex-col items-center gap-1 py-2 text-navy bg-gray-50 rounded-xl">
                                         <Ticket className="w-5 h-5" /> Itinerary
                                     </button>
@@ -677,22 +677,19 @@ const Dashboard = () => {
                                 </div>
                             </div>
 
-                            {/* Vertical Timeline */}
-                            
-                            {/* Mobile Map Toggle Button */}
-                            <div className="md:hidden flex justify-center mt-4 z-10 relative">
+                            {/* Spacer for Background Map Visualization on Mobile */}
+                            <div className="h-[200px] md:hidden relative flex items-end justify-center pb-4 flex-shrink-0">
+                                {/* Mobile Map Toggle Button */}
                                 <button 
                                     onClick={() => setShowMapMobile(true)}
-                                    className="bg-navy text-white px-6 py-2.5 rounded-full font-bold shadow-lg flex items-center gap-2 border border-white/10 transform transition-all active:scale-95"
+                                    className="bg-navy/95 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 border border-white/20 transform transition-all active:scale-95"
                                 >
-                                    <MapIcon className="w-4 h-4" />
-                                    View Interactive Map
+                                    <MapIcon className="w-3.5 h-3.5" />
+                                    Expand Map
                                 </button>
                             </div>
 
-                            {/* Spacer for Map on Mobile */}
-                            <div className="h-[250px] md:hidden flex-shrink-0"></div>
-                            <div className="p-6 sm:p-8 pt-10 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative">
+                            <div className="p-6 sm:p-8 pt-8 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative mt-[-1rem]">
                                 <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
                                     {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.map((step, idx) => {
                                         const isLockedStep = !isPremium && idx >= 2;
@@ -847,7 +844,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Right Column: Embedded Google Map */}
-                        <div className={`absolute inset-0 md:relative md:flex flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200 ${showMapMobile ? 'z-50' : 'z-0'}`}>
+                        <div className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50' : 'absolute inset-0 z-0 md:relative md:flex'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}>
                             {showMapMobile && (
                                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 md:hidden">
                                     <button
@@ -872,8 +869,9 @@ const Dashboard = () => {
                             </div>
 
                             {isLoaded ? (
+                                <div className="flex-1 w-full relative min-h-[50vh]">
                                 <GoogleMap
-                                    mapContainerStyle={{ width: '100%', height: '100%' }}
+                                    mapContainerStyle={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
                                     center={
                                         (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.length > 0
                                             ? { lat: (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)[0].lat, lng: (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)[0].lng }
@@ -883,6 +881,7 @@ const Dashboard = () => {
                                     options={{
                                         disableDefaultUI: true,
                                         styles: appTheme === 'dark' ? darkMapStyle : undefined,
+                                        gestureHandling: 'greedy',
                                     }}
                                 >
                                     {/* Markers for each step */}
@@ -894,8 +893,9 @@ const Dashboard = () => {
                                         />
                                     ))}
                                 </GoogleMap>
+                                </div>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center min-h-[50vh]">
                                     <MapIcon className="w-12 h-12 mb-4 opacity-50" />
                                     <p className="font-medium">Please add your Google Maps API Key to view the map.</p>
                                 </div>
