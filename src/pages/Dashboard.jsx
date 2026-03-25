@@ -659,21 +659,11 @@ const Dashboard = () => {
 
                             {/* Floating Tab Bar */}
                             <div className="px-4 md:px-8 -mt-5 z-10 w-full flex justify-center">
-                                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex justify-between items-center text-xs font-bold text-gray-500 w-full max-w-sm">
-                                    <button className="flex-1 flex flex-col items-center gap-1 py-2 text-navy bg-gray-50 rounded-xl">
-                                        <Ticket className="w-5 h-5" /> Itinerary
-                                    </button>
-                                    <button onClick={handleSync} className="flex-1 flex flex-col items-center gap-1 py-2 hover:text-navy transition-colors">
-                                        <Calendar className="w-5 h-5" /> Sync
-                                    </button>
-                                    <button onClick={handleShare} className="flex-1 flex flex-col items-center gap-1 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl transition-colors border border-violet-100 shadow-sm relative overflow-hidden group">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-violet-200/0 via-violet-200/50 to-violet-200/0 -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
-                                        <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-5 h-5 rounded object-cover shadow-sm bg-white z-10" />
-                                        <span className="text-[10px] font-black tracking-wide uppercase z-10 line-clamp-1 w-full text-center px-1">Share DateSpark</span>
-                                    </button>
-                                    <button onClick={handleBudget} className="flex-1 flex flex-col items-center gap-1 py-2 hover:text-navy transition-colors">
-                                        <Wallet className="w-5 h-5" /> Budget
-                                    </button>
+                                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex items-center justify-center text-xs font-bold text-gray-500 w-auto">
+                                    <div className="flex flex-col items-center gap-1 py-1.5 px-6 text-navy bg-gray-50 rounded-xl border border-gray-100/50">
+                                        <Ticket className="w-4 h-4" /> 
+                                        <span>Itinerary</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -844,7 +834,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* Right Column: Embedded Google Map */}
-                        <div className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}>
+                        <div className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50 touch-none pointer-events-auto' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}>
                             {showMapMobile && (
                                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 md:hidden">
                                     <button

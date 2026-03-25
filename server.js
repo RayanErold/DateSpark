@@ -463,14 +463,25 @@ app.post('/api/generate-custom-date', async (req, res) => {
         const placePromises = terms.map(term => fetchPlaces(term));
         const placesResults = await Promise.all(placePromises);
 
-        const getFallback = (i) => ({
-            name: `Surprise Spot ${i + 1}`,
-            description: `A fantastic local venue fitting your vibe.`,
-            lat: 40.7128 + (i * 0.005), lng: -74.0060 + (i * 0.005),
-            address: 'New York City, NY',
-            photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-            url: null
-        });
+        const genericRealPlaces = [
+            { name: "Central Park", address: "New York, NY", lat: 40.7826, lng: -73.9656, description: "Iconic park in the center of Manhattan." },
+            { name: "The High Line", address: "Gansevoort St, NY", lat: 40.7480, lng: -74.0048, description: "Beautiful elevated park with scenic Hudson river views." },
+            { name: "Chelsea Market", address: "75 9th Ave, NY", lat: 40.7420, lng: -74.0048, description: "Famous food hall and shopping mall." },
+            { name: "Washington Square Park", address: "Washington Square, NY", lat: 40.7308, lng: -73.9973, description: "Vibrant park in Greenwich Village." },
+            { name: "Brooklyn Bridge Park", address: "334 Furman St, Brooklyn", lat: 40.7011, lng: -73.9958, description: "Unmatched skyline views." }
+        ];
+
+        const getFallback = (i) => {
+            const fallback = genericRealPlaces[i % genericRealPlaces.length];
+            return {
+                name: fallback.name,
+                description: fallback.description,
+                lat: fallback.lat, lng: fallback.lng,
+                address: fallback.address,
+                photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
+                url: null
+            };
+        };
 
         const startTimes = ['5:00 PM', '7:00 PM', '9:30 PM'];
 
@@ -739,23 +750,62 @@ app.post('/api/generate-date', async (req, res) => {
             const interestQuery = (interests && interests !== 'Any') ? `${interests} ` : '';
             const dietaryQuery = (dietary && Array.isArray(dietary) && dietary.length > 0) ? `${dietary.join(' ')} ` : '';
 
-            const fetchPromises = [
-                fetchPlaces('events', `${interestQuery}live event theater or comedy club or concert in ${chosenNeighborhood}`),
-                fetchPlaces('food', `${dietaryQuery}${interestQuery}highly rated romantic restaurant in ${chosenNeighborhood} ${budget || ''}`),
-                fetchPlaces('entertainment', `${interestQuery}bowling alley or interactive entertainment or arcade in ${chosenNeighborhood}`),
-                fetchPlaces('sightseeing', `${interestQuery}scenic pier or park or museum in ${chosenNeighborhood}`),
-                fetchPlaces('dessert', `${dietaryQuery}${interestQuery}famous bakery or dessert or ice cream in ${chosenNeighborhood}`)
+            const shuffleKws = (array) => [...array].sort(() => 0.5 - Math.random());
+            const eventKws = shuffleKws(['live music', 'theater', 'comedy club', 'concert', 'gallery', 'speakeasy', 'nightlife']).slice(0, 3).join(' OR ');
+            const foodKws = shuffleKws(['romantic restaurant', 'bistro', 'upscale dining', 'tapas', 'wine bar', 'hidden gem kitchen']).slice(0, 3).join(' OR ');
+            const entKws = shuffleKws(['bowling', 'arcade', 'interactive experience', 'mini golf', 'escape room', 'lounge']).slice(0, 3).join(' OR ');
+            const sightKws = shuffleKws(['scenic pier', 'park', 'museum', 'botanical garden', 'landmark', 'observation deck']).slice(0, 3).join(' OR ');
+            const dessertKws = shuffleKws(['famous bakery', 'artisan dessert', 'gelato', 'patisserie', 'creperie', 'chocolate shop']).slice(0, 3).join(' OR ');
+
+            // Only inject the heavy randomized OR clusters if the user didn't specify distinct interests
+            const getQ = (specificReq, randomFb, baseType) => {
+                const s = specificReq.trim();
+                return s ? `${s} ${baseType}` : `${randomFb}`;
+            };
+
+            let fetchPromises = [
+                fetchPlaces('events', `${getQ(interestQuery, eventKws, 'live event')} in ${chosenNeighborhood}`),
+                fetchPlaces('food', `${dietaryQuery} ${getQ(interestQuery, foodKws, 'restaurant')} in ${chosenNeighborhood} ${budget || ''}`.trim()),
+                fetchPlaces('entertainment', `${getQ(interestQuery, entKws, 'entertainment activity')} in ${chosenNeighborhood}`),
+                fetchPlaces('sightseeing', `${getQ(interestQuery, sightKws, 'attraction')} in ${chosenNeighborhood}`),
+                fetchPlaces('dessert', `${dietaryQuery} ${getQ(interestQuery, dessertKws, 'dessert')} in ${chosenNeighborhood}`.trim())
             ];
+
+            const hasSpecifics = interestQuery.trim() !== '' || dietaryQuery.trim() !== '';
+
+            if (hasSpecifics) {
+                // Fire a pure random batch to ensure about 4 out of 7 ideas are totally fresh
+                fetchPromises = fetchPromises.concat([
+                    fetchPlaces('events_random', `${eventKws} in ${chosenNeighborhood}`),
+                    fetchPlaces('food_random', `${foodKws} in ${chosenNeighborhood} ${budget || ''}`.trim()),
+                    fetchPlaces('entertainment_random', `${entKws} in ${chosenNeighborhood}`),
+                    fetchPlaces('sightseeing_random', `${sightKws} in ${chosenNeighborhood}`),
+                    fetchPlaces('dessert_random', `${dessertKws} in ${chosenNeighborhood}`.trim())
+                ]);
+            }
 
             if (activities && activities.trim() !== '') {
                 fetchPromises.push(fetchPlaces('custom', `${activities} in New York City`));
             }
 
             const results = await Promise.all(fetchPromises);
-            [events, restaurants, entertainment, sightseeing, desserts] = results;
 
-            if (results.length > 5) {
-                customPlaces = results[5];
+            const getMixedResults = (primaryIdx) => {
+                if (hasSpecifics && results.length >= 10) { 
+                    // merge the user's specific request query with the purely randomized AI queries
+                    return [...results[primaryIdx], ...results[primaryIdx + 5]];
+                }
+                return results[primaryIdx];
+            };
+
+            events = getMixedResults(0);
+            restaurants = getMixedResults(1);
+            entertainment = getMixedResults(2);
+            sightseeing = getMixedResults(3);
+            desserts = getMixedResults(4);
+
+            if (activities && activities.trim() !== '') {
+                customPlaces = results[results.length - 1]; // the custom query is always the last promise
             }
         }
 
@@ -801,11 +851,27 @@ app.post('/api/generate-date', async (req, res) => {
             };
         };
 
-        if (!events.length) events = Array(7).fill().map((_, i) => getFallback('Event', i));
-        if (!restaurants.length) restaurants = Array(7).fill().map((_, i) => getFallback('Restaurant', i));
-        if (!entertainment.length) entertainment = Array(7).fill().map((_, i) => getFallback('Entertainment', i));
-        if (!sightseeing.length) sightseeing = Array(7).fill().map((_, i) => getFallback('Sightseeing', i));
-        if (!desserts.length) desserts = Array(7).fill().map((_, i) => getFallback('Dessert', i));
+        const mergeWithFallsbacks = (apiResults, type) => {
+            let list = [...apiResults];
+            let fbIdx = 0;
+            const fbList = fallbackMap[type] || fallbackMap['Sightseeing'];
+            while (list.length < 7) {
+                const item = fbList[fbIdx % fbList.length];
+                list.push({
+                    ...item,
+                    photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
+                    url: null
+                });
+                fbIdx++;
+            }
+            return list;
+        };
+
+        events = mergeWithFallsbacks(events, 'Event');
+        restaurants = mergeWithFallsbacks(restaurants, 'Restaurant');
+        entertainment = mergeWithFallsbacks(entertainment, 'Entertainment');
+        sightseeing = mergeWithFallsbacks(sightseeing, 'Sightseeing');
+        desserts = mergeWithFallsbacks(desserts, 'Dessert');
 
         const shuffle = (array) => [...array].sort(() => 0.5 - Math.random());
         const shuffledEvents = shuffle(events);
