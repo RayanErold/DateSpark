@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2, Lock } from 'lucide-react';
+import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2, Lock, Sparkles } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
@@ -54,6 +54,11 @@ const Dashboard = () => {
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
     const [completedSteps, setCompletedSteps] = useState([]);
+
+    // --- SWITCH UP STATE ---
+    const [isSwitchingUp, setIsSwitchingUp] = useState(false);
+    const [alternatives, setAlternatives] = useState([]);
+    const [activeSwitchIndex, setActiveSwitchIndex] = useState(null);
 
     useEffect(() => {
         if (selectedPlan && selectedPlan.id) {
@@ -265,6 +270,93 @@ const Dashboard = () => {
     const handleSignOut = async () => {
         await supabase.auth.signOut();
         navigate('/login');
+    };
+
+    const handleSwitchUp = async (idx, step) => {
+        setActiveSwitchIndex(idx);
+        setIsSwitchingUp(true);
+        setAlternatives([]);
+
+        try {
+            // Get user's current location if possible, otherwise use step's location
+            let lat = step.lat;
+            let lng = step.lng;
+
+            if (navigator.geolocation) {
+                const pos = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                }).catch(() => null);
+                
+                if (pos) {
+                    lat = pos.coords.latitude;
+                    lng = pos.coords.longitude;
+                }
+            }
+
+            const response = await axios.post('/api/nearby-alternatives', {
+                lat,
+                lng,
+                type: step.activity,
+                radius: 5000, // 5km radius
+                budget: selectedPlan.budget,
+                currentPlaceId: step.id // Avoid suggesting the same place
+            });
+
+            setAlternatives(response.data.alternatives || []);
+        } catch (err) {
+            console.error('Error fetching alternatives:', err);
+            alert('Failed to find nearby alternatives.');
+        } finally {
+            setIsSwitchingUp(false);
+        }
+    };
+
+    const confirmSwitch = async (alt) => {
+        if (!activeSwitchIndex && activeSwitchIndex !== 0) return;
+        
+        try {
+            const currentPlan = plans.find(p => p.id === selectedPlan.id);
+            if (!currentPlan) return;
+
+            const isArrayItinerary = Array.isArray(currentPlan.itinerary);
+            const steps = isArrayItinerary ? [...currentPlan.itinerary] : [...currentPlan.itinerary.steps];
+            const originalStep = steps[activeSwitchIndex];
+
+            // Create the new step object by merging original metadata (time) with new venue data
+            const newStep = {
+                ...originalStep,
+                venue: alt.name,
+                address: alt.address,
+                rating: alt.rating,
+                description: alt.description || originalStep.description, // Fallback to original description if needed
+                photoUrl: alt.photo,
+                lat: alt.location?.latitude,
+                lng: alt.location?.longitude,
+                searchUrl: alt.searchUrl,
+                placeId: alt.id
+            };
+
+            steps[activeSwitchIndex] = newStep;
+
+            const updatedItinerary = isArrayItinerary ? steps : { ...currentPlan.itinerary, steps };
+
+            const { error } = await supabase
+                .from('plans')
+                .update({ itinerary: updatedItinerary })
+                .eq('id', selectedPlan.id);
+
+            if (error) throw error;
+
+            // Update local state
+            setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, itinerary: updatedItinerary } : p));
+            setSelectedPlan(prev => ({ ...prev, itinerary: updatedItinerary }));
+            setActiveSwitchIndex(null);
+            setAlternatives([]);
+            
+        } catch (error) {
+            console.error('Error confirming switch:', error);
+            alert('Failed to update the plan. Please try again.');
+        }
     };
 
     const getGroupedFavorites = () => {
@@ -805,6 +897,21 @@ const Dashboard = () => {
                                                             </a>
                                                         )}
 
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleSwitchUp(idx, step);
+                                                            }}
+                                                            className="px-2.5 py-1.5 bg-violet-50 text-violet-600 outline outline-1 outline-violet-200 text-xs font-black rounded-lg hover:bg-violet-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-[0_1px_8px_rgba(139,92,246,0.1)] hover:shadow-violet-200/50 group/btn"
+                                                        >
+                                                            {isSwitchingUp && activeSwitchIndex === idx ? (
+                                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                            ) : (
+                                                                <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
+                                                            )}
+                                                            Switch Up
+                                                        </button>
+
                                                         {step.lat && step.lng && (
                                                             <a
                                                                 href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
@@ -816,6 +923,64 @@ const Dashboard = () => {
                                                             </a>
                                                         )}
                                                     </div>
+
+                                                    {/* Alternatives List */}
+                                                     {activeSwitchIndex === idx && (
+                                                         <div className="mt-4 bg-violet-50/50 rounded-2xl p-4 border border-violet-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                             <div className="flex items-center justify-between mb-3">
+                                                                 <h5 className="text-[11px] font-black text-violet-600 uppercase tracking-widest flex items-center gap-2">
+                                                                     <Sparkles className="w-3 h-3" /> Nearby Alternatives
+                                                                 </h5>
+                                                                 <button onClick={() => setActiveSwitchIndex(null)} className="text-gray-400 hover:text-gray-600">
+                                                                     <X className="w-3 h-3" />
+                                                                 </button>
+                                                             </div>
+                                                             
+                                                             {isSwitchingUp ? (
+                                                                 <div className="flex flex-col items-center py-4 gap-2">
+                                                                     <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+                                                                     <p className="text-[10px] font-bold text-violet-400">Finding better spots nearby...</p>
+                                                                 </div>
+                                                             ) : alternatives.length > 0 ? (
+                                                                 <div className="space-y-2">
+                                                                     {alternatives.map((alt) => (
+                                                                         <button
+                                                                             key={alt.id}
+                                                                             onClick={() => confirmSwitch(alt)}
+                                                                             className="w-full bg-white p-3 rounded-xl border border-white hover:border-violet-300 hover:shadow-md transition-all flex items-start gap-3 text-left group/alt"
+                                                                         >
+                                                                             {alt.photo && (
+                                                                                 <img src={alt.photo} className="w-16 h-16 rounded-xl object-cover shadow-sm bg-gray-50" alt={alt.name} />
+                                                                             )}
+                                                                             <div className="flex-1 min-w-0">
+                                                                                 <p className="text-sm font-black text-navy leading-tight group-hover/alt:text-violet-600 transition-colors mb-0.5">{alt.name}</p>
+                                                                                 <p className="text-[11px] text-gray-500 line-clamp-2 mb-2 leading-relaxed font-medium">
+                                                                                     {alt.description}
+                                                                                 </p>
+                                                                                 <div className="flex items-center gap-2">
+                                                                                     <span className="text-[11px] font-black text-coral flex items-center gap-0.5">
+                                                                                         ★ {alt.rating || 'New'}
+                                                                                     </span>
+                                                                                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                                                                         {alt.userRatingCount || 0} reviews
+                                                                                     </span>
+                                                                                 </div>
+                                                                             </div>
+                                                                             <Plus className="w-4 h-4 text-violet-300 group-hover/alt:text-violet-600 transition-colors" />
+                                                                         </button>
+                                                                     ))}
+                                                                 </div>
+                                                             ) : (
+                                                                 <div className="flex flex-col items-center py-6 text-center">
+                                                                     <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center mb-2">
+                                                                         <Sparkles className="w-5 h-5 text-violet-400" />
+                                                                     </div>
+                                                                     <p className="text-[13px] font-black text-navy">No spots found nearby</p>
+                                                                     <p className="text-[10px] text-gray-400 font-bold mt-1 max-w-[200px]">We couldn't find any high-rated alternatives in the immediate area.</p>
+                                                                 </div>
+                                                             )}
+                                                         </div>
+                                                     )}
                                                 </div>
 
                                                 {/* Upgrade Overlay Text pointing specifically at the locked content */}

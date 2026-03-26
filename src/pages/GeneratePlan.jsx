@@ -67,7 +67,42 @@ const GeneratePlan = () => {
         radius: 8046, // Default to 5 Miles
         dietary: [],
         neighborhoods: [], // Array of selected neighborhoods (max 3)
+        usePreciseLocation: false,
+        lat: null,
+        lng: null
     });
+
+    const [locationLoading, setLocationLoading] = useState(false);
+
+    const handlePreciseLocation = () => {
+        if (!navigator.geolocation) {
+            setError("Geolocation is not supported by your browser");
+            return;
+        }
+
+        setLocationLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setFormData(prev => ({
+                    ...prev,
+                    lat: latitude,
+                    lng: longitude,
+                    usePreciseLocation: !prev.usePreciseLocation,
+                    // If we enable precise location, we might want to clear neighborhoods to avoid confusion, 
+                    // or keep them if the backend handles both. User asked to "include it as well".
+                    // I will toggle it.
+                }));
+                setLocationLoading(false);
+            },
+            (err) => {
+                console.error("Location error:", err);
+                setError("Unable to retrieve your location. Check permissions.");
+                setLocationLoading(false);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    };
 
     const [isLocating, setIsLocating] = useState(false);
 
@@ -604,25 +639,65 @@ const GeneratePlan = () => {
                                              onClick={() => setShowNeighborhoodDropdown(!showNeighborhoodDropdown)}
                                              className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl flex items-center justify-between text-[15px] font-medium text-gray-700 transition-colors hover:border-coral cursor-pointer"
                                          >
-                                             <div className="flex flex-wrap gap-1.5">
-                                                 {(formData.neighborhoods || []).length === 0 ? (
-                                                     <span className="text-gray-400">Select Up to 3 Neighborhoods (Leave blank for random)</span>
-                                                 ) : (
-                                                     (formData.neighborhoods || []).map(nb => (
-                                                         <span key={nb} className="bg-coral/10 text-coral text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
-                                                             {nb}
-                                                             <div className="hover:text-navy cursor-pointer ml-1" onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, neighborhoods: (formData.neighborhoods || []).filter(n => n !== nb) }); }}>
-                                                                 ×
-                                                             </div>
-                                                         </span>
-                                                     ))
-                                                 )}
-                                             </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {formData.usePreciseLocation && (
+                                                    <span className="bg-violet-100 text-violet-600 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 animate-in zoom-in-95">
+                                                        <MapPin className="w-3 h-3" /> Precise Location
+                                                        <div className="hover:text-navy cursor-pointer ml-1" onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, usePreciseLocation: false, lat: null, lng: null }); }}>
+                                                            ×
+                                                        </div>
+                                                    </span>
+                                                )}
+                                                {(formData.neighborhoods || []).length === 0 && !formData.usePreciseLocation ? (
+                                                    <span className="text-gray-400">Select Up to 3 Neighborhoods (Leave blank for random)</span>
+                                                ) : (
+                                                    (formData.neighborhoods || []).map(nb => (
+                                                        <span key={nb} className="bg-coral/10 text-coral text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                                            {nb}
+                                                            <div className="hover:text-navy cursor-pointer ml-1" onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, neighborhoods: (formData.neighborhoods || []).filter(n => n !== nb) }); }}>
+                                                                ×
+                                                            </div>
+                                                        </span>
+                                                    ))
+                                                )}
+                                            </div>
                                              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showNeighborhoodDropdown ? 'rotate-180' : ''}`} />
                                          </div>
 
                                         {showNeighborhoodDropdown && (
-                                            <div className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <div className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-72 overflow-y-auto p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <div className="mb-2 p-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handlePreciseLocation();
+                                                        }}
+                                                        className={`w-full flex items-center justify-between p-3 rounded-xl transition-all border ${formData.usePreciseLocation
+                                                            ? "bg-violet-50 border-violet-200 text-violet-700 shadow-sm"
+                                                            : "bg-gradient-to-r from-violet-500 to-indigo-600 border-transparent text-white shadow-md hover:shadow-lg hover:scale-[1.02]"
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`p-2 rounded-lg ${formData.usePreciseLocation ? "bg-violet-200 text-violet-700" : "bg-white/20 text-white"}`}>
+                                                                {locationLoading ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <MapPin className="w-4 h-4" />
+                                                                )}
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <p className="font-bold text-[14px]">
+                                                                    {formData.usePreciseLocation ? "Precise Location Active" : "Use My Precise Location"}
+                                                                </p>
+                                                                <p className={`text-[11px] font-medium ${formData.usePreciseLocation ? "text-violet-500" : "text-white/80"}`}>
+                                                                    {formData.usePreciseLocation ? "Using your GPS for better results" : "Find venues right where you are"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        {formData.usePreciseLocation && <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />}
+                                                    </button>
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-1">                                                     {nycNeighborhoods.map(nb => {
                                                          const currentNb = formData.neighborhoods || [];
                                                          const isChecked = currentNb.includes(nb);

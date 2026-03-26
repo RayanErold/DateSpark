@@ -21,7 +21,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5005;
 
 // Middleware
 app.use(cors());
@@ -589,7 +589,7 @@ app.get('/api/plans/:id', async (req, res) => {
 
 // Classical Generation Flow
 app.post('/api/generate-date', async (req, res) => {
-    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng, dietary } = req.body;
+    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng, dietary, usePreciseLocation } = req.body;
 
     if (!userId || !location) {
         return res.status(400).json({ error: 'User ID and Location are required' });
@@ -763,12 +763,14 @@ app.post('/api/generate-date', async (req, res) => {
                 return s ? `${s} ${baseType}` : `${randomFb}`;
             };
 
+            const suffix = usePreciseLocation ? '' : ` in ${chosenNeighborhood}`;
+
             let fetchPromises = [
-                fetchPlaces('events', `${getQ(interestQuery, eventKws, 'live event')} in ${chosenNeighborhood}`),
-                fetchPlaces('food', `${dietaryQuery} ${getQ(interestQuery, foodKws, 'restaurant')} in ${chosenNeighborhood} ${budget || ''}`.trim()),
-                fetchPlaces('entertainment', `${getQ(interestQuery, entKws, 'entertainment activity')} in ${chosenNeighborhood}`),
-                fetchPlaces('sightseeing', `${getQ(interestQuery, sightKws, 'attraction')} in ${chosenNeighborhood}`),
-                fetchPlaces('dessert', `${dietaryQuery} ${getQ(interestQuery, dessertKws, 'dessert')} in ${chosenNeighborhood}`.trim())
+                fetchPlaces('events', `${getQ(interestQuery, eventKws, 'live event')}${suffix}`),
+                fetchPlaces('food', `${dietaryQuery} ${getQ(interestQuery, foodKws, 'restaurant')}${suffix} ${budget || ''}`.trim()),
+                fetchPlaces('entertainment', `${getQ(interestQuery, entKws, 'entertainment activity')}${suffix}`),
+                fetchPlaces('sightseeing', `${getQ(interestQuery, sightKws, 'attraction')}${suffix}`),
+                fetchPlaces('dessert', `${dietaryQuery} ${getQ(interestQuery, dessertKws, 'dessert')}${suffix}`.trim())
             ];
 
             const hasSpecifics = interestQuery.trim() !== '' || dietaryQuery.trim() !== '';
@@ -776,16 +778,16 @@ app.post('/api/generate-date', async (req, res) => {
             if (hasSpecifics) {
                 // Fire a pure random batch to ensure about 4 out of 7 ideas are totally fresh
                 fetchPromises = fetchPromises.concat([
-                    fetchPlaces('events_random', `${eventKws} in ${chosenNeighborhood}`),
-                    fetchPlaces('food_random', `${foodKws} in ${chosenNeighborhood} ${budget || ''}`.trim()),
-                    fetchPlaces('entertainment_random', `${entKws} in ${chosenNeighborhood}`),
-                    fetchPlaces('sightseeing_random', `${sightKws} in ${chosenNeighborhood}`),
-                    fetchPlaces('dessert_random', `${dessertKws} in ${chosenNeighborhood}`.trim())
+                    fetchPlaces('events_random', `${eventKws}${suffix}`),
+                    fetchPlaces('food_random', `${foodKws}${suffix} ${budget || ''}`.trim()),
+                    fetchPlaces('entertainment_random', `${entKws}${suffix}`),
+                    fetchPlaces('sightseeing_random', `${sightKws}${suffix}`),
+                    fetchPlaces('dessert_random', `${dessertKws}${suffix}`.trim())
                 ]);
             }
 
             if (activities && activities.trim() !== '') {
-                fetchPromises.push(fetchPlaces('custom', `${activities} in New York City`));
+                fetchPromises.push(fetchPlaces('custom', `${activities}${suffix || ' in New York City'}`));
             }
 
             const results = await Promise.all(fetchPromises);
@@ -1038,6 +1040,101 @@ app.get(/.*/, (req, res, next) => {
         return next();
     }
     res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// Nearby Alternatives for "Switch Up" feature
+app.post('/api/nearby-alternatives', async (req, res) => {
+    const { lat, lng, type, radius, budget, currentPlaceId } = req.body;
+
+    if (!lat || !lng) {
+        return res.status(400).json({ error: 'Coordinates are required' });
+    }
+
+    try {
+        let priceLevels = [];
+        if (budget) {
+            const b = budget.toString();
+            if (b.includes('$$$$')) priceLevels = ['PRICE_LEVEL_EXPENSIVE', 'PRICE_LEVEL_VERY_EXPENSIVE'];
+            else if (b.includes('$$$')) priceLevels = ['PRICE_LEVEL_MODERATE', 'PRICE_LEVEL_EXPENSIVE'];
+            else if (b.includes('$$')) priceLevels = ['PRICE_LEVEL_INEXPENSIVE', 'PRICE_LEVEL_MODERATE'];
+            else if (b.includes('$')) priceLevels = ['PRICE_LEVEL_INEXPENSIVE'];
+        }
+
+        const centerCoords = { latitude: Number(lat), longitude: Number(lng) };
+        const searchRadius = Number(radius) || 5000; // Default 5km
+
+        let response;
+        const query = `${type || 'interesting place'} near me`;
+
+        try {
+            response = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+                textQuery: query,
+                locationBias: {
+                    circle: {
+                        center: centerCoords,
+                        radius: searchRadius
+                    }
+                },
+                maxResultCount: 10,
+                ...(priceLevels.length > 0 && { priceLevels })
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': process.env.VITE_GOOGLE_MAPS_API_KEY,
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.types,places.photos,places.location,places.editorialSummary,places.googleMapsUri'
+                }
+            });
+        } catch (e) {
+            // Initial restricted search failed
+        }
+
+        // Fallback: If no results or error, try without price restriction
+        if (!response || !response.data || !response.data.places || response.data.places.length <= 1) {
+            try {
+                response = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+                    textQuery: query,
+                    locationBias: {
+                        circle: {
+                            center: centerCoords,
+                            radius: searchRadius
+                        }
+                    },
+                    maxResultCount: 10
+                }, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Goog-Api-Key': process.env.VITE_GOOGLE_MAPS_API_KEY,
+                        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,rating,userRatingCount,priceLevel,types,photos,location,editorialSummary,googleMapsUri'
+                    }
+                });
+            } catch (e) {
+                console.error('Fallback search failed');
+            }
+        }
+
+        if (!response || !response.data || !response.data.places) {
+            return res.json({ alternatives: [] });
+        }
+
+        const filtered = response.data.places
+            .filter(p => p.id !== currentPlaceId)
+            .map(p => ({
+                id: p.id,
+                name: p.displayName?.text || 'Unknown Venue',
+                address: p.formattedAddress,
+                rating: p.rating,
+                userRatingCount: p.userRatingCount,
+                location: p.location,
+                description: p.editorialSummary?.text || `A popular choice for ${type?.replace('_', ' ') || 'a great time'} in the city.`,
+                searchUrl: p.googleMapsUri,
+                photo: p.photos?.[0] ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${process.env.VITE_GOOGLE_MAPS_API_KEY}` : null
+            }));
+
+        res.json({ alternatives: filtered });
+    } catch (error) {
+        console.error('Error fetching alternatives:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Failed to fetch alternatives' });
+    }
 });
 
 app.listen(PORT, () => {
