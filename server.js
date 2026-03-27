@@ -108,7 +108,7 @@ app.post('/api/feedback', async (req, res) => {
     try {
         if (resend) {
             await resend.emails.send({
-                from: 'Feedback <onboarding@resend.dev>',
+                from: 'Feedback <hello@datespark.live>',
                 to: process.env.ADMIN_EMAIL || 'eroldrayan@gmail.com', // fallback to eroldrayan if not set
                 subject: 'New DateSpark Feedback 💡',
                 html: `
@@ -208,7 +208,7 @@ app.post('/api/waitlist', async (req, res) => {
         try {
             if (resend) {
                 await resend.emails.send({
-                    from: 'DateSpark <onboarding@resend.dev>', // Must use approved domain or onboarding@resend.dev for testing
+                    from: 'DateSpark <hello@datespark.live>', // Branded sender from verified domain
                     to: [email],
                     subject: 'Welcome to DateSpark – Let the Date Planning Begin! 💖',
                     html: `
