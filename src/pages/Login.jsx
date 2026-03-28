@@ -121,7 +121,7 @@ const Login = () => {
                 <h2 className="mt-6 text-center text-3xl font-black text-navy">{otpSent ? 'Enter verification code' : 'Welcome back'}</h2>
                 <p className="mt-2 text-center text-sm text-gray-500">
                     {otpSent ? (
-                        <>We sent a 6-digit code to <span className="font-bold text-navy">{formData.email}</span></>
+                        <>We sent a verification code to <span className="font-bold text-navy">{formData.email}</span></>
                     ) : (
                         <>
                             Don't have an account?{' '}
@@ -171,16 +171,16 @@ const Login = () => {
 
                             {otpSent && (
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700">6-Digit Code</label>
+                                    <label className="block text-sm font-bold text-gray-700">Verification Code</label>
                                     <div className="mt-1">
                                         <input
                                             type="text"
-                                            maxLength={6}
+                                            maxLength={8}
                                             required
-                                            placeholder="123456"
+                                            placeholder="12345678"
                                             value={otpCode}
                                             onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                                            className="appearance-none block w-full px-4 py-4 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all text-center text-2xl font-black tracking-[0.5em] text-navy"
+                                            className="appearance-none block w-full px-4 py-4 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all text-center text-2xl font-black tracking-[0.2em] text-navy"
                                         />
                                     </div>
                                 </div>

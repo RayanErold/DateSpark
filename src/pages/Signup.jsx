@@ -91,7 +91,7 @@ const Signup = () => {
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-black text-navy">Verify your email</h2>
                     <p className="mt-2 text-center text-sm text-gray-500">
-                        We sent a 6-digit code to <span className="font-bold text-navy">{formData.email}</span>
+                        We sent a verification code to <span className="font-bold text-navy">{formData.email}</span>
                     </p>
                 </div>
 
@@ -108,12 +108,12 @@ const Signup = () => {
                                 <div className="mt-1">
                                     <input
                                         type="text"
-                                        maxLength={6}
+                                        maxLength={8}
                                         required
-                                        placeholder="123456"
+                                        placeholder="12345678"
                                         value={verificationCode}
                                         onChange={(e) => setVerificationCode(e.target.value)}
-                                        className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all sm:text-sm text-center text-xl font-bold tracking-widest"
+                                        className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all sm:text-sm text-center text-xl font-bold tracking-[0.2em]"
                                     />
                                 </div>
                             </div>
