@@ -109,10 +109,12 @@ app.post('/api/feedback', async (req, res) => {
         if (resend) {
             await resend.emails.send({
                 from: 'Feedback <hello@datespark.live>',
-                to: process.env.ADMIN_EMAIL || 'eroldrayan@gmail.com', // fallback to eroldrayan if not set
+                to: process.env.ADMIN_EMAIL || 'eroldrayan@gmail.com',
                 subject: 'New DateSpark Feedback 💡',
                 html: `
-                    <h3>New Feedback Received</h3>
+                        <!-- Branded Logo -->
+                        <img src="https://datespark.live/datespark-logo.png" alt="DateSpark" style="display: block; margin: 0 auto 20px auto; max-width: 140px;" />
+                        <h3>New Feedback Received</h3>
                     <p><b>User Email:</b> ${email || 'Anonymous'}</p>
                     <p><b>User ID:</b> ${userId || 'N/A'}</p>
                     <p><b>Feedback:</b></p>
@@ -120,7 +122,7 @@ app.post('/api/feedback', async (req, res) => {
                 `
             });
         } else {
-            console.log("Resend not configured. Feedback Log:", text);
+            console.warn("Resend not configured: Check RESEND_API_KEY in .env");
         }
 
         const { error } = await supabase
@@ -213,38 +215,54 @@ app.post('/api/waitlist', async (req, res) => {
                     subject: 'Welcome to DateSpark – Let the Date Planning Begin! 💖',
                     html: `
                             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 12px;">
-                                <!-- REPLACE SRC WITH YOUR PUBLIC LOGO URL -->
-                                <img src="https://via.placeholder.com/150x50?text=DateSpark" alt="DateSpark Logo" style="display: block; margin: 0 auto 20px auto; max-width: 140px;" />
+                                <!-- Branded Logo -->
+                                <img src="https://datespark.live/datespark-logo.png" alt="DateSpark" style="display: block; margin: 0 auto 20px auto; max-width: 140px;" />
                                 
-                                <h1 style="color: #1a1a1a; text-align: center; margin-top: 0;">Welcome to the Waitlist!</h1>
-                            <p style="font-size: 16px; color: #4a4a4a; line-height: 1.6;">
-                                Hey there! Thanks so much for signing up for <strong>DateSpark</strong>. We are thrilled to have you!
-                            </p>
-                            <p style="font-size: 16px; color: #4a4a4a; line-height: 1.6;">
-                                We are currently grinding behind the scenes to roll out inside selected cities. To keep things moving for early testers:
-                            </p>
-                            <ul style="color: #4a4a4a; font-size: 15px;">
-                                <li><strong>Follow us</strong> for absolute launch dates.</li>
-                                <li>You'll get a <strong>FREE Custom AI Mode Plan</strong> as soon as access goes live.</li>
-                                <li>Unlock 5 additional credits to test with absolute premium limits if you invite 2 friends later.</li>
-                            </ul>
-                            <p style="font-size: 16px; color: #4a4a4a;">
-                                We'll let you know as soon as you're in!
-                            </p>
-                            <p style="text-align: center; margin-top: 30px;">
-                                <a href="#" style="background-color: #f43f5e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Follow Updates</a>
-                            </p>
+                                <h1 style="color: #1a1a1a; text-align: center; margin-top: 0; font-size: 28px; font-weight: 900;">You're on the list! 🥂</h1>
+                                
+                                <div style="margin: 25px 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                                    <img src="https://datespark.live/couple-dinner.png" alt="Perfect Date Night" style="width: 100%; display: block;" />
+                                </div>
+
+                                <p style="font-size: 18px; color: #1a1a1a; line-height: 1.6; font-weight: bold; text-align: center;">
+                                    The future of date night is almost here.
+                                </p>
+                                
+                                <p style="font-size: 16px; color: #4a4a4a; line-height: 1.7;">
+                                    Hey there! We're so excited to have you join the inner circle of <strong>DateSpark</strong>. We're building something that takes the stress out of planning and puts the magic back into dating.
+                                </p>
+
+                                <div style="background-color: #fff5f5; border-radius: 16px; padding: 25px; margin: 30px 0; border: 1px dashed #f43f5e;">
+                                    <h3 style="color: #f43f5e; margin-top: 0; font-size: 18px;">Your Early Access Perks:</h3>
+                                    <ul style="color: #4a4a4a; font-size: 15px; line-height: 1.8; margin-bottom: 0;">
+                                        <li>✨ <strong>Priority Access:</strong> Be the first to use DateSpark in NYC.</li>
+                                        <li>🎁 <strong>Launch Gift:</strong> A FREE Premium AI-Generated Itinerary.</li>
+                                        <li>💎 <strong>Founder Status:</strong> Unlock 5 additional credits by inviting just 2 friends later.</li>
+                                    </ul>
+                                </div>
+
+                                <p style="font-size: 16px; color: #4a4a4a; line-height: 1.7; text-align: center;">
+                                    Keep an eye on your inbox. We'll ping you the second we go live.
+                                </p>
+
+                                <p style="text-align: center; margin-top: 40px;">
+                                    <a href="https://datespark.live" style="background-color: #f43f5e; color: white; padding: 18px 36px; text-decoration: none; border-radius: 12px; font-weight: 900; font-size: 16px; box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4);">Follow Our Journey</a>
+                                </p>
                             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
                             <p style="font-size: 12px; color: #aaa; text-align: center;">You're receiving this because you signed up to join DateSpark Waitlist.</p>
                         </div>
                     `
                 });
             } else {
-                console.warn("Resend API Key not found. Skipping welcome email.");
+                console.warn("Resend API Key not found. Check RESEND_API_KEY in .env.");
             }
         } catch (emailErr) {
-            console.error('Failed to send email due to Resend restriction:', emailErr.message);
-            // We don't throw email errors so the user successfully completes waitlist joins regardless!
+            console.error('Waitlist Welcome Email Failed:', {
+                message: emailErr.message,
+                name: emailErr.name,
+                statusCode: emailErr.statusCode
+            });
+            // We don't throw email errors so the user successfully completes waitlist joins regardless
         }
 
         res.status(201).json({

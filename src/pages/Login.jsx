@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Heart, Loader2 } from 'lucide-react';
+import { Heart, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -16,6 +16,7 @@ const Login = () => {
     const [isOtpMode, setIsOtpMode] = useState(true); // Default to OTP for premium feel
     const [otpSent, setOtpSent] = useState(false);
     const [otpCode, setOtpCode] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -191,15 +192,22 @@ const Login = () => {
                                         <label className="block text-sm font-bold text-gray-700">Password</label>
                                         <button type="button" onClick={() => setIsResetMode(true)} className="text-xs font-semibold text-coral hover:underline">Forgot password?</button>
                                     </div>
-                                    <div className="mt-1">
+                                    <div className="mt-1 relative">
                                         <input
                                             name="password"
-                                            type="password"
+                                            type={showPassword ? "text" : "password"}
                                             required
                                             value={formData.password}
                                             onChange={handleChange}
-                                            className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all sm:text-sm"
+                                            className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all sm:text-sm pr-10"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-coral transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                        </button>
                                     </div>
                                 </div>
                             )}
