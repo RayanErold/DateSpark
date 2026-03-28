@@ -45,8 +45,14 @@ const Signup = () => {
             }
         } catch (err) {
             console.error('Signup error detail:', err);
-            const msg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
-            setError(msg || 'An unexpected error occurred during signup');
+            const errorInfo = {
+                message: err.message,
+                name: err.name,
+                code: err.code,
+                status: err.status,
+                keys: Object.keys(err)
+            };
+            setError(`DEBUG: ${JSON.stringify(errorInfo)}`);
         } finally {
             setIsLoading(false);
         }
@@ -135,6 +141,7 @@ const Signup = () => {
                     <span className="text-2xl font-bold tracking-tight text-navy">DateSpark</span>
                 </Link>
                 <h2 className="mt-6 text-center text-3xl font-black text-navy">Create your account</h2>
+                <p className="text-center text-[10px] text-gray-400 font-mono mt-1">v2.1 Debug</p>
                 <p className="mt-2 text-center text-sm text-gray-500">
                     Already have an account?{' '}
                     <Link to="/login" className="font-medium text-coral hover:text-coral/80 transition-colors">
