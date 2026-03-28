@@ -6,13 +6,15 @@ import { supabase } from '../lib/supabase';
 const BottomNav = ({ onProfileClick }) => {
     const location = useLocation();
     const [userInitial, setUserInitial] = useState(null);
+    const [avatarUrl, setAvatarUrl] = useState(null);
 
     useEffect(() => {
         const fetchUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const name = user.user_metadata?.first_name || user.email?.charAt(0) || 'U';
+                const name = user.user_metadata?.first_name || 'Kade. D';
                 setUserInitial(name.charAt(0).toUpperCase());
+                setAvatarUrl(user.user_metadata?.avatar_url);
             }
         };
         fetchUser();
@@ -33,7 +35,14 @@ const BottomNav = ({ onProfileClick }) => {
                 </div>
 
                 <button onClick={(e) => { e.preventDefault(); if(onProfileClick) onProfileClick(); }} className="flex flex-col items-center gap-1.5 min-w-[64px] transition-transform active:scale-95">
-                    {userInitial ? (
+                    {avatarUrl ? (
+                        <img 
+                            src={avatarUrl} 
+                            alt="Profile" 
+                            className="w-7 h-7 rounded-lg object-cover border border-coral/20" 
+                            onError={() => setAvatarUrl(null)}
+                        />
+                    ) : userInitial ? (
                         <div className="w-7 h-7 rounded-full bg-coral/10 text-coral flex items-center justify-center font-black text-xs border border-coral/20">
                             {userInitial}
                         </div>

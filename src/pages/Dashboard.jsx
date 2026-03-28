@@ -44,8 +44,8 @@ const Dashboard = () => {
     const [appTheme, setAppTheme] = useState(() => localStorage.getItem('appTheme') || 'light');
 
     useEffect(() => {
-        // Simple client-side theme class injector triggers layout fits
-        document.documentElement.setAttribute('data-theme', appTheme);
+        // Apply theme class to body for index.css targeting
+        document.body.className = `theme-${appTheme}`;
         localStorage.setItem('appTheme', appTheme);
     }, [appTheme]);
 
@@ -525,11 +525,23 @@ const Dashboard = () => {
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                             className="flex items-center gap-2 hover:bg-gray-50 p-1.5 rounded-xl transition-colors outline-none"
                         >
-                            <div className="w-9 h-9 bg-navy text-white rounded-lg flex items-center justify-center font-bold shadow-sm">
-                                {user?.user_metadata?.first_name?.[0] || 'U'}
-                            </div>
+                            {user?.user_metadata?.avatar_url ? (
+                                <img 
+                                    src={user.user_metadata.avatar_url} 
+                                    alt="Profile" 
+                                    className="w-9 h-9 rounded-lg object-cover shadow-sm border border-gray-100"
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.first_name || 'Kade. D')}&background=0a192f&color=fff`;
+                                    }}
+                                />
+                            ) : (
+                                <div className="w-9 h-9 bg-navy text-white rounded-lg flex items-center justify-center font-bold shadow-sm">
+                                    {user?.user_metadata?.first_name?.[0] || 'K'}
+                                </div>
+                            )}
                             <span className="text-sm font-bold text-navy hidden sm:block">
-                                {user?.user_metadata?.first_name || 'User'}
+                                {user?.user_metadata?.first_name || 'Kade. D'}
                             </span>
                             <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
@@ -749,14 +761,21 @@ const Dashboard = () => {
                                 </div>
                             </div>
 
-                            {/* Floating Tab Bar */}
-                            <div className="px-4 md:px-8 -mt-5 z-10 w-full flex justify-center">
+                            {/* Floating Tab Bar with Share */}
+                            <div className="px-4 md:px-8 -mt-5 z-10 w-full flex justify-center gap-2">
                                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex items-center justify-center text-xs font-bold text-gray-500 w-auto">
                                     <div className="flex flex-col items-center gap-1 py-1.5 px-6 text-navy bg-gray-50 rounded-xl border border-gray-100/50">
                                         <Ticket className="w-4 h-4" /> 
                                         <span>Itinerary</span>
                                     </div>
                                 </div>
+                                <button 
+                                    onClick={handleShare}
+                                    className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex flex-col items-center gap-1 py-1.5 px-6 text-gray-500 hover:text-coral transition-all font-bold text-xs"
+                                >
+                                    <Share2 className="w-4 h-4" />
+                                    <span>Share Plan</span>
+                                </button>
                             </div>
 
                             {/* Spacer for Background Map Visualization on Mobile */}
@@ -1276,6 +1295,26 @@ const Dashboard = () => {
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
                                             <input type="email" disabled value={user?.email || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
                                         </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Avatar URL</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="https://example.com/photo.jpg" 
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-coral focus:border-transparent outline-none transition-all"
+                                                value={user?.user_metadata?.avatar_url || ''}
+                                                onChange={async (e) => {
+                                                    const newUrl = e.target.value;
+                                                    const { error } = await supabase.auth.updateUser({
+                                                        data: { avatar_url: newUrl }
+                                                    });
+                                                    if (!error) {
+                                                        const { data: { user: updatedUser } } = await supabase.auth.getUser();
+                                                        setUser(updatedUser);
+                                                    }
+                                                }}
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Paste a link to your profile picture above.</p>
+                                        </div>
                                         <button className="btn-primary py-3 px-6 rounded-xl font-bold opacity-50 cursor-not-allowed w-full mt-4">
                                             Update Profile
                                         </button>
@@ -1409,8 +1448,8 @@ const Dashboard = () => {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 {[
                                                     { id: 'light', name: 'Classic Light', bg: 'bg-white border-gray-100', preview: ['bg-coral', 'bg-navy'] },
-                                                    { id: 'dark', name: 'Midnight Dark', bg: 'bg-navy border-black', preview: ['bg-coral', 'bg-white'] },
-                                                    { id: 'sunset', name: 'Sunset Haze', bg: 'bg-gradient-to-br from-coral to-pink-500 border-coral', preview: ['bg-white', 'bg-navy'] }
+                                                    { id: 'dark', name: 'Midnight Dark', bg: 'bg-[#0f172a] border-black', preview: ['bg-coral', 'bg-white'] },
+                                                    { id: 'sunset', name: 'Sunset Haze', bg: 'bg-gradient-to-br from-coral to-fuchsia-500 border-coral', preview: ['bg-white', 'bg-navy'] }
                                                 ].map(theme => (
                                                     <button 
                                                         key={theme.id}

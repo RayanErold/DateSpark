@@ -10,8 +10,8 @@ const SocialProof = () => {
         },
         {
             text: "We found a secret jazz bar we never would've found otherwise. The itinerary was perfectly timed.",
-            author: "Jordan P.",
-            role: "College Student"
+            author: "Kade. D",
+            role: "Dating Expert"
         },
         {
             text: "The event selection is spot on. It's like having a local friend plan your city trip.",

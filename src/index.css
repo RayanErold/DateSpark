@@ -73,22 +73,32 @@ body {
 
 /* --- THEME OVERRIDES --- */
 body.theme-dark {
-  @apply bg-[#0f172a] text-white; /* Slate-900 base */
+  @apply bg-[#030712] text-white; /* Deeper midnight blue/black */
 }
 body.theme-dark .bg-white {
-  background-color: #1e293b !important; /* Darker slate for cards */
+  background-color: #0f172a !important; /* Slate-900 for cards */
+  border-color: #1e293b !important;
 }
 body.theme-dark .bg-gray-50 {
-  background-color: #0f172a !important;
+  background-color: #030712 !important;
 }
 body.theme-dark .text-navy {
-  color: #f8fafc !important;
+  color: #f8fafc !important; /* White text for navy labels */
 }
 body.theme-dark .border-gray-100 {
-  border-color: #334155 !important;
+  border-color: #1e293b !important;
 }
 body.theme-dark .bg-gray-200\/50 {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+body.theme-dark .bg-gray-50\/80 {
   background-color: rgba(255, 255, 255, 0.05) !important;
+}
+body.theme-dark .outline-gray-200 {
+  outline-color: #1e293b !important;
+}
+body.theme-dark .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important;
 }
 
 body.theme-sunset {
