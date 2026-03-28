@@ -38,8 +38,9 @@ const Login = () => {
                 navigate('/dashboard');
             }
         } catch (err) {
-            console.error('Login error:', err);
-            setError(err.message || 'An unexpected error occurred during login');
+            console.error('Login error detail:', err);
+            const msg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            setError(msg || 'An unexpected error occurred during login');
         } finally {
             setIsLoading(false);
         }
@@ -60,8 +61,9 @@ const Login = () => {
             if (error) throw error;
             setOtpSent(true);
         } catch (err) {
-            console.error('Magic code error:', err);
-            setError(err.message || 'Error sending magic code');
+            console.error('Magic code error detail:', err);
+            const msg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            setError(msg || 'Error sending magic code');
         } finally {
             setIsLoading(false);
         }
@@ -81,8 +83,9 @@ const Login = () => {
             if (error) throw error;
             if (data?.user) navigate('/dashboard');
         } catch (err) {
-            console.error('Verification error:', err);
-            setError(err.message || 'Invalid or expired magic code');
+            console.error('Verification error detail:', err);
+            const msg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            setError(msg || 'Invalid or expired magic code');
         } finally {
             setIsLoading(false);
         }

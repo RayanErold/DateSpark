@@ -44,8 +44,9 @@ const Signup = () => {
                 setVerificationMode(true);
             }
         } catch (err) {
-            console.error('Signup error:', err);
-            setError(err.message || 'An unexpected error occurred during signup');
+            console.error('Signup error detail:', err);
+            const msg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            setError(msg || 'An unexpected error occurred during signup');
         } finally {
             setIsLoading(false);
         }
