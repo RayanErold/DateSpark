@@ -12,8 +12,10 @@ const Login = () => {
         password: '',
     });
     const [isResetMode, setIsResetMode] = useState(false);
+    const [resetStep, setResetStep] = useState(null); // 'select', 'input', or null
+    const [resetType, setResetType] = useState(null); // 'username', 'password', or null
     const [resetSent, setResetSent] = useState(false);
-    const [isOtpMode, setIsOtpMode] = useState(true); // Default to OTP for premium feel
+    const [isOtpMode, setIsOtpMode] = useState(false); // Default to password login as requested
     const [otpSent, setOtpSent] = useState(false);
     const [otpCode, setOtpCode] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -111,6 +113,28 @@ const Login = () => {
         }
     };
 
+    const handleForgotUsername = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const response = await fetch('/api/forgot-username', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: formData.email })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to send username reminder');
+            setResetSent(true);
+        } catch (err) {
+            console.error('Forgot username error:', err);
+            setError(err.message || 'Error sending username reminder');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -141,11 +165,50 @@ const Login = () => {
                                 <Heart className="w-6 h-6 fill-current" />
                             </div>
                             <h3 className="text-xl font-bold text-navy">Check your email</h3>
-                            <p className="text-sm text-gray-500">We've sent a link to reset your password to {formData.email}</p>
-                            <button onClick={() => { setIsResetMode(false); setResetSent(false); }} className="text-sm font-semibold text-coral mt-4">Back to Sign In</button>
+                            <p className="text-sm text-gray-500">
+                                {resetType === 'username' 
+                                    ? `We've sent your account details to ${formData.email}` 
+                                    : `We've sent a link to reset your password to ${formData.email}`}
+                            </p>
+                            <button onClick={() => { setIsResetMode(false); setResetStep(null); setResetType(null); setResetSent(false); }} className="text-sm font-semibold text-coral mt-4">Back to Sign In</button>
+                        </div>
+                    ) : resetStep === 'select' ? (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h3 className="text-xl font-black text-navy mb-2">What did you forget?</h3>
+                                <p className="text-sm text-gray-400">Choose an option below to recover your access.</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                                <button 
+                                    onClick={() => { setResetType('username'); setResetStep('input'); }}
+                                    className="w-full flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl hover:border-coral transition-all group"
+                                >
+                                    <div className="text-left">
+                                        <span className="block font-black text-navy group-hover:text-coral transition-colors">Forgot Username/Email</span>
+                                        <span className="text-xs text-gray-400">Recover your account identity</span>
+                                    </div>
+                                    <Eye className="w-5 h-5 text-gray-300 group-hover:text-coral transition-colors" />
+                                </button>
+                                <button 
+                                    onClick={() => { setResetType('password'); setResetStep('input'); }}
+                                    className="w-full flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl hover:border-coral transition-all group"
+                                >
+                                    <div className="text-left">
+                                        <span className="block font-black text-navy group-hover:text-coral transition-colors">Forgot Password</span>
+                                        <span className="text-xs text-gray-400">Reset your secure access</span>
+                                    </div>
+                                    <Heart className="w-5 h-5 text-gray-300 group-hover:text-coral transition-colors" />
+                                </button>
+                            </div>
+                            <button 
+                                onClick={() => { setIsResetMode(false); setResetStep(null); }} 
+                                className="w-full text-center text-sm font-bold text-gray-400 hover:text-navy"
+                            >
+                                Back to Sign In
+                            </button>
                         </div>
                     ) : (
-                        <form className="space-y-6" onSubmit={otpSent ? handleVerifyOtp : (isOtpMode ? handleSendOtp : (isResetMode ? handleResetPassword : handleLogin))}>
+                        <form className="space-y-6" onSubmit={otpSent ? handleVerifyOtp : (isOtpMode ? handleSendOtp : (isResetMode ? (resetType === 'username' ? handleForgotUsername : handleResetPassword) : handleLogin))}>
                             {error && (
                                 <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium">
                                     {error}
@@ -154,11 +217,12 @@ const Login = () => {
 
                             {!otpSent && (
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700">Email address</label>
+                                    <label className="block text-sm font-bold text-gray-700">{isResetMode ? 'Account Email' : 'Username or Email'}</label>
                                     <div className="mt-1">
                                         <input
                                             name="email"
                                             type="email"
+                                            placeholder="your@email.com"
                                             autoComplete="email"
                                             required
                                             value={formData.email}
@@ -190,7 +254,7 @@ const Login = () => {
                                 <div>
                                     <div className="flex items-center justify-between">
                                         <label className="block text-sm font-bold text-gray-700">Password</label>
-                                        <button type="button" onClick={() => setIsResetMode(true)} className="text-xs font-semibold text-coral hover:underline">Forgot password?</button>
+                                        <button type="button" onClick={() => { setIsResetMode(true); setResetStep('select'); }} className="text-xs font-semibold text-coral hover:underline">Forgot username or password?</button>
                                     </div>
                                     <div className="mt-1 relative">
                                         <input
@@ -218,23 +282,13 @@ const Login = () => {
                                     disabled={isLoading}
                                     className="w-full btn-primary py-3 rounded-xl flex justify-center items-center gap-2 shadow-lg shadow-coral/10 hover:shadow-coral/20 transition-all font-black text-lg"
                                 >
-                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (otpSent ? 'Verify & Sign In' : (isOtpMode ? 'Send Magic Code' : (isResetMode ? 'Send Reset Link' : 'Sign In')))}
+                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (otpSent ? 'Verify & Sign In' : (isOtpMode ? 'Send Magic Code' : (isResetMode ? (resetType === 'username' ? 'Find My Username' : 'Send Reset Link') : 'Sign In')))}
                                 </button>
                                 
-                                {!otpSent && !isResetMode && (
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setIsOtpMode(!isOtpMode)}
-                                        className="w-full text-center text-sm font-bold text-gray-400 hover:text-navy transition-colors"
-                                    >
-                                        {isOtpMode ? 'Login with Password instead' : 'Login with Magic Code instead'}
-                                    </button>
-                                )}
-
                                 {(isResetMode || otpSent) && (
                                     <button 
                                         type="button" 
-                                        onClick={() => { setIsResetMode(false); setOtpSent(false); setResetSent(false); }} 
+                                        onClick={() => { setIsResetMode(false); setOtpSent(false); setResetSent(false); setResetStep(null); setResetType(null); }} 
                                         className="w-full text-center text-sm font-bold text-gray-400 hover:text-navy mt-4"
                                     >
                                         Back to Sign In

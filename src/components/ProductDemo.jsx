@@ -25,10 +25,11 @@ const ProductDemo = () => {
                     </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-                    <div className="relative rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group aspect-[4/5] md:aspect-auto md:h-[600px]">
+                <div className="grid lg:grid-cols-3 gap-8 md:gap-12 items-start">
+                    {/* Step 1: The Spark */}
+                    <div className="relative rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group aspect-[4/5] md:aspect-auto md:h-[600px] lg:translate-y-0">
                         <img
-                            src="/couple-phone.png"
+                            src="/couple-phone-diverse.png"
                             alt="Couple planning date"
                             className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                         />
@@ -44,9 +45,10 @@ const ProductDemo = () => {
                         </div>
                     </div>
 
-                    <div className="relative rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group aspect-[4/5] md:aspect-auto md:h-[600px] md:translate-y-16">
+                    {/* Step 2: The Experience */}
+                    <div className="relative rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group aspect-[4/5] md:aspect-auto md:h-[600px] lg:translate-y-16">
                         <img
-                            src="/couple-dinner.png"
+                            src="/couple-dinner-diverse.png"
                             alt="Couple enjoying date"
                             className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                         />
@@ -58,6 +60,25 @@ const ProductDemo = () => {
                             <h3 className="text-3xl font-bold text-white mb-4">The Experience</h3>
                             <p className="text-lg text-gray-300">
                                 Discover hidden gem restaurants and local events. The logistics are handled, so you can stay fully present.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Step 3: The Memory */}
+                    <div className="relative rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 group aspect-[4/5] md:aspect-auto md:h-[600px] lg:translate-y-32">
+                        <img
+                            src="/couple-hero-diverse.png"
+                            alt="Couple walking in park"
+                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/40 to-transparent opacity-90" />
+                        <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 w-full">
+                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-white/30">
+                                <span className="text-navy font-black text-xl">3</span>
+                            </div>
+                            <h3 className="text-3xl font-bold text-white mb-4">The Memory</h3>
+                            <p className="text-lg text-gray-300">
+                                End the night with a scenic stroll or a secret nightcap. We ensure the timing is perfect from start to finish.
                             </p>
                         </div>
                     </div>

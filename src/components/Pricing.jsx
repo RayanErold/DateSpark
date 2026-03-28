@@ -4,148 +4,147 @@ import { Check, ArrowRight, Star, Heart } from 'lucide-react';
 const Pricing = () => {
     const plans = [
         {
-            name: "Free Preview",
-            tagline: "See what we can do for you.",
+            name: "The Spark",
+            tagline: "Experience the magic of stress-free planning.",
             price: "$0",
-            period: "/mo",
+            period: "/forever",
             features: [
-                { text: "Generate up to 3 date ideas for free", comingSoon: false },
-                { text: "See the first 2 stops of every date", comingSoon: false },
-                { text: "Save up to 3 favorite itineraries", comingSoon: false },
-                { text: "Up to 2 requests using AI Date Customizer", comingSoon: true }
+                { text: "1-2 Premium Date Ideas", icon: Star },
+                { text: "Preview Itineraries (First 2 stops)", icon: Check },
+                { text: "Save 2 Favorite Dates", icon: Heart },
+                { text: "Limited 'Switch Up' (1 change only)", icon: Check, muted: true }
             ],
-            cta: "Try Free Version",
-            highlight: false
+            cta: "Try for Free",
+            highlight: false,
+            className: "bg-white/5 border-white/10 text-white hover:bg-white/10"
         },
         {
-            name: "Daily Date Pass",
-            tagline: "24 hours of full access to unlimited premium planning.",
+            name: "24-Hour Pass",
+            tagline: "The instant plan for a perfect tonight.",
             price: "$1.99",
             period: "/24hr",
             features: [
-                { text: "Unlock full 5-stop itineraries", comingSoon: false },
-                { text: "Book tables, get directions, order Ubers", comingSoon: false },
-                { text: "Save favorites to your dashboard", comingSoon: false },
-                { text: "Unlimited AI Customizer (24hr access)", comingSoon: true }
+                { text: "Unlimited Full 5-Stop Itineraries", icon: Star },
+                { text: "Unlimited 'Switch Up' (Found a spot you don't love? Swap it!)", icon: Heart },
+                { text: "Book Tables & Order Rides In-App", icon: Check },
+                { text: "Save Unlimited Favorites", icon: Check },
+                { text: "Instant NYC Directions", icon: Check }
             ],
-            cta: "Unlock 24hr Access",
+            cta: "Unlock My Date Night",
             highlight: true,
-            badge: "24H FULL ACCESS"
+            badge: "MOST POPULAR FOR TONIGHT",
+            className: "bg-white text-navy border-white shadow-[0_20px_50px_rgba(244,63,94,0.3)] scale-[1.05]"
         },
         {
-            name: "Lifetime Access",
-            tagline: "Early Bird! First users only.",
-            price: "$29.99",
-            period: "/lifetime",
-            savings: "Best Deal",
-            features: [
-                { text: "Lifetime access to all core features", comingSoon: false },
-                { text: "Book tables, get directions, order Ubers", comingSoon: false },
-                { text: "Save favorites to your dashboard", comingSoon: false },
-                { text: "Use in any supported city you visit", comingSoon: false },
-                { text: "Early feature testing access", comingSoon: false }
-            ],
-            cta: "Get Lifetime Access",
-            highlight: false
-        },
-        {
-            name: "Premium Member",
-            tagline: "For couples who go out often.",
+            name: "DateSpark Plus",
+            tagline: "For couples who never want the magic to end.",
             price: "$9.99",
             period: "/mo",
             features: [
-                { text: "Unlock unlimited date plans", comingSoon: false },
-                { text: "Unlimited favorite savings", comingSoon: false },
-                { text: "Custom Font personalization", comingSoon: false },
-                { text: "Theme Customization", comingSoon: true },
-                { text: "Unlimited AI Date Customizer", comingSoon: true }
+                { text: "Everything in the Daily Pass", icon: Star },
+                { text: "Advanced AI Customizer (Tweak your vibe)", icon: Check },
+                { text: "7-Day Recycle Bin (Recover deleted dates)", icon: Heart },
+                { text: "Anniversary & Special Occasion Planning", icon: Star },
+                { text: "Priority Access to New NYC Features", icon: Check }
             ],
-            cta: "Subscribe Now",
-            highlight: false
-        },
-        {
-            name: "Elite Couples",
-            tagline: "Total romance management.",
-            price: "$99",
-            period: "/yr",
-            savings: "2 Months Free",
-            features: [
-                { text: "Everything from Premium plan", comingSoon: false },
-                { text: "Priority bookings & map fixes", comingSoon: false },
-                { text: "Global city expansion access", comingSoon: false },
-                { text: "Special event planning setup", comingSoon: true }
-            ],
-            cta: "Subscribe Now",
-            highlight: false
+            cta: "Get DateSpark Plus",
+            highlight: false,
+            className: "bg-navy-light/50 border-white/20 text-white hover:border-coral/50",
+            savings: "Cancel Anytime"
         }
     ];
 
     return (
-        <section id="pricing" className="section-padding bg-navy text-white rounded-[40px] md:rounded-[60px] mx-4 md:mx-8 mb-20 overflow-hidden shadow-2xl">
-            <div className="container-custom">
-                <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-                    <h2 className="text-4xl font-black tracking-tight leading-none">Simple pricing for happy memories.</h2>
-                    <p className="text-gray-400 font-medium">Pick the best plan to find city secrets without the stress.</p>
+        <section id="pricing" className="section-padding bg-[#0A0F1E] text-white rounded-[40px] md:rounded-[60px] mx-4 md:mx-8 mb-20 overflow-hidden shadow-2xl relative border border-white/5">
+            {/* Background Decorative Element */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-coral/5 blur-[120px] rounded-full -mr-64 -mt-64" />
+            
+            <div className="container-custom relative z-10">
+                <div className="text-center max-w-3xl mx-auto mb-16 space-y-6">
+                    <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.1]">
+                        Plan the perfect date in <span className="text-coral">seconds.</span>
+                    </h2>
+                    <p className="text-xl text-gray-400 font-medium">
+                        Stop stressing. Start connecting. Choose the best way to spark your romance tonight.
+                    </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
                     {plans.map((sub, idx) => (
-                        <div key={idx} className={`relative p-8 rounded-[40px] border flex flex-col transition-all duration-300 hover:-translate-y-1 ${
-                            sub.highlight 
-                                ? 'bg-white text-navy border-white shadow-2xl scale-[1.03]' 
-                                : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
-                        }`}>
-                            {sub.savings && (
-                                <div className="absolute -top-4 right-8 bg-gold text-navy px-4 py-1 rounded-full text-xs font-black uppercase shadow-lg">
-                                    {sub.savings}
-                                </div>
-                            )}
+                        <div key={idx} className={`relative p-8 rounded-[40px] border flex flex-col transition-all duration-500 hover:-translate-y-2 ${sub.className}`}>
                             {sub.badge && (
-                                <div className="absolute top-0 right-0 bg-coral text-white px-5 py-2 rounded-bl-2xl text-[10px] font-black animate-pulse">
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-coral text-white px-6 py-2 rounded-full text-[10px] font-black tracking-widest uppercase shadow-xl z-20 whitespace-nowrap animate-bounce">
                                     {sub.badge}
                                 </div>
                             )}
+                            
+                            {sub.savings && (
+                                <div className="absolute top-6 right-8 text-[10px] font-black uppercase text-coral tracking-wider px-3 py-1 bg-coral/10 rounded-full">
+                                    {sub.savings}
+                                </div>
+                            )}
 
-                            <div className="space-y-2 mb-6">
-                                <h4 className="text-2xl font-black tracking-tight">{sub.name}</h4>
-                                <p className={`text-xs ${sub.highlight ? 'text-gray-500' : 'text-gray-400'}`}>{sub.tagline}</p>
+                            <div className="mb-8">
+                                <h4 className="text-2xl font-black tracking-tight mb-2">{sub.name}</h4>
+                                <p className={`text-sm font-medium ${sub.highlight ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    {sub.tagline}
+                                </p>
                             </div>
 
-                            <div className="text-4xl font-black mb-6">
-                                {sub.price}<span className={`text-lg font-normal ${sub.highlight ? 'text-gray-500' : 'text-gray-400'}`}>{sub.period}</span>
+                            <div className="flex items-baseline gap-1 mb-8">
+                                <span className="text-5xl font-black">{sub.price}</span>
+                                <span className={`text-lg font-bold ${sub.highlight ? 'text-gray-400' : 'text-gray-500'}`}>{sub.period}</span>
                             </div>
 
-                            <ul className="space-y-4 mb-8 flex-grow">
+                            <ul className="space-y-4 mb-10 flex-grow">
                                 {sub.features.map((feature, fIdx) => (
                                     <li key={fIdx} className="flex items-start gap-3">
-                                        <Check className={`w-4 h-4 mt-0.5 ${feature.locked ? 'text-gray-400' : sub.highlight ? 'text-coral' : 'text-gold'}`} />
-                                        <div className="flex flex-col">
-                                            <span className={`text-sm ${feature.locked ? 'opacity-40' : ''} ${feature.comingSoon ? 'line-through opacity-50' : ''}`}>{feature.text}</span>
-                                            {feature.comingSoon && (
-                                                <span className="text-[9px] font-black uppercase text-purple-400 tracking-wider">Coming Soon</span>
-                                            )}
+                                        <div className={`p-1 rounded-md ${sub.highlight ? 'bg-coral/10 text-coral' : 'bg-white/10 text-coral'}`}>
+                                            <feature.icon className="w-3 h-3" />
                                         </div>
+                                        <span className={`text-sm font-medium leading-tight ${feature.muted ? 'opacity-50' : ''}`}>
+                                            {feature.text}
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
 
-                            <a
-                                href="#waitlist"
-                                className={`w-full py-4 rounded-2xl font-black text-center flex items-center justify-center gap-2 transition-all ${
+                            <button
+                                onClick={() => {
+                                    // Map UI names to internal server plan types
+                                    const planMap = {
+                                        "The Spark": "free",
+                                        "24-Hour Pass": "daily",
+                                        "Romantic Elite": "premium"
+                                    };
+                                    window.location.href = '#waitlist'; // Fallback for now, could be stripe logic
+                                }}
+                                className={`w-full py-5 rounded-2xl font-black text-center flex items-center justify-center gap-2 transition-all group overflow-hidden relative ${
                                     sub.highlight 
-                                        ? 'bg-coral text-white hover:bg-opacity-90 shadow-xl shadow-coral/30' 
-                                        : 'bg-white/10 border border-white/20 hover:bg-white/20 text-white'
+                                        ? 'bg-coral text-white hover:scale-[1.02] active:scale-[0.98] shadow-2xl shadow-coral/40' 
+                                        : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white'
                                 }`}
                             >
-                                {sub.cta} <ArrowRight className="w-4 h-4" />
-                            </a>
+                                <span className="relative z-10">{sub.cta}</span>
+                                <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${sub.highlight ? 'text-white' : 'text-coral'}`} />
+                            </button>
                         </div>
                     ))}
                 </div>
 
-                <p className="text-center mt-12 text-gray-500 text-sm italic">
-                    Couples on the waitlist get special discounts when we launch.
-                </p>
+                <div className="mt-16 text-center space-y-4">
+                    <div className="flex items-center justify-center -space-x-3 mb-4">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <img key={i} src={`https://i.pravatar.cc/100?u=${i + 10}`} className="w-10 h-10 rounded-full border-4 border-[#0A0F1E]" alt="User" />
+                        ))}
+                        <div className="w-10 h-10 rounded-full border-4 border-[#0A0F1E] bg-coral flex items-center justify-center text-[10px] font-black">
+                            +500
+                        </div>
+                    </div>
+                    <p className="text-gray-400 text-sm font-medium">
+                        Join <span className="text-white font-bold">500+ couples</span> planning stress-free dates in NYC.
+                    </p>
+                </div>
             </div>
         </section>
     );

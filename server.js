@@ -57,21 +57,12 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
         if (planType === 'premium') {
             unitAmount = 999; // $9.99
-            productName = 'Premium Membership';
+            productName = 'Romantic Elite Membership';
             mode = 'subscription';
             recurring = { interval: 'month' };
-        } else if (planType === 'lifetime') {
-            unitAmount = 2999; // $29.99
-            productName = 'Lifetime Access';
-            mode = 'payment';
-        } else if (planType === 'elite') {
-            unitAmount = 9900; // $99.00
-            productName = 'Elite Couples';
-            mode = 'subscription';
-            recurring = { interval: 'year' };
         } else if (planType === 'daily') {
             unitAmount = 199; // $1.99
-            productName = 'Daily Date Pass';
+            productName = '24-Hour Date Pass';
             mode = 'payment';
         }
 
@@ -83,8 +74,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
                     product_data: {
                         name: productName,
                         description: planType === 'premium'
-                            ? '✅ Plan unlimited dates\n✅ Unlock all venues & restaurants\n✅ Unlimited AI Date Customizer\n✅ Save unlimited favorites\n✅ Access to all cities\n✅ Early access to new features'
-                            : '✅ Unlock full access to 1 premium date itinerary immediately on DateSpark.',
+                            ? 'Unlimited date ideas, full itinerary access, map navigation, and premium switch up features.'
+                            : '✅ Full 5-Stop Itinerary Access\n✅ Save Unlimited Favorites (24h)\n✅ Directions & Ride-sharing\n✅ Perfect for Tonight',
                     },
                     unit_amount: unitAmount,
                     ...(recurring && { recurring })
@@ -122,6 +113,7 @@ app.post('/api/feedback', async (req, res) => {
             await resend.emails.send({
                 from: 'Feedback <hello@datespark.live>',
                 to: process.env.ADMIN_EMAIL || 'rayanerold@gmail.com',
+                reply_to: email || undefined,
                 subject: 'New DateSpark Feedback 💡',
                 html: `
                         <!-- Branded Logo -->
@@ -153,6 +145,152 @@ app.post('/api/feedback', async (req, res) => {
     } catch (err) {
         console.error('Feedback route error:', err);
         res.status(200).json({ message: 'Feedback processed' }); // return 200 so UI succeeds if logged
+    }
+});
+
+// --- Welcome/Onboarding Email Endpoint ---
+app.post('/api/send-welcome', async (req, res) => {
+    const { email, firstName } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+        if (resend) {
+            await resend.emails.send({
+                from: 'DateSpark <hello@datespark.live>',
+                to: [email],
+                subject: `Welcome to the family, ${firstName || 'Friend'}! 🥂`,
+                html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <style>
+                            body { font-family: 'Inter', -apple-system, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }
+                            .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #f1f5f9; }
+                            .hero { background: linear-gradient(135deg, #f43f5e 0%, #fb7185 100%); padding: 60px 40px; text-align: center; color: white; }
+                            .content { padding: 40px; }
+                            .footer { background: #f8fafc; padding: 24px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+                            .btn { display: inline-block; background: #f43f5e; color: white !important; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; margin-top: 24px; box-shadow: 0 10px 15px -3px rgba(244, 63, 94, 0.3); }
+                            .feature { margin-bottom: 24px; display: flex; align-items: flex-start; }
+                            .feature-icon { background: #fff1f2; color: #f43f5e; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; margin-right: 16px; font-size: 14px; }
+                            h1 { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: -0.05em; color: white; }
+                            h2 { color: #0f172a; font-size: 20px; font-weight: 700; margin-bottom: 16px; margin-top: 0; }
+                            p { color: #64748b; font-size: 16px; margin-bottom: 16px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="hero">
+                                <h1>Welcome to the family, ${firstName || 'there'}! 🥂</h1>
+                            </div>
+                            <div class="content">
+                                <h2>You're officially a DateSparker.</h2>
+                                <p>We're building the future of dating in NYC, and we're so glad you're here. DateSpark is designed to take the stress out of planning so you can focus on the connection.</p>
+                                
+                                <div style="margin-top: 32px;">
+                                    <div class="feature">
+                                        <div class="feature-icon">1</div>
+                                        <div>
+                                            <strong style="color: #0f172a;">Plan your first date</strong>
+                                            <p style="font-size: 14px; margin-top: 4px;">Head to the generator and let our AI curate the perfect NYC evening for you.</p>
+                                        </div>
+                                    </div>
+                                    <div class="feature">
+                                        <div class="feature-icon">2</div>
+                                        <div>
+                                            <strong style="color: #0f172a;">Exclusive "Elite" access</strong>
+                                            <p style="font-size: 14px; margin-top: 4px;">As a new member, you've unlocked a special 24-hour preview of our Elite venues.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="text-align: center; margin-top: 20px;">
+                                    <a href="https://datespark.live/dashboard" class="btn">Generate My First Date</a>
+                                </div>
+                            </div>
+                            <div class="footer">
+                                &copy; 2026 DateSpark. You received this because you created a DateSpark account.
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `
+            });
+            res.status(200).json({ message: 'Welcome email sent' });
+        } else {
+            res.status(500).json({ error: 'Resend not configured' });
+        }
+    } catch (err) {
+        console.error('Welcome email error:', err);
+        res.status(500).json({ error: 'Failed to send welcome email' });
+    }
+});
+
+// --- Forgot Username Endpoint ---
+app.post('/api/forgot-username', async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+        if (resend) {
+            // In a real app, you would look up the user's username/fullname in Supabase here.
+            // For DateSpark's current schema, we remind them of the email they used.
+            const { data: user, error } = await supabase
+                .from('waitlist') // Or your primary users table
+                .select('email')
+                .eq('email', email)
+                .single();
+
+            // Note: We don't want to leak if an email exists for security, 
+            // but we can provide a friendly message.
+            
+            await resend.emails.send({
+                from: 'DateSpark Security <hello@datespark.live>',
+                to: [email],
+                subject: 'Your DateSpark Account Information 🔐',
+                html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body { font-family: sans-serif; line-height: 1.6; color: #1e293b; }
+                            .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; }
+                            .logo { display: block; margin: 0 auto 20px; max-width: 120px; }
+                            .btn { display: inline-block; background: #f43f5e; color: white !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <img src="https://datespark.live/datespark-logo.png" class="logo" alt="DateSpark" />
+                            <h2 style="text-align: center;">Account Helper</h2>
+                            <p>Hi there,</p>
+                            <p>You recently requested to recover your account information for DateSpark.</p>
+                            <p>Your account is associated with this email address: <strong>${email}</strong>.</p>
+                            <p>If you were trying to reset your password, please use the "Forgot Password" option on the sign-in page.</p>
+                            <div style="text-align: center;">
+                                <a href="https://datespark.live/login" class="btn">Sign In to DateSpark</a>
+                            </div>
+                            <p style="font-size: 12px; color: #64748b; margin-top: 40px; text-align: center;">
+                                If you did not request this information, you can safely ignore this email.
+                            </p>
+                        </div>
+                    </body>
+                    </html>
+                `
+            });
+            res.status(200).json({ message: 'Username reminder sent' });
+        } else {
+            res.status(500).json({ error: 'Resend not configured' });
+        }
+    } catch (err) {
+        console.error('Forgot username error:', err);
+        res.status(200).json({ message: 'Process completed' }); // Return success to prevent email enumeration
     }
 });
 

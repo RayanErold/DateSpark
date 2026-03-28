@@ -58,7 +58,18 @@ const Dashboard = () => {
     }, [appTheme]);
 
     // --- FREEMIUM LOGIC STATE ---
-    const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
+    const [isPremium, setIsPremium] = useState(() => {
+        const premium = localStorage.getItem('isPremium') === 'true';
+        const expiry = localStorage.getItem('premiumExpiry');
+        if (premium && expiry) {
+            if (Date.now() > parseInt(expiry, 10)) {
+                localStorage.setItem('isPremium', 'false');
+                localStorage.removeItem('premiumExpiry');
+                return false;
+            }
+        }
+        return premium;
+    }); // Bound to localStorage for testing
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
     const [showIdeaModal, setShowIdeaModal] = useState(false);
@@ -72,6 +83,19 @@ const Dashboard = () => {
     const [activeSwitchIndex, setActiveSwitchIndex] = useState(null);
     const [selectedPlanIds, setSelectedPlanIds] = useState([]);
     const [isSelectMode, setIsSelectMode] = useState(false);
+    const [switchUpUses, setSwitchUpUses] = useState(() => {
+        const saved = localStorage.getItem('switchUpUses');
+        const lastUseTime = localStorage.getItem('switchUpLastUseTime');
+        if (lastUseTime) {
+            const passedTime = Date.now() - parseInt(lastUseTime, 10);
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            if (passedTime >= twentyFourHours) {
+                localStorage.setItem('switchUpUses', '0');
+                return 0;
+            }
+        }
+        return saved ? parseInt(saved, 10) : 0;
+    });
 
     useEffect(() => {
         if (selectedPlan && selectedPlan.id) {
@@ -125,33 +149,43 @@ const Dashboard = () => {
         const baseUrl = import.meta.env.VITE_SUPABASE_URL;
         const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-        // Get current session for the user's JWT
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token || anonKey;
-
+        // Use anonKey for all requests to ensure consistency with the initial fetch
+        const token = anonKey; 
+        
         const options = {
             method,
             headers: {
                 'apikey': anonKey,
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
+                'Prefer': method === 'DELETE' ? 'return=minimal' : 'return=representation'
             }
         };
 
         if (body) {
+            options.headers['Content-Type'] = 'application/json';
             options.body = JSON.stringify(body);
         }
 
+        const url = `${baseUrl}/rest/v1/${path}`;
+        
         try {
-            const response = await fetch(`${baseUrl}/rest/v1/${path}`, options);
+            const response = await fetch(url, options);
             if (!response.ok) {
                 const errBody = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errBody}`);
+                let parsedErr = errBody;
+                try {
+                    const json = JSON.parse(errBody);
+                    parsedErr = json.message || json.error || JSON.stringify(json);
+                } catch (e) { /* not json */ }
+                
+                throw new Error(`HTTP ${response.status}: ${parsedErr}`);
             }
-            return response.json();
+            
+            if (response.status === 204) return { success: true };
+            const text = await response.text();
+            return text ? JSON.parse(text) : { success: true };
         } catch (err) {
-            console.error(`supabaseRequest ERROR [${method} ${path}]:`, err);
+            console.error(`supabaseRequest ERROR [${method} ${path}]:`, err.message);
             throw err;
         }
     };
@@ -194,7 +228,6 @@ const Dashboard = () => {
                             }
 
                             const data = await response.json();
-                            console.log('Dashboard - Fetch success, count:', data?.length);
 
                             // Sort and filter by user_id in JS for now to be safe
                             const userPlans = (data || []).filter(p => p.user_id === user.id);
@@ -247,7 +280,10 @@ const Dashboard = () => {
 
         if (stripePayment === 'success') {
             setIsPremium(true);
-            localStorage.setItem('isPremium', 'true'); // Persist local testing flag
+            localStorage.setItem('isPremium', 'true');
+            // If they bought a daily pass, set 24h expiry (simplified for MVP)
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            localStorage.setItem('premiumExpiry', (Date.now() + twentyFourHours).toString()); // Persist local testing flag
             alert('🎉 Payment Successful! You are now a Premium Member.');
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -274,14 +310,14 @@ const Dashboard = () => {
         try {
             if (isFromTrash) {
                 // Permanent Batch Delete
-                const idsParam = selectedPlanIds.join(',');
+                const idsParam = selectedPlanIds.map(id => `"${id}"`).join(',');
                 await supabaseRequest('DELETE', `plans?id=in.(${idsParam})`);
                 setPlans(plans.filter(p => !selectedPlanIds.includes(p.id)));
                 alert(`${count} plans deleted forever.`);
             } else {
                 // Soft Batch Delete
                 const now = new Date().toISOString();
-                const idsParam = selectedPlanIds.join(',');
+                const idsParam = selectedPlanIds.map(id => `"${id}"`).join(',');
                 await supabaseRequest('PATCH', `plans?id=in.(${idsParam})`, { deleted_at: now });
                 setPlans(plans.map(p => selectedPlanIds.includes(p.id) ? { ...p, deleted_at: now } : p));
                 alert(`${count} plans moved to Trash.`);
@@ -290,7 +326,7 @@ const Dashboard = () => {
             setIsSelectMode(false);
         } catch (err) {
             console.error('Batch Delete Error:', err);
-            alert('Batch operation failed.');
+            alert(`Batch operation failed: ${err.message}`);
         }
     };
 
@@ -322,7 +358,7 @@ const Dashboard = () => {
             if (selectedPlan && selectedPlan.id === planId) setSelectedPlan(null);
         } catch (err) {
             console.error('Error deleting plan:', err.message);
-            alert('Failed to delete plan.');
+            alert(`Failed to delete plan: ${err.message}`);
         }
     };
 
@@ -334,7 +370,7 @@ const Dashboard = () => {
             alert('Plan restored to your dashboard!');
         } catch (err) {
             console.error('Error restoring plan:', err.message);
-            alert('Restore failed.');
+            alert(`Restore failed: ${err.message}`);
         }
     };
 
@@ -344,7 +380,7 @@ const Dashboard = () => {
         // --- FREEMIUM FAVORITE LIMIT LOGIC ---
         if (!plan.is_favorite && !isPremium) {
             const currentFavoritesCount = plans.filter(p => p.is_favorite).length;
-            if (currentFavoritesCount >= 3) {
+            if (currentFavoritesCount >= 2) {
                 setShowUpgradeModal(true);
                 return; // Block saving
             }
@@ -357,7 +393,7 @@ const Dashboard = () => {
             setPlans(plans.map(p => p.id === plan.id ? { ...p, is_favorite: newStatus } : p));
         } catch (err) {
             console.error('Error toggling favorite:', err.message);
-            alert('Failed to update favorite status.');
+            alert(`Failed to update favorite status: ${err.message}`);
         }
     };
 
@@ -545,6 +581,10 @@ const Dashboard = () => {
     };
 
     const handleSwitchUp = async (idx, step) => {
+        if (!isPremium && switchUpUses >= 2) {
+            setShowUpgradeModal(true);
+            return;
+        }
         setActiveSwitchIndex(idx);
         setIsSwitchingUp(true);
         setAlternatives([]);
@@ -622,8 +662,17 @@ const Dashboard = () => {
             // Update local state
             setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, itinerary: updatedItinerary } : p));
             setSelectedPlan(prev => ({ ...prev, itinerary: updatedItinerary }));
+
             setActiveSwitchIndex(null);
             setAlternatives([]);
+
+            // Increment uses for free users
+            if (!isPremium) {
+                const newUses = switchUpUses + 1;
+                setSwitchUpUses(newUses);
+                localStorage.setItem('switchUpUses', newUses.toString());
+                localStorage.setItem('switchUpLastUseTime', Date.now().toString());
+            }
 
         } catch (error) {
             console.error('Error confirming switch:', error);
@@ -663,7 +712,7 @@ const Dashboard = () => {
     const hasFavorites = plans.some(p => p.is_favorite);
 
     const renderPlanCard = (plan, planIdx, enforceLocked = false, isCompact = false) => {
-        const isLockedPlan = enforceLocked || (!isPremium && activeTab === 'all' && planIdx >= 3);
+        const isLockedPlan = enforceLocked || (!isPremium && activeTab === 'all' && planIdx >= 2);
 
         return (
             <div
@@ -1078,58 +1127,64 @@ const Dashboard = () => {
         {selectedPlan && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/50 backdrop-blur-sm">
                 <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
+                    {/* Desktop Close Button */}
+                    <button
+                        onClick={() => {
+                            setSelectedPlan(null);
+                            setShowMapMobile(false);
+                        }}
+                        className="absolute top-6 right-6 z-50 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors hidden md:block"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
 
                     {/* Left Column: Timeline UI */}
                     <div className={`flex-1 overflow-y-auto bg-transparent md:bg-white flex-col z-10 ${showMapMobile ? 'hidden md:flex' : 'flex'}`}>
 
-                        {/* Navy Header Section */}
-                        <div className="bg-[#0f172a]/90 backdrop-blur-md text-white p-4 sm:p-6 pb-6 sm:pb-8 relative rounded-bl-[2rem] md:rounded-bl-none sticky top-0 z-20">
-                            <button
-                                onClick={() => {
-                                    setSelectedPlan(null);
-                                    setShowMapMobile(false);
-                                }}
-                                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors md:hidden"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                        {/* Extra Compact Header Section */}
+                        <div className="bg-[#0f172a]/95 backdrop-blur-xl text-white p-4 border-b border-white/10 sticky top-0 z-20 rounded-b-2xl md:rounded-b-none flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/10">
+                                    <Heart className="w-5 h-5 fill-coral text-coral" />
+                                </div>
+                                <div className="min-w-0">
+                                    <h2 className="text-base font-black font-outfit tracking-tight truncate">{selectedPlan.vibe} Date</h2>
+                                    <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70">
+                                        {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
+                                            `${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+                                            : 'Planned for Tonight'}
+                                    </p>
+                                </div>
+                            </div>
 
-                            <div className="flex justify-between items-start mt-2">
-                                <div className="flex gap-3 items-center">
-                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                                        <Heart className="w-5 h-5 fill-white text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-black font-outfit leading-tight">{selectedPlan.vibe} Date</h2>
-                                        <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mt-1">
-                                            {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
-                                                `PLANNED FOR ${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase()}`
-                                                : 'PLANNED FOR TONIGHT'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="text-right hidden sm:block">
-                                    <h3 className="text-xl font-bold">{(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.[0]?.time || 'TBD'}</h3>
-                                    <p className="text-xs text-gray-400 font-bold uppercase mt-1">{selectedPlan.location}</p>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleShare}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all text-[10px] font-black group"
+                                >
+                                    <Share2 className="w-3.5 h-3.5 text-coral group-hover:scale-110 transition-transform" />
+                                    <span>Share Plan</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setSelectedPlan(null);
+                                        setShowMapMobile(false);
+                                    }}
+                                    className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-all"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
                         </div>
 
-                        {/* Floating Tab Bar with Share */}
-                        <div className="px-4 md:px-8 -mt-5 z-10 w-full flex justify-center gap-2">
-                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex items-center justify-center text-xs font-bold text-gray-500 w-auto">
-                                <div className="flex flex-col items-center gap-1 py-1.5 px-6 text-navy bg-gray-50 rounded-xl border border-gray-100/50">
-                                    <Ticket className="w-4 h-4" />
-                                    <span>Itinerary</span>
+                        {/* Floating Navigation Pill */}
+                        <div className="px-4 md:px-8 -mt-5 z-10 w-full flex justify-center">
+                            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-1 flex items-center justify-center">
+                                <div className="flex items-center gap-2 py-2 px-8 text-navy bg-gray-50/50 rounded-xl border border-gray-100/50 text-[11px] font-black uppercase tracking-wider">
+                                    <Ticket className="w-4 h-4 text-coral" />
+                                    <span>Interactive Chronology</span>
                                 </div>
                             </div>
-                            <button
-                                onClick={handleShare}
-                                className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex flex-col items-center gap-1 py-1.5 px-6 text-gray-500 hover:text-coral transition-all font-bold text-xs"
-                            >
-                                <Share2 className="w-4 h-4" />
-                                <span>Share Plan</span>
-                            </button>
                         </div>
 
                         {/* Spacer for Background Map Visualization on Mobile */}
@@ -1166,7 +1221,6 @@ const Dashboard = () => {
                                                 {step.time}
                                             </div>
 
-                                            {/* Checkbox Trigger button absolute on the line triggers abs items */}
                                             <button
                                                 type="button"
                                                 disabled={isLockedStep}
@@ -1188,8 +1242,7 @@ const Dashboard = () => {
                                                 )}
                                             </button>
 
-                                            {/* Card wrapper triggers layout fits securely node triggers absolute setup triggers absolute space Node triggers layout fixes triggers absolute list overlays node trigg */}
-                                            <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all hover:shadow-md ${isLockedStep ? 'blur-sm select-none opacity-60 group-hover/locked:blur-md group-hover/locked:opacity-40' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
+                                            <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all hover:shadow-md ${isLockedStep ? 'blur-sm select-none opacity-60' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
                                                 <div className="flex items-start gap-3">
                                                     {/* Category Icon */}
                                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-50/80 border border-gray-50`}>
@@ -1202,12 +1255,13 @@ const Dashboard = () => {
                                                         )}
                                                     </div>
 
-                                                    <div className="flex-1">
-                                                        <h4 className="text-base font-black font-outfit text-navy line-clamp-1">{step.venue}</h4>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="text-base font-black font-outfit text-navy truncate group-hover:text-coral transition-colors">{step.venue}</h4>
                                                         <p className={`text-[9px] font-black uppercase tracking-wider ${textColor[colorIdx]} ${completedSteps.includes(idx) ? 'line-through' : ''}`}>
                                                             {step.activity}
                                                         </p>
                                                     </div>
+                                                    <span className="text-[10px] font-black text-gray-300">{step.time}</span>
                                                 </div>
 
                                                 <p className="text-[11px] text-gray-500 font-medium leading-relaxed border-t border-gray-50 pt-2 mt-0.5">{step.description}</p>
@@ -1223,14 +1277,14 @@ const Dashboard = () => {
                                                     </div>
                                                 )}
 
-                                                {/* Action Tags */}
+                                                {/* Action Tags - Reverted Style */}
                                                 <div className="flex flex-wrap items-center gap-2 mt-1">
                                                     {step.directionsUrl && (
                                                         <a
                                                             href={step.directionsUrl}
                                                             target="_blank"
                                                             rel="noreferrer"
-                                                            className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                            className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-[10px] font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                         >
                                                             <MapPin className="w-3 h-3" /> Get Directions
                                                         </a>
@@ -1241,32 +1295,10 @@ const Dashboard = () => {
                                                             href={step.bookingUrl}
                                                             target="_blank"
                                                             rel="noreferrer"
-                                                            className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                            className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-[10px] font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                         >
                                                             {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
                                                             {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
-                                                        </a>
-                                                    )}
-
-                                                    {step.url && step.url !== '#' && (
-                                                        <a
-                                                            href={step.url}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="px-2.5 py-1.5 bg-coral/10 text-coral text-xs font-bold rounded-lg hover:bg-coral hover:text-white transition-colors border border-coral/20 inline-flex items-center gap-1 shadow-sm"
-                                                        >
-                                                            <Ticket className="w-3 h-3" /> Book Tickets
-                                                        </a>
-                                                    )}
-
-                                                    {!step.url && step.searchUrl && (
-                                                        <a
-                                                            href={step.searchUrl}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
-                                                        >
-                                                            <Search className="w-3 h-3" /> Search on Google
                                                         </a>
                                                     )}
 
@@ -1275,13 +1307,9 @@ const Dashboard = () => {
                                                             e.stopPropagation();
                                                             handleSwitchUp(idx, step);
                                                         }}
-                                                        className="px-2.5 py-1.5 bg-violet-50 text-violet-600 outline outline-1 outline-violet-200 text-xs font-black rounded-lg hover:bg-violet-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-[0_1px_8px_rgba(139,92,246,0.1)] hover:shadow-violet-200/50 group/btn"
+                                                        className="px-2.5 py-1.5 bg-violet-50 text-violet-600 outline outline-1 outline-violet-200 text-[10px] font-black rounded-lg hover:bg-violet-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-[0_1px_8px_rgba(139,92,246,0.1)] hover:shadow-violet-200/50 group/btn"
                                                     >
-                                                        {isSwitchingUp && activeSwitchIndex === idx ? (
-                                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                                        ) : (
-                                                            <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
-                                                        )}
+                                                        <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
                                                         Switch Up
                                                     </button>
 
@@ -1290,7 +1318,7 @@ const Dashboard = () => {
                                                             href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
                                                             target="_blank"
                                                             rel="noreferrer"
-                                                            className="px-2.5 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
+                                                            className="px-2.5 py-1.5 bg-black text-white text-[10px] font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
                                                         >
                                                             <Car className="w-3 h-3" /> Get a Ride
                                                         </a>
@@ -1401,9 +1429,13 @@ const Dashboard = () => {
                                 <GoogleMap
                                     mapContainerStyle={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
                                     center={
-                                        (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.length > 0
-                                            ? { lat: (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)[0].lat, lng: (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)[0].lng }
-                                            : { lat: 40.7128, lng: -74.0060 } // Default to NYC if no coordinates
+                                        (() => {
+                                            const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
+                                            const firstValidStep = steps.find(s => typeof s.lat === 'number' && typeof s.lng === 'number');
+                                            return firstValidStep 
+                                                ? { lat: Number(firstValidStep.lat), lng: Number(firstValidStep.lng) } 
+                                                : { lat: 40.7128, lng: -74.0060 };
+                                        })()
                                     }
                                     zoom={14}
                                     options={{
@@ -1413,13 +1445,15 @@ const Dashboard = () => {
                                     }}
                                 >
                                     {/* Markers for each step */}
-                                    {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || []).map((step, idx) => (
-                                        <Marker
-                                            key={idx}
-                                            position={{ lat: step.lat, lng: step.lng }}
-                                            label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
-                                        />
-                                    ))}
+                                    {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [])
+                                        .filter(step => typeof step.lat === 'number' && typeof step.lng === 'number')
+                                        .map((step, idx) => (
+                                            <Marker
+                                                key={idx}
+                                                position={{ lat: Number(step.lat), lng: Number(step.lng) }}
+                                                label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
+                                            />
+                                        ))}
                                 </GoogleMap>
                             </div>
                         ) : (
@@ -1450,93 +1484,50 @@ const Dashboard = () => {
 
                     <h2 className="text-2xl font-black text-navy mb-2">Upgrade to Premium</h2>
                     <p className="text-gray-500 mb-6 max-w-md mx-auto font-medium text-xs">
-                        Unlock full AI-driven itineraries, unlimited saving features, and city support mapped off our authorized landing tiers Node triggers.
+                        Unlock full AI-driven itineraries, unlimited saving features, and city support.
                     </p>
 
-                    <div className="grid md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto px-1">
-                        {/* Elite Couples / Annual */}
-                        <div className="bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-5 text-white text-left relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-navy-100/20 flex flex-col justify-between">
-                            <div className="absolute top-0 right-0 bg-gradient-to-r from-gold to-yellow-400 text-navy px-3 py-1 bg-gold rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
-                                Best Value
+                    <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto px-1">
+                        {/* Daily Date Pass - THE HOOK */}
+                        <div className="bg-white border-2 border-coral rounded-2xl p-5 text-left relative group hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+                            <div className="absolute top-0 right-0 bg-coral text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
+                                Most Popular
                             </div>
                             <div>
-                                <h4 className="text-lg font-black mb-1">Elite Couples</h4>
-                                <p className="text-white/70 text-[11px] mb-3">Total romance management & priority updates Node triggers.</p>
-                                <div className="flex items-end gap-1 mb-4">
-                                    <span className="text-2xl font-black">$99</span>
-                                    <span className="text-white/50 text-xs mb-1">/yr</span>
-                                </div>
-                                <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority bookings</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Global city setup</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Special planning grid</li>
-                                </ul>
-                            </div>
-                            <button onClick={() => handleBuyPass('elite')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
-                                Subscribe Elite
-                            </button>
-                        </div>
-
-                        {/* Premium Member / Monthly */}
-                        <div className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-left relative group hover:border-coral/40 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-                            <div>
-                                <h4 className="text-lg font-black text-navy mb-1">Premium Member</h4>
-                                <p className="text-gray-400 text-[11px] mb-3">For couples who go out often Node triggers.</p>
-                                <div className="flex items-end gap-1 mb-4">
-                                    <span className="text-2xl font-black text-navy">$9.99</span>
-                                    <span className="text-gray-400 text-xs mb-1">/mo</span>
-                                </div>
-                                <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited dates</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited savings</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Theme tweaks</li>
-                                </ul>
-                            </div>
-                            <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-gradient-to-r from-coral to-coral/90 text-white text-xs font-black rounded-xl hover:opacity-90 transition-colors shadow-lg mt-auto">
-                                Subscribe Monthly
-                            </button>
-                        </div>
-
-                        {/* Lifetime Access */}
-                        <div className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-left relative group hover:border-coral/40 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-                            <div className="absolute top-0 right-0 bg-blue-500 text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
-                                Save Big
-                            </div>
-                            <div>
-                                <h4 className="text-lg font-black text-navy mb-1">Lifetime Access</h4>
-                                <p className="text-gray-400 text-[11px] mb-3">Early Bird bundle available for first users.</p>
-                                <div className="flex items-end gap-1 mb-4">
-                                    <span className="text-2xl font-black text-navy">$29.99</span>
-                                    <span className="text-gray-400 text-xs mb-1 uppercase">/once</span>
-                                </div>
-                                <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> core features</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> global access</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> zero fees ever</li>
-                                </ul>
-                            </div>
-                            <button onClick={() => handleBuyPass('lifetime')} className="w-full py-2.5 bg-gray-900 text-white text-xs font-black rounded-xl hover:bg-gray-800 transition-colors shadow-lg mt-auto">
-                                Get Lifetime
-                            </button>
-                        </div>
-
-                        {/* Daily Date Pass */}
-                        <div className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-left relative group hover:border-coral/40 hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-                            <div>
-                                <h4 className="text-lg font-black text-navy mb-1">Daily Date Pass</h4>
-                                <p className="text-gray-400 text-[11px] mb-3">24hr pass full premium unlock coverage triggers.</p>
+                                <h4 className="text-lg font-black text-navy mb-1">24-Hour Pass</h4>
+                                <p className="text-gray-400 text-[11px] mb-3">Perfect for tonight's date.</p>
                                 <div className="flex items-end gap-1 mb-4">
                                     <span className="text-2xl font-black text-navy">$1.99</span>
                                     <span className="text-gray-400 text-xs mb-1 uppercase">/24hr</span>
                                 </div>
                                 <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Full 5-stop loop</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Maps & Ubers</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> 24hr customizer</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Full 5-stop itineraries</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Save unlimited favorites</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Maps & Directions</li>
                                 </ul>
                             </div>
-                            <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-gradient-to-r from-coral/10 to-coral/5 border border-coral text-coral text-xs font-black rounded-xl hover:bg-coral/15 transition-colors mt-auto">
-                                Get 24hr Access
+                            <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-coral text-white text-xs font-black rounded-xl hover:bg-coral/90 transition-colors shadow-lg mt-auto">
+                                Get Pass
+                            </button>
+                        </div>
+
+                        {/* DateSpark Plus / Monthly */}
+                        <div className="bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-5 text-white text-left relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-navy-100/20 flex flex-col justify-between">
+                            <div>
+                                <h4 className="text-lg font-black mb-1">DateSpark Plus</h4>
+                                <p className="text-white/70 text-[11px] mb-3">Unlimited planning + Premium hacks.</p>
+                                <div className="flex items-end gap-1 mb-4">
+                                    <span className="text-2xl font-black">$9.99</span>
+                                    <span className="text-white/50 text-xs mb-1">/mo</span>
+                                </div>
+                                <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Unlimited Switch Up</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> 7-Day Recycle Bin</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Advanced AI Customizer</li>
+                                </ul>
+                            </div>
+                            <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
+                                Upgrade Now
                             </button>
                         </div>
                     </div>
@@ -1669,10 +1660,18 @@ const Dashboard = () => {
                                 <Bell className={`w-5 h-5 ${settingsTab === 'preferences' ? 'text-coral' : 'text-gray-400'}`} /> Preferences
                             </button>
                             <button
-                                onClick={() => setSettingsTab('trash')}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-colors text-left ${settingsTab === 'trash' ? 'bg-white text-red-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-navy hover:bg-gray-100/50'}`}
+                                onClick={() => {
+                                    if (!isPremium) {
+                                        setShowUpgradeModal(true);
+                                    } else {
+                                        setSettingsTab('trash');
+                                    }
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-colors text-left ${settingsTab === 'trash' ? 'bg-white text-red-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-navy hover:bg-gray-100/50'} ${!isPremium ? 'opacity-60' : ''}`}
                             >
-                                <Trash2 className={`w-5 h-5 ${settingsTab === 'trash' ? 'text-red-500' : 'text-gray-400'}`} /> Trash Bin
+                                <Trash2 className={`w-5 h-5 ${settingsTab === 'trash' ? 'text-red-500' : 'text-gray-400'}`} />
+                                <span className="flex-1">Trash Bin</span>
+                                {!isPremium && <Lock className="w-3.5 h-3.5 text-coral" />}
                             </button>
                             <div className="mt-8 pt-8 border-t border-gray-100 px-4">
                                 <div className="bg-coral/5 rounded-2xl p-4 border border-coral/10">
@@ -1816,14 +1815,14 @@ const Dashboard = () => {
                                                 <Check className="w-3.5 h-3.5 text-green-600 font-bold" />
                                             </div>
                                             <span className="text-gray-600 font-medium">
-                                                Save up to {isPremium ? "unlimited favorites" : "3 favorites"}
+                                                Save up to {isPremium ? "unlimited favorites" : "2 favorites"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>Unlimited plan generations</span>
+                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>Recycle Bin & Switch Up</span>
                                         </div>
                                     </div>
 
@@ -1835,8 +1834,9 @@ const Dashboard = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => {
-                                                        if (window.confirm('Are you sure you want to cancel your Premium subscription? You can cancel anytime to stop recurring billing.')) {
+                                                        if (window.confirm('Are you sure you want to cancel your DateSpark Plus subscription?')) {
                                                             setIsPremium(false);
+                                                            localStorage.setItem('isPremium', 'false');
                                                         }
                                                     }}
                                                     className="py-3 px-6 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
@@ -1848,13 +1848,11 @@ const Dashboard = () => {
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
-                                            <h4 className="text-sm font-black text-navy mt-6 mb-2">Available Plans to Upgrade / Switch</h4>
+                                            <h4 className="text-sm font-black text-navy mt-6 mb-2">Available Plans to Upgrade</h4>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 {[
-                                                    { name: "Daily Date Pass", price: "$1.99", desc: "24-hour full access to unlimited plans.", period: "24hr" },
-                                                    { name: "Lifetime Access", price: "$29.99", desc: "Pay once, access forever.", period: "lifetime" },
-                                                    { name: "Premium Member", price: "$9.99", desc: "Unlimited dates & customize.", period: "mo" },
-                                                    { name: "Elite Premium", price: "$99", desc: "Total romance management.", period: "yr" }
+                                                    { name: "24-Hour Pass", price: "$1.99", desc: "Instant full access for 24 hours.", period: "24hr", type: 'daily' },
+                                                    { name: "DateSpark Plus", price: "$9.99", desc: "Unlimited memories & AI hacks.", period: "mo", type: 'premium' }
                                                 ].map((sub, idx) => (
                                                     <div key={idx} className="bg-white border border-gray-100 p-4 rounded-2xl flex flex-col justify-between hover:border-coral/40 transition-all shadow-sm">
                                                         <div>
@@ -1863,7 +1861,7 @@ const Dashboard = () => {
                                                             <p className="text-base font-black text-navy mt-2">{sub.price}<span className="text-xs font-normal text-gray-400">/{sub.period}</span></p>
                                                         </div>
                                                         <button
-                                                            onClick={() => { setIsPremium(true); alert(`Upgraded to ${sub.name}! (Mock)`); }}
+                                                            onClick={() => handleBuyPass(sub.type)}
                                                             className="w-full mt-3 py-2 bg-navy text-white rounded-xl font-bold text-xs hover:bg-navy/90 transition-colors"
                                                         >
                                                             Select Plan
@@ -1989,10 +1987,9 @@ const Dashboard = () => {
                                     </div>
                                 )}
                             </div>
+                        </div>
                     </div>
-                </div>
-            )}
-
+                )}
                 <BottomNav
                     onProfileClick={() => {
                         setShowSettingsModal(true);

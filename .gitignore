@@ -25,3 +25,20 @@ dist-ssr
 .env
 .env.*
 test*
+
+# Maintenance & Debug
+*.py
+debug-*
+check-*
+deep-rls-check.js
+compare-env.js
+prepare-sql-fix.js
+update_dashboard.js
+finalize_dashboard.py
+refine_dashboard.py
+refine_pricing.py
+refine_server.py
+update_pricing.py
+toggle-premium.js
+update-pricing.js
+src/pages/inspect-feedback.js

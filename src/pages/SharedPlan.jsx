@@ -56,7 +56,15 @@ const SharedPlan = () => {
     }, [id]);
 
     if (isLoading) {
-        return <div className="min-h-screen bg-gray-50 flex items-center justify-center font-bold text-navy">Loading DateSpark Plan...</div>;
+        return (
+            <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+                <div className="w-20 h-20 bg-coral/10 rounded-[2rem] flex items-center justify-center animate-pulse mb-4">
+                    <Heart className="w-10 h-10 fill-coral text-coral" />
+                </div>
+                <h2 className="text-2xl font-black text-navy tracking-tight">Crafting your date...</h2>
+                <p className="text-gray-400 font-medium mt-2">Setting the mood for a perfect evening</p>
+            </div>
+        );
     }
 
     if (error || !plan) {
@@ -190,10 +198,39 @@ const SharedPlan = () => {
                 </div>
             </main>
 
+            {/* Final Viral CTA / Free Marketing */}
+            <div className="w-full max-w-5xl mx-auto px-4 pb-20 pt-10">
+                <div className="bg-gradient-to-r from-navy to-navy/90 rounded-[3rem] p-10 md:p-16 text-center shadow-2xl relative overflow-hidden group">
+                    {/* Background Glow */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-coral/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-coral/30 transition-colors" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-600/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+
+                    <div className="relative z-10 max-w-2xl mx-auto space-y-8">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-white/80 text-sm font-bold backdrop-blur-sm border border-white/10">
+                            <Heart className="w-4 h-4 fill-coral text-coral" /> Trusted by 5,000+ Couples
+                        </div>
+                        <h2 className="text-3xl md:text-5xl font-black text-white leading-tight">
+                            Want a plan like this for <span className="text-transparent bg-clip-text bg-gradient-to-r from-coral to-gold animate-gradient-x">your next date?</span>
+                        </h2>
+                        <p className="text-lg text-white/60 font-medium">
+                            Stop the "I don't know, what do you want to do?" fight. Get a full, ready-to-go plan in seconds.
+                        </p>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                            <Link to="/signup" className="w-full sm:w-auto bg-coral text-white px-10 py-5 rounded-2xl font-black text-xl shadow-[0_10px_40px_rgba(255,127,80,0.3)] hover:scale-[1.05] transition-all flex items-center justify-center gap-3 active:scale-95 leading-none">
+                                Plan My Date Now <Sparkles className="w-6 h-6" />
+                            </Link>
+                            <Link to="/" className="w-full sm:w-auto bg-white/5 hover:bg-white/10 text-white px-10 py-5 rounded-2xl font-black text-xl border border-white/10 transition-all flex items-center justify-center gap-3">
+                                See How It Works
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Bottom Sticky CTA for Mobile (Free Marketing) */}
-            <div className="sm:hidden fixed bottom-0 w-full bg-white border-t border-gray-100 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-40">
-                <Link to="/" className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-3.5 rounded-xl text-md font-black shadow-lg shadow-violet-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
-                    <Sparkles className="w-5 h-5" /> Make Your Own Plan on DateSpark
+            <div className="sm:hidden fixed bottom-0 w-full bg-white border-t border-gray-100 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-40 transition-transform animate-in slide-in-from-bottom-full duration-500 delay-1000">
+                <Link to="/signup" className="w-full bg-navy text-white px-4 py-4 rounded-xl text-md font-black shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                    <Sparkles className="w-5 h-5 text-gold" /> Start Your Free Plan
                 </Link>
             </div>
 

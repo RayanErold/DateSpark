@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon, Utensils, Compass, Car, Search } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
@@ -7,34 +8,54 @@ const DEMO_PLAN = {
     location: 'New York City',
     itinerary: [
         {
-            time: '7:00 PM',
-            activity: 'Italian Candlelight Dinner',
-            venue: 'L’Artusi',
-            description: 'Start your evening with signature handmade pasta and a curated wine list in a cozy, intimate setting.',
-            photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80',
-            lat: 40.7338, lng: -74.0056,
-            rating: 4.6, reviews: 2432, price: '$$$',
-            directionsUrl: '#', bookingUrl: '#', bookingType: 'opentable'
-        },
-        {
-            time: '9:00 PM',
+            time: '6:00 PM',
             activity: 'Scenic Night Stroll',
             venue: 'The High Line',
-            description: 'Walk off dinner on the elevated historic rail line with gorgeous skyline and Hudson River views.',
-            photoUrl: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=500&q=80',
+            description: 'Start your evening on the elevated historic rail line with gorgeous skyline and Hudson River views.',
+            photoUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=800&q=80',
             lat: 40.7480, lng: -74.0048,
             rating: 4.8, reviews: 34102, price: 'Free',
             directionsUrl: '#'
         },
         {
-            time: '10:30 PM',
-            activity: 'Live Jazz & Speakeasy',
-            venue: 'The Flatiron Room',
-            description: 'Finsih the night surrounded by vintage decor, smooth jazz quartets, and artisanal dessert menus.',
-            photoUrl: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=500&q=80',
-            lat: 40.7444, lng: -73.9904,
-            rating: 4.5, reviews: 1890, price: '$$',
-            directionsUrl: '#', searchUrl: '#'
+            time: '7:30 PM',
+            activity: 'Italian Candlelight Dinner',
+            venue: 'L’Artusi',
+            description: 'Signature handmade pasta and a curated wine list in a cozy, intimate West Village setting.',
+            photoUrl: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=80',
+            lat: 40.7338, lng: -74.0056,
+            rating: 4.6, reviews: 2432, price: '50',
+            directionsUrl: '#', bookingUrl: '#', bookingType: 'opentable'
+        },
+        {
+            time: '9:30 PM',
+            activity: 'Speakeasy Cocktails',
+            venue: 'Raines Law Room',
+            description: 'Ring the doorbell to enter this sophisticated Chelsea den for world-class craft cocktails.',
+            photoUrl: 'https://images.unsplash.com/photo-1574096079513-d8259312b785?w=800&q=80',
+            lat: 40.7374, lng: -73.9937,
+            rating: 4.7, reviews: 1560, price: '20',
+            directionsUrl: '#'
+        },
+        {
+            time: '11:00 PM',
+            activity: 'Skyline Views',
+            venue: 'Top of the Rock',
+            description: 'Take in 360-degree views of the Manhattan skyline from the legendary observation deck.',
+            photoUrl: 'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=800&q=80',
+            lat: 40.7587, lng: -73.9787,
+            rating: 4.7, reviews: 45000, price: '100',
+            directionsUrl: '#'
+        },
+        {
+            time: '12:30 AM',
+            activity: 'Smooth Jazz',
+            venue: 'Village Vanguard',
+            description: 'End the night at the "Camelot of Jazz," the most famous basement in music history.',
+            photoUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&q=80',
+            lat: 40.7361, lng: -74.0017,
+            rating: 4.8, reviews: 2100, price: '30',
+            directionsUrl: '#'
         }
     ]
 };
@@ -43,6 +64,7 @@ const Hero = () => {
     const [activeFeature, setActiveFeature] = useState('itinerary');
     const [showDemoModal, setShowDemoModal] = useState(false);
     const [showMapMobile, setShowMapMobile] = useState(false);
+    const navigate = useNavigate();
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -85,9 +107,9 @@ const Hero = () => {
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5 pt-4">
-                        <button onClick={() => window.location.hash = 'waitlist'} className="bg-navy text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_10px_40px_rgba(10,25,47,0.2)] hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(10,25,47,0.3)] transition-all group">
-                            Plan a date now <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                        </button>
+                        <Link to="/signup" className="bg-navy text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_10px_40px_rgba(10,25,47,0.2)] hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(10,25,47,0.3)] transition-all group">
+                            Start My Plan <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        </Link>
                         <button
                             onClick={() => setShowDemoModal(true)}
                             className="flex items-center gap-2 text-navy font-bold hover:text-coral transition-colors bg-white border-2 border-gray-200 px-6 py-4 rounded-2xl hover:border-coral group shadow-sm active:scale-95"
@@ -140,14 +162,24 @@ const Hero = () => {
                         </div>
 
                         {/* Mockup Content Body */}
-                        <div className="p-8 bg-gray-50/50 flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="p-8 bg-gray-50/50 flex-1 overflow-y-auto custom-scrollbar relative">
+                            {/* Map Background Layer for Itinerary */}
                             {activeFeature === 'itinerary' && (
-                                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="absolute inset-0 opacity-20 pointer-events-none z-0 overflow-hidden">
+                                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1449034446853-66c86144b0ad?w=1000&q=80')] bg-cover bg-center grayscale" />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-gray-50/80 via-transparent to-gray-50/80" />
+                                </div>
+                            )}
+
+                            {activeFeature === 'itinerary' && (
+                                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 relative z-10">
                                     <div className="relative border-l-2 border-dashed border-purple-500/20 ml-14 space-y-5 pb-4">
                                         {[
-                                            { time: '7:00 PM', category: 'Dinner', venue: 'L’Artusi', desc: 'Cozy Italian & Candlelight in a cozy, intimate setting.', icon: <Utensils className="w-4 h-4 text-coral" />, dot: 'bg-coral', photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80' },
-                                            { time: '9:00 PM', category: 'Walk', venue: 'The High Line', desc: 'Walk off dinner on the elevated historic rail line.', icon: <Compass className="w-4 h-4 text-gold" />, dot: 'bg-gold', photoUrl: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=500&q=80' },
-                                            { time: '10:30 PM', category: 'Live Music', venue: 'The Flatiron Room', desc: 'Surrounded by vintage decor & smooth jazz quartets.', icon: <Ticket className="w-4 h-4 text-navy" />, dot: 'bg-navy' }
+                                            { time: '6:00 PM', category: 'Walk', venue: 'The High Line', desc: 'Sunset walk on the elevated rail line.', icon: <Compass className="w-4 h-4 text-gold" />, dot: 'bg-gold', photoUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=800&q=80' },
+                                            { time: '7:30 PM', category: 'Dinner', venue: 'L’Artusi', desc: 'Cozy Italian & Candlelight in the West Village.', icon: <Utensils className="w-4 h-4 text-coral" />, dot: 'bg-coral', photoUrl: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=80' },
+                                            { time: '9:30 PM', category: 'Drinks', venue: 'Raines Law Room', desc: 'Secret speakeasy cocktails in Chelsea.', icon: <Search className="w-4 h-4 text-blue-500" />, dot: 'bg-blue-500', photoUrl: 'https://images.unsplash.com/photo-1574096079513-d8259312b785?w=800&q=80' },
+                                            { time: '11:00 PM', category: 'View', venue: 'Top of the Rock', desc: 'Breathtaking 360-degree skyline views.', icon: <Compass className="w-4 h-4 text-navy" />, dot: 'bg-navy', photoUrl: 'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=800&q=80' },
+                                            { time: '12:30 AM', category: 'Jazz', venue: 'Village Vanguard', desc: 'Legendary basement jazz performance.', icon: <Ticket className="w-4 h-4 text-purple-500" />, dot: 'bg-purple-500', photoUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&q=80' }
                                         ].map((step, idx) => (
                                             <div key={idx} className="relative pl-5">
                                                 {/* Left Absolute Time */}
@@ -236,10 +268,10 @@ const Hero = () => {
                                 </div>
                             )}
 
-                            <button className="w-full bg-navy text-white py-5 rounded-2xl font-black text-xl tracking-tight flex items-center justify-center gap-3 mt-8 shadow-[0_20px_40px_rgba(10,25,47,0.3)] hover:scale-[1.02] transition-transform active:scale-95 leading-none relative z-30 group">
-                                <span className="relative z-10">Get full access now</span>
+                            <Link to="/signup" className="w-full bg-navy text-white py-5 rounded-2xl font-black text-xl tracking-tight flex items-center justify-center gap-3 mt-8 shadow-[0_20px_40px_rgba(10,25,47,0.3)] hover:scale-[1.02] transition-transform active:scale-95 leading-none relative z-30 group">
+                                <span className="relative z-10">Plan Your Date</span>
                                 <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                            </button>
+                            </Link>
                         </div>
                     </div>
 
@@ -299,7 +331,7 @@ const Hero = () => {
                                 {/* Spacer for Background Map Visualization on Mobile */}
                                 <div className="h-[250px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
                                     {/* Mobile Map Toggle Button */}
-                                    <button 
+                                    <button
                                         onClick={() => setShowMapMobile(true)}
                                         className="bg-navy/95 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 border border-white/20 transform transition-all active:scale-95"
                                     >
@@ -309,89 +341,91 @@ const Hero = () => {
                                 </div>
 
                                 <div className="p-6 sm:p-8 pt-10 bg-white md:bg-white rounded-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative z-10 mt-[-2rem]">
-                                <div className="space-y-6 border-l-2 border-dashed border-purple-500/20 ml-6 sm:ml-14 relative pb-6">
-                                    {DEMO_PLAN.itinerary.map((step, idx) => {
-                                        const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy'];
-                                        const icons = [
-                                            <Utensils className="w-5 h-5 text-coral" />,
-                                            <Compass className="w-5 h-5 text-gold" />,
-                                            <Ticket className="w-5 h-5 text-navy" />
-                                        ];
-                                        return (
-                                            <div key={idx} className="relative pl-5">
-                                                {/* Left Absolute Time */}
-                                                <div className="absolute -left-14 top-2 text-[11px] font-black text-gray-400 text-right w-10">
-                                                    {step.time}
-                                                </div>
+                                    <div className="space-y-6 border-l-2 border-dashed border-purple-500/20 ml-6 sm:ml-14 relative pb-6">
+                                        {DEMO_PLAN.itinerary.map((step, idx) => {
+                                            const dotColors = ['bg-coral', 'bg-gold', 'bg-blue-500', 'bg-navy', 'bg-purple-500'];
+                                            const icons = [
+                                                <Utensils className="w-5 h-5 text-coral" />,
+                                                <Compass className="w-5 h-5 text-gold" />,
+                                                <Search className="w-5 h-5 text-blue-500" />,
+                                                <Compass className="w-5 h-5 text-navy" />,
+                                                <Ticket className="w-5 h-5 text-purple-500" />
+                                            ];
+                                            return (
+                                                <div key={idx} className="relative pl-5">
+                                                    {/* Left Absolute Time */}
+                                                    <div className="absolute -left-14 top-2 text-[11px] font-black text-gray-400 text-right w-10">
+                                                        {step.time}
+                                                    </div>
 
-                                                {/* Center Dot */}
-                                                <div className={`absolute -left-[7px] top-3 w-3 h-3 rounded-full border-2 border-white shadow-sm ${dotColors[idx % 3]}`} />
+                                                    {/* Center Dot */}
+                                                    <div className={`absolute -left-[7px] top-3 w-3 h-3 rounded-full border-2 border-white shadow-sm ${dotColors[idx % 3]}`} />
 
-                                                {/* Right Card */}
-                                                <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 shadow-sm transition-all hover:shadow-md">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
-                                                            {icons[idx % icons.length]}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <h4 className="text-base font-black text-navy">{step.venue}</h4>
-                                                                {step.rating && (
-                                                                    <div className="flex items-center gap-1 bg-amber-50 text-amber-500 px-1.5 py-0.5 rounded-md text-xs font-bold border border-amber-100 flex-shrink-0">
-                                                                        <Star className="w-3.5 h-3.5 fill-current" />
-                                                                        {step.rating}
-                                                                    </div>
-                                                                )}
+                                                    {/* Right Card */}
+                                                    <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 shadow-sm transition-all hover:shadow-md">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+                                                                {icons[idx % icons.length]}
                                                             </div>
-                                                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{step.activity}</p>
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <h4 className="text-base font-black text-navy">{step.venue}</h4>
+                                                                    {step.rating && (
+                                                                        <div className="flex items-center gap-1 bg-amber-50 text-amber-500 px-1.5 py-0.5 rounded-md text-xs font-bold border border-amber-100 flex-shrink-0">
+                                                                            <Star className="w-3.5 h-3.5 fill-current" />
+                                                                            {step.rating}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{step.activity}</p>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-gray-500 border-t border-gray-50 pt-2 mt-1 leading-relaxed">{step.description}</p>
+                                                        {step.photoUrl && (
+                                                            <img src={step.photoUrl} alt={step.venue} className="rounded-xl w-full h-40 object-cover border border-gray-50 shadow-sm mt-1 mb-2" />
+                                                        )}
+
+                                                        {/* Action Tags */}
+                                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                            {step.directionsUrl && (
+                                                                <button
+                                                                    className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                                >
+                                                                    <MapPin className="w-3 h-3" /> Get Directions
+                                                                </button>
+                                                            )}
+
+                                                            {step.bookingUrl && (
+                                                                <button
+                                                                    className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                                >
+                                                                    {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
+                                                                    {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
+                                                                </button>
+                                                            )}
+
+                                                            {step.searchUrl && (
+                                                                <button
+                                                                    className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                                >
+                                                                    <Search className="w-3 h-3" /> Search on Google
+                                                                </button>
+                                                            )}
+
+                                                            {step.lat && step.lng && (
+                                                                <button
+                                                                    className="px-2.5 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm cursor-default"
+                                                                >
+                                                                    <Car className="w-3 h-3" /> Get a Ride
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <p className="text-sm text-gray-500 border-t border-gray-50 pt-2 mt-1 leading-relaxed">{step.description}</p>
-                                                    {step.photoUrl && (
-                                                        <img src={step.photoUrl} alt={step.venue} className="rounded-xl w-full h-40 object-cover border border-gray-50 shadow-sm mt-1 mb-2" />
-                                                    )}
-                                                    
-                                                    {/* Action Tags */}
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                        {step.directionsUrl && (
-                                                            <button
-                                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
-                                                            >
-                                                                <MapPin className="w-3 h-3" /> Get Directions
-                                                            </button>
-                                                        )}
-
-                                                        {step.bookingUrl && (
-                                                            <button
-                                                                className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-xs font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
-                                                            >
-                                                                {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
-                                                                {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
-                                                            </button>
-                                                        )}
-
-                                                        {step.searchUrl && (
-                                                            <button
-                                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm cursor-default"
-                                                            >
-                                                                <Search className="w-3 h-3" /> Search on Google
-                                                            </button>
-                                                        )}
-
-                                                        {step.lat && step.lng && (
-                                                            <button
-                                                                className="px-2.5 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm cursor-default"
-                                                            >
-                                                                <Car className="w-3 h-3" /> Get a Ride
-                                                            </button>
-                                                        )}
-                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
 
                                 <div className="mt-8 -ml-14 bg-gray-50 p-6 rounded-3xl border border-gray-100 flex flex-col items-center justify-center text-center space-y-4">
                                     <div className="w-12 h-12 bg-coral/10 text-coral rounded-2xl flex items-center justify-center">
@@ -402,7 +436,7 @@ const Hero = () => {
                                         onClick={() => {
                                             setShowDemoModal(false);
                                             setShowMapMobile(false);
-                                            window.location.hash = 'waitlist';
+                                            navigate('/signup');
                                         }}
                                         className="w-full bg-navy text-white py-4 px-6 rounded-2xl font-black text-center flex items-center justify-center gap-2 hover:bg-coral transition-colors shadow-lg group shadow-coral/5"
                                     >
@@ -428,23 +462,23 @@ const Hero = () => {
 
                             {isLoaded ? (
                                 <div className="flex-1 w-full relative min-h-[50vh]">
-                                <GoogleMap
-                                    mapContainerStyle={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
-                                    center={{ lat: 40.7400, lng: -73.9980 }} // Center on mapped area
-                                    zoom={14}
-                                    options={{
-                                        disableDefaultUI: true,
-                                        gestureHandling: 'greedy',
-                                    }}
-                                >
-                                    {DEMO_PLAN.itinerary.map((step, idx) => (
-                                        <Marker
-                                            key={idx}
-                                            position={{ lat: step.lat, lng: step.lng }}
-                                            label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
-                                        />
-                                    ))}
-                                </GoogleMap>
+                                    <GoogleMap
+                                        mapContainerStyle={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
+                                        center={{ lat: 40.7400, lng: -73.9980 }} // Center on mapped area
+                                        zoom={14}
+                                        options={{
+                                            disableDefaultUI: true,
+                                            gestureHandling: 'greedy',
+                                        }}
+                                    >
+                                        {DEMO_PLAN.itinerary.map((step, idx) => (
+                                            <Marker
+                                                key={idx}
+                                                position={{ lat: step.lat, lng: step.lng }}
+                                                label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
+                                            />
+                                        ))}
+                                    </GoogleMap>
                                 </div>
                             ) : (
                                 <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center bg-gray-100/50 min-h-[50vh]">

@@ -72,6 +72,17 @@ const Signup = () => {
             });
 
             if (error) throw error;
+
+            // Trigger Welcome Email in background (Silent failure preferred for UX)
+            fetch('/api/send-welcome', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: formData.email,
+                    firstName: formData.firstName
+                })
+            }).catch(e => console.error('Welcome email trigger failed:', e));
+
             navigate('/dashboard');
         } catch (err) {
             console.error('Full Verification Error:', err);
