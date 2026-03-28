@@ -42,6 +42,12 @@ const Dashboard = () => {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [settingsTab, setSettingsTab] = useState('profile');
     const [appTheme, setAppTheme] = useState(() => localStorage.getItem('appTheme') || 'light');
+    const [profileData, setProfileData] = useState({
+        first_name: '',
+        last_name: '',
+        email: ''
+    });
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
 
     useEffect(() => {
         // Apply theme class to body for index.css targeting
@@ -114,6 +120,12 @@ const Dashboard = () => {
             setUser(user);
 
             if (user) {
+                setProfileData({
+                    first_name: user.user_metadata?.first_name || '',
+                    last_name: user.user_metadata?.last_name || '',
+                    email: user.email || ''
+                });
+
                 // Fetch user's plans
                 const { data, error } = await supabase
                     .from('plans')
@@ -286,6 +298,68 @@ const Dashboard = () => {
             }
         };
         reader.readAsDataURL(file);
+    };
+
+    const handleAvatarDelete = async () => {
+        if (!window.confirm('Are you sure you want to remove your profile picture?')) return;
+        
+        const { error } = await supabase.auth.updateUser({
+            data: { avatar_url: null }
+        });
+
+        if (!error) {
+            const { data: { user: updatedUser } } = await supabase.auth.getUser();
+            setUser(updatedUser);
+        } else {
+            alert('Failed to remove profile picture.');
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        setIsSavingProfile(true);
+        try {
+            const { error } = await supabase.auth.updateUser({
+                email: profileData.email !== user.email ? profileData.email : undefined,
+                data: {
+                    first_name: profileData.first_name,
+                    last_name: profileData.last_name
+                }
+            });
+
+            if (error) throw error;
+            
+            const { data: { user: updatedUser } } = await supabase.auth.getUser();
+            setUser(updatedUser);
+            alert('Profile updated successfully!');
+        } catch (err) {
+            alert(`Error updating profile: ${err.message}`);
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
+
+    const handleShareApp = async () => {
+        const domain = window.location.origin;
+        const shareData = {
+            title: 'DateSpark - AI Powered Date Planning',
+            text: 'I just found this amazing app that plans perfect dates for couples! Check out DateSpark:',
+            url: domain
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+            } catch (err) {
+                if (err.name !== 'AbortError') console.error('Share failed:', err);
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+                alert('App link copied to clipboard! Share it with your friends.');
+            } catch (err) {
+                alert('Failed to copy link.');
+            }
+        }
     };
 
     const handleBudget = () => {
@@ -1325,71 +1399,107 @@ const Dashboard = () => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-bold text-gray-700 mb-1">First Name</label>
-                                                <input type="text" disabled value={user?.user_metadata?.first_name || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
+                                                <input 
+                                                    type="text" 
+                                                    value={profileData.first_name} 
+                                                    onChange={(e) => setProfileData({...profileData, first_name: e.target.value})}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-coral focus:border-transparent outline-none transition-all" 
+                                                />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-bold text-gray-700 mb-1">Last Name</label>
-                                                <input type="text" disabled value={user?.user_metadata?.last_name || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
+                                                <input 
+                                                    type="text" 
+                                                    value={profileData.last_name} 
+                                                    onChange={(e) => setProfileData({...profileData, last_name: e.target.value})}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-coral focus:border-transparent outline-none transition-all" 
+                                                />
                                             </div>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
-                                            <input type="email" disabled value={user?.email || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
+                                            <input 
+                                                type="email" 
+                                                value={profileData.email} 
+                                                onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-coral focus:border-transparent outline-none transition-all" 
+                                            />
+                                            <p className="text-[10px] text-coral mt-1 italic font-medium">Note: Changing email will require verification.</p>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Profile Picture</label>
                                             <div className="flex items-center gap-4">
                                                 {user?.user_metadata?.avatar_url ? (
-                                                    <img 
-                                                        src={user.user_metadata.avatar_url} 
-                                                        alt="Avatar Preview" 
-                                                        className="w-16 h-16 rounded-2xl object-cover border-2 border-coral/20"
-                                                    />
+                                                    <div className="relative group">
+                                                        <img 
+                                                            src={user.user_metadata.avatar_url} 
+                                                            alt="Avatar Preview" 
+                                                            className="w-16 h-16 rounded-2xl object-cover border-2 border-coral/20"
+                                                        />
+                                                        <button 
+                                                            onClick={handleAvatarDelete}
+                                                            className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            title="Delete Photo"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
                                                 ) : (
-                                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 italic text-xs font-bold border-2 border-dashed border-gray-200">
-                                                        No Photo
+                                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 italic text-xs font-bold border-2 border-dashed border-gray-200 text-center">
+                                                        Initials only
                                                     </div>
                                                 )}
-                                                <div className="flex-1">
-                                                    <input 
-                                                        type="file" 
-                                                        accept="image/*" 
-                                                        id="avatar-upload"
-                                                        className="hidden" 
-                                                        onChange={handleAvatarUpload}
-                                                    />
-                                                    <label 
-                                                        htmlFor="avatar-upload" 
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-black cursor-pointer hover:bg-navy/90 transition-all shadow-sm active:scale-95"
-                                                    >
-                                                        <Plus className="w-3.5 h-3.5" /> Upload from Device
-                                                    </label>
-                                                    <p className="text-[10px] text-gray-400 mt-2">Supports JPG, PNG (Max 1MB)</p>
+                                                <div className="flex-1 flex flex-col gap-2">
+                                                    <div className="flex gap-2">
+                                                        <input 
+                                                            type="file" 
+                                                            accept="image/*" 
+                                                            id="avatar-upload"
+                                                            className="hidden" 
+                                                            onChange={handleAvatarUpload}
+                                                        />
+                                                        <label 
+                                                            htmlFor="avatar-upload" 
+                                                            className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 bg-navy text-white rounded-xl text-[10px] font-black cursor-pointer hover:bg-navy/90 transition-all shadow-sm active:scale-95"
+                                                        >
+                                                            <Plus className="w-3 h-3" /> {user?.user_metadata?.avatar_url ? 'Change Photo' : 'Upload Photo'}
+                                                        </label>
+                                                        {user?.user_metadata?.avatar_url && (
+                                                            <button 
+                                                                onClick={handleAvatarDelete}
+                                                                className="px-3 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-[10px] font-black hover:bg-red-100 transition-all"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-400 mt-1">Supports JPG, PNG (Max 1MB)</p>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Direct Image URL (Optional)</label>
-                                            <input 
-                                                type="text" 
-                                                placeholder="https://example.com/photo.jpg" 
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-coral focus:border-transparent outline-none transition-all"
-                                                value={user?.user_metadata?.avatar_url?.startsWith('data:') ? '' : user?.user_metadata?.avatar_url || ''}
-                                                onChange={async (e) => {
-                                                    const newUrl = e.target.value;
-                                                    const { error } = await supabase.auth.updateUser({
-                                                        data: { avatar_url: newUrl }
-                                                    });
-                                                    if (!error) {
-                                                        const { data: { user: updatedUser } } = await supabase.auth.getUser();
-                                                        setUser(updatedUser);
-                                                    }
-                                                }}
-                                            />
+
+                                        <div className="pt-6 border-t border-gray-50 flex flex-col gap-4">
+                                            <button 
+                                                onClick={handleSaveProfile}
+                                                disabled={isSavingProfile}
+                                                className="btn-primary py-3 px-6 rounded-xl font-bold w-full shadow-lg shadow-coral/20 flex items-center justify-center gap-2"
+                                            >
+                                                {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Profile Changes'}
+                                            </button>
+                                            
+                                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mt-4">
+                                                <h4 className="text-sm font-black text-navy mb-1 flex items-center gap-2">
+                                                    <Sparkles className="w-4 h-4 text-coral" /> Spread the Romance
+                                                </h4>
+                                                <p className="text-[11px] text-gray-500 mb-3 font-medium">Love using DateSpark? Share it with your friends and help them plan better dates!</p>
+                                                <button 
+                                                    onClick={handleShareApp}
+                                                    className="w-full py-2 bg-white text-navy border border-gray-200 rounded-xl text-xs font-black shadow-sm hover:border-coral/40 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Share2 className="w-3.5 h-3.5" /> Share app with a friend
+                                                </button>
+                                            </div>
                                         </div>
-                                        <button className="btn-primary py-3 px-6 rounded-xl font-bold opacity-50 cursor-not-allowed w-full mt-4">
-                                            Update Profile
-                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -1558,10 +1668,14 @@ const Dashboard = () => {
                 </div>
             )}
 
-            <BottomNav onProfileClick={() => {
-                setShowSettingsModal(true);
-                setSettingsTab('profile');
-            }} />
+            <BottomNav 
+                onProfileClick={() => {
+                    setShowSettingsModal(true);
+                    setSettingsTab('profile');
+                }} 
+                avatarUrl={user?.user_metadata?.avatar_url}
+                userInitial={user?.user_metadata?.first_name?.[0] || 'K'}
+            />
         </div>
     );
 };
