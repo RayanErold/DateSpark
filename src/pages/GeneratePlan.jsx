@@ -327,20 +327,33 @@ const GeneratePlan = () => {
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
+            console.log('GeneratePlan - Current User:', user?.id);
 
+            if (!user) {
+                throw new Error('You must be logged in to generate a plan.');
+            }
+
+            console.log('GeneratePlan - Sending request to /api/generate-date');
             const response = await fetch('/api/generate-date', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: user?.id,
-                    ideaCount, // Pass idea count
+                    userId: user.id,
+                    ideaCount, 
                     ...formData
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to generate plan.');
+            console.log('GeneratePlan - Response status:', response.status);
+            const result = await response.json();
+            console.log('GeneratePlan - Response body:', result);
+
+            if (!response.ok) throw new Error(result.error || 'Failed to generate plan.');
+            
+            console.log('GeneratePlan - Navigation to dashboard...');
             navigate('/dashboard');
         } catch (err) {
+            console.error('GeneratePlan - Error:', err);
             setError(err.message || 'Something went wrong. Please try again.');
             setIsGenerating(false);
         }

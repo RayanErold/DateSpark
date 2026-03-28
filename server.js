@@ -38,6 +38,13 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Connectivity check on start
+supabase.from('plans').select('count', { count: 'exact', head: true })
+    .then(({ count, error }) => {
+        if (error) console.error('Supabase Connectivity Error (STARTUP):', error.message);
+        else console.log('Supabase Connectivity OK - Plans existing in table:', count || 0);
+    });
+
 // --- Stripe Checkout Endpoint ---
 app.post('/api/create-checkout-session', async (req, res) => {
     try {
@@ -100,6 +107,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
 // --- Feedback Endpoint ---
 app.post('/api/feedback', async (req, res) => {
     const { text, userId, email } = req.body;
+    console.log('--- FEEDBACK REQUEST ---');
+    console.log('User:', userId || 'Anonymous');
+    console.log('Email:', email || 'N/A');
+    console.log('Text:', text?.substring(0, 50));
+    console.log('------------------------');
 
     if (!text) {
         return res.status(400).json({ error: 'Feedback text is required' });
@@ -109,7 +121,7 @@ app.post('/api/feedback', async (req, res) => {
         if (resend) {
             await resend.emails.send({
                 from: 'Feedback <hello@datespark.live>',
-                to: process.env.ADMIN_EMAIL || 'eroldrayan@gmail.com',
+                to: process.env.ADMIN_EMAIL || 'rayanerold@gmail.com',
                 subject: 'New DateSpark Feedback 💡',
                 html: `
                         <!-- Branded Logo -->
@@ -395,8 +407,10 @@ Return ONLY a valid JSON object formatted EXACTLY like this:
 // Build Custom Itinerary from AI Concept
 app.post('/api/generate-custom-date', async (req, res) => {
     const { userId, concept, date, radius, location, lat, lng } = req.body;
+    console.log('API - /api/generate-custom-date - Body:', { userId, vibe: concept?.title, date });
 
     if (!userId || !concept) {
+        console.error('API - Missing userId or concept');
         return res.status(400).json({ error: 'User ID and Concept are required.' });
     }
 
@@ -552,13 +566,18 @@ app.post('/api/generate-custom-date', async (req, res) => {
             itinerary: planPayload
         };
 
+        console.log('API - Inserting custom plan for user:', userId);
         const { data, error } = await supabase
             .from('plans')
             .insert([finalPlan])
             .select();
 
-        if (error) throw error;
+        if (error) {
+            console.error('API - Supabase Insertion Error:', error);
+            throw error;
+        }
 
+        console.log('API - Successfully inserted plans:', data?.length || 0);
         res.status(201).json({ plans: data });
     } catch (err) {
         console.error('Custom Generate Plan Error:', err);
@@ -608,8 +627,10 @@ app.get('/api/plans/:id', async (req, res) => {
 // Classical Generation Flow
 app.post('/api/generate-date', async (req, res) => {
     const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng, dietary, usePreciseLocation } = req.body;
+    console.log('API - /api/generate-date - Body Extract:', { userId, location, vibe, date });
 
     if (!userId || !location) {
+        console.error('API - Missing userId or location');
         return res.status(400).json({ error: 'User ID and Location are required' });
     }
 
@@ -1031,13 +1052,18 @@ app.post('/api/generate-date', async (req, res) => {
         }
 
         // Save generated plans to Supabase (bulk insert)
+        console.log(`API - Inserting ${generatedPlans.length} guided plans for user:`, userId);
         const { data, error } = await supabase
             .from('plans')
             .insert(generatedPlans)
             .select();
 
-        if (error) throw error;
+        if (error) {
+            console.error('API - Supabase Bulk Insertion Error:', error);
+            throw error;
+        }
 
+        console.log('API - Successfully inserted plans:', data?.length || 0);
         // Return the array of created plans (should be 3)
         res.status(201).json({ plans: data });
     } catch (err) {
