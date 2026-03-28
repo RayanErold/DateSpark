@@ -44,7 +44,8 @@ const Signup = () => {
                 setVerificationMode(true);
             }
         } catch (err) {
-            setError(err.message);
+            console.error('Signup error:', err);
+            setError(err.message || 'An unexpected error occurred during signup');
         } finally {
             setIsLoading(false);
         }
@@ -65,7 +66,8 @@ const Signup = () => {
             if (error) throw error;
             navigate('/dashboard');
         } catch (err) {
-            setError(err.message);
+            console.error('Verification error:', err);
+            setError(err.message || 'Invalid or expired verification code');
         } finally {
             setIsLoading(false);
         }

@@ -38,7 +38,8 @@ const Login = () => {
                 navigate('/dashboard');
             }
         } catch (err) {
-            setError(err.message);
+            console.error('Login error:', err);
+            setError(err.message || 'An unexpected error occurred during login');
         } finally {
             setIsLoading(false);
         }
@@ -59,7 +60,8 @@ const Login = () => {
             if (error) throw error;
             setOtpSent(true);
         } catch (err) {
-            setError(err.message);
+            console.error('Magic code error:', err);
+            setError(err.message || 'Error sending magic code');
         } finally {
             setIsLoading(false);
         }
@@ -79,7 +81,8 @@ const Login = () => {
             if (error) throw error;
             if (data?.user) navigate('/dashboard');
         } catch (err) {
-            setError(err.message);
+            console.error('Verification error:', err);
+            setError(err.message || 'Invalid or expired magic code');
         } finally {
             setIsLoading(false);
         }
@@ -97,7 +100,8 @@ const Login = () => {
             if (error) throw error;
             setResetSent(true);
         } catch (err) {
-            setError(err.message);
+            console.error('Reset password error:', err);
+            setError(err.message || 'Error sending reset link');
         } finally {
             setIsLoading(false);
         }
