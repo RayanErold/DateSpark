@@ -68,13 +68,13 @@ const Signup = () => {
             const { error } = await supabase.auth.verifyOtp({
                 email: formData.email.trim(),
                 token: verificationCode.replace(/\s/g, ''),
-                type: 'email'
+                type: 'signup'
             });
 
             if (error) throw error;
             navigate('/dashboard');
         } catch (err) {
-            console.error('Verification error:', err);
+            console.error('Full Verification Error:', err);
             setError(err.message || 'Invalid or expired verification code');
         } finally {
             setIsLoading(false);

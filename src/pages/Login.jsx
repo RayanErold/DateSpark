@@ -84,7 +84,7 @@ const Login = () => {
             if (error) throw error;
             if (data?.user) navigate('/dashboard');
         } catch (err) {
-            console.error('Verification error detail:', err);
+            console.error('Login Verification Error:', err);
             const msg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
             setError(msg || 'Invalid or expired magic code');
         } finally {
