@@ -226,21 +226,21 @@ const Dashboard = () => {
         window.open(url, '_blank');
     };
 
-    const handleShare = async () => {
-        if (!selectedPlan) return;
+    const handleShare = async (planToShare = selectedPlan) => {
+        if (!planToShare) return;
 
         const domain = window.location.origin;
-        const shareLink = `${domain}/shared/${selectedPlan.id}`;
+        const shareLink = `${domain}/shared/${planToShare.id}`;
 
-        const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
+        const steps = Array.isArray(planToShare.itinerary) ? planToShare.itinerary : planToShare.itinerary?.steps || [];
         const formattedStops = steps.map((step, index) => `${index + 1}. ${step.time} - ${step.venue}`).join('\n');
 
-        const text = `✨ Our custom ${selectedPlan.vibe} date plan carefully crafted by DateSpark!\n\nTimeline:\n${formattedStops}\n\nCheck out the full interactive map here:`;
+        const text = `✨ Our custom ${planToShare.vibe} date plan carefully crafted by DateSpark!\n\nTimeline:\n${formattedStops}\n\nCheck out the full interactive map here:`;
 
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: `${selectedPlan.vibe} Date Plan`,
+                    title: `${planToShare.vibe} Date Plan`,
                     text: text,
                     url: shareLink,
                 });
@@ -255,6 +255,37 @@ const Dashboard = () => {
                 alert('Failed to copy to clipboard.');
             }
         }
+    };
+
+    const handleAvatarUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Ensure file is an image and not too large (limit to 1MB for base64 storage)
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file.');
+            return;
+        }
+        if (file.size > 1024 * 1024) {
+            alert('Image is too large. Please select a photo under 1MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64String = reader.result;
+            const { error } = await supabase.auth.updateUser({
+                data: { avatar_url: base64String }
+            });
+
+            if (!error) {
+                const { data: { user: updatedUser } } = await supabase.auth.getUser();
+                setUser(updatedUser);
+            } else {
+                alert('Failed to update profile picture.');
+            }
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleBudget = () => {
@@ -413,20 +444,30 @@ const Dashboard = () => {
                         <p className="text-sm font-bold text-coral mt-1">Click to Unlock</p>
                     </div>
                 )}
-                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
+                <div className="absolute top-4 right-4 flex gap-2 z-30">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(plan);
+                        }}
+                        className="p-2 text-gray-500 hover:text-coral transition-colors bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100"
+                        title="Share Plan"
+                    >
+                        <Share2 className="w-4 h-4" />
+                    </button>
                     <button
                         onClick={(e) => handleToggleFavorite(plan, e)}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-white rounded-full shadow-sm"
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100"
                         title={plan.is_favorite ? "Remove from Favorites" : "Mark as Favorite"}
                     >
-                        <Heart className={`w-5 h-5 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
+                        <Heart className={`w-4 h-4 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
                     </button>
                     <button
                         onClick={(e) => handleDelete(plan.id, e)}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-white rounded-full shadow-sm"
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100"
                         title="Delete Plan"
                     >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4 pr-8">
@@ -1296,12 +1337,44 @@ const Dashboard = () => {
                                             <input type="email" disabled value={user?.email || ''} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Avatar URL</label>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Profile Picture</label>
+                                            <div className="flex items-center gap-4">
+                                                {user?.user_metadata?.avatar_url ? (
+                                                    <img 
+                                                        src={user.user_metadata.avatar_url} 
+                                                        alt="Avatar Preview" 
+                                                        className="w-16 h-16 rounded-2xl object-cover border-2 border-coral/20"
+                                                    />
+                                                ) : (
+                                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 italic text-xs font-bold border-2 border-dashed border-gray-200">
+                                                        No Photo
+                                                    </div>
+                                                )}
+                                                <div className="flex-1">
+                                                    <input 
+                                                        type="file" 
+                                                        accept="image/*" 
+                                                        id="avatar-upload"
+                                                        className="hidden" 
+                                                        onChange={handleAvatarUpload}
+                                                    />
+                                                    <label 
+                                                        htmlFor="avatar-upload" 
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-black cursor-pointer hover:bg-navy/90 transition-all shadow-sm active:scale-95"
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5" /> Upload from Device
+                                                    </label>
+                                                    <p className="text-[10px] text-gray-400 mt-2">Supports JPG, PNG (Max 1MB)</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Direct Image URL (Optional)</label>
                                             <input 
                                                 type="text" 
                                                 placeholder="https://example.com/photo.jpg" 
                                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-coral focus:border-transparent outline-none transition-all"
-                                                value={user?.user_metadata?.avatar_url || ''}
+                                                value={user?.user_metadata?.avatar_url?.startsWith('data:') ? '' : user?.user_metadata?.avatar_url || ''}
                                                 onChange={async (e) => {
                                                     const newUrl = e.target.value;
                                                     const { error } = await supabase.auth.updateUser({
@@ -1313,7 +1386,6 @@ const Dashboard = () => {
                                                     }
                                                 }}
                                             />
-                                            <p className="text-[10px] text-gray-400 mt-1">Paste a link to your profile picture above.</p>
                                         </div>
                                         <button className="btn-primary py-3 px-6 rounded-xl font-bold opacity-50 cursor-not-allowed w-full mt-4">
                                             Update Profile
