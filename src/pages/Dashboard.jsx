@@ -1636,9 +1636,9 @@ const Dashboard = () => {
         {/* ACCOUNT SETTINGS MODAL */}
         {showSettingsModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-navy/60 backdrop-blur-sm">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[600px] overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-200">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[90vh] md:h-[600px] overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-200">
                     {/* Sidebar */}
-                    <div className="w-full md:w-64 bg-gray-50 border-r border-gray-100 flex flex-col p-6">
+                    <div className="w-full md:w-64 bg-gray-50 border-r border-gray-100 flex flex-col p-6 overflow-y-auto max-h-[40vh] md:max-h-none flex-shrink-0">
                         <h2 className="text-xl font-black text-navy mb-8">Settings</h2>
                         <nav className="space-y-2 flex-1">
                             <button
