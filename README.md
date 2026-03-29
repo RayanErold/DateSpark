@@ -1,7 +1,7 @@
 # DateSpark ⚡
 Website: https://datespark.live
 
-Get a full date night plan in seconds. DateSpark is an AI-powered itinerary generator for busy couples, providing highly curated, location-accurate, and budget-aware date plans in New York City.
+Get a full date night plan in seconds. DateSpark is an AI-powered itinerary generator for busy couples, providing highly curated, location-accurate, and budget-aware date plans anywhere in the world.
 
 ## 🌟 Features
 
@@ -11,15 +11,17 @@ Get a full date night plan in seconds. DateSpark is an AI-powered itinerary gene
   - **Restaurants & Desserts:** Automatically generates a pre-filled OpenTable deep-link with absolute guests and timings.
   - **Events & Entertainment:** Directs users to custom Google Search Query fallbacks dropping you onto ticketing aggregates seamlessly.
 - **Custom AI mode ("Describe your perfect date idea"):** Full conversation flow allowing users to pitch any text prompts and iterate alternatives alongside context suggestions.
-- **Freemium Tiers with 24h Rolling Reset:** 
-  - Free users receive 2 custom generation iterations. Count resets automatically every 24 hours using rolling timestamp decay checks.
+- **The Spark (Free) & DateSpark Plus Tiers:** 
+  - **The Spark:** 1-2 Premium Date Ideas, 2-Stop Previews, and 2 saved favorites.
+  - **DateSpark Plus:** Unlimited 5-Stop Itineraries, AI Customizer, 7-Day Recycle Bin, and priority features.
 - **Smart Filtering:** Filter by budget, start/end times, date vibe, and specific personal interests effortlessly.
-- **Multi-Neighborhood Builder:** Select up to 3 individual neighborhoods (e.g., *Soho, Chelsea, Williamsburg*) for hyper-targeted location accuracy.
+- **Multi-Neighborhood Builder:** Select up to 3 individual neighborhoods or districts for hyper-targeted location accuracy.
 
 ## Recent Updates 🚀
 
-- **Redesigned Dashboard Upgrade Modal**: Updated the modal grid to support 4 highly requested pricing streams: Elite ($99), Lifetime ($29.99), Premium ($12/mo), and Daily pass ($1.99).
-- **Bulletproof Places Fail-safes**: Bypassed Places caching and incorporated automatic widened searches removing budget filters or radius locks on Google failures, absolutely preventing repetitive placeholder loopsNode triggers setup.
+- **Premium Mobile & Global Audit (March 2026)**: Comprehensive site-wide audit neutralizing all "NYC" specific branding. Optimized typography, navigation, and feedback components for a premium mobile-first experience.
+- **Unified Pricing Integration**: Synchronized all upgrade prompts to reflect the latest $1.99 (24h) and $9.99 (Monthly) pricing streams across the Dashboard and Generator.
+- **Bulletproof Places Fail-safes**: Bypassed Places caching and incorporated automatic widened searches, removing budget filters or radius locks on Google failures.
 
 ## 🛠️ Tech Stack
 

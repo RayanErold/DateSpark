@@ -28,7 +28,7 @@ const Pricing = () => {
                 { text: "Unlimited 'Switch Up' (Found a spot you don't love? Swap it!)", icon: Heart },
                 { text: "Book Tables & Order Rides In-App", icon: Check },
                 { text: "Save Unlimited Favorites", icon: Check },
-                { text: "Instant NYC Directions", icon: Check }
+                { text: "Instant Directions", icon: Check }
             ],
             cta: "Unlock My Date Night",
             highlight: true,
@@ -45,7 +45,7 @@ const Pricing = () => {
                 { text: "Advanced AI Customizer (Tweak your vibe)", icon: Check },
                 { text: "7-Day Recycle Bin (Recover deleted dates)", icon: Heart },
                 { text: "Anniversary & Special Occasion Planning", icon: Star },
-                { text: "Priority Access to New NYC Features", icon: Check }
+                { text: "Priority Access to New Features", icon: Check }
             ],
             cta: "Get DateSpark Plus",
             highlight: false,
@@ -142,7 +142,7 @@ const Pricing = () => {
                         </div>
                     </div>
                     <p className="text-gray-400 text-sm font-medium">
-                        Join <span className="text-white font-bold">500+ couples</span> planning stress-free dates in NYC.
+                        Join <span className="text-white font-bold">500+ couples</span> planning stress-free dates.
                     </p>
                 </div>
             </div>

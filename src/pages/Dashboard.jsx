@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2, Lock, Sparkles } from 'lucide-react';
+import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2, Lock, Sparkles, ArrowLeft } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { loadStripe } from '@stripe/stripe-js';
 import BottomNav from '../components/BottomNav';
@@ -136,7 +136,8 @@ const Dashboard = () => {
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+        libraries: ['places']
     });
 
     const mapContainerStyle = {
@@ -253,6 +254,16 @@ const Dashboard = () => {
         };
 
         fetchUserData();
+        
+        // Safety timeout to prevent infinite "Loading..." hang
+        const timeout = setTimeout(() => {
+            if (isLoading) {
+                console.warn('Dashboard - Fetch timed out, forcing load completion');
+                setIsLoading(false);
+            }
+        }, 8000); // 8 second safety net for slow connections
+
+        return () => clearTimeout(timeout);
     }, []);
 
     const handleForceReload = async () => {
@@ -841,7 +852,20 @@ const Dashboard = () => {
     };
 
     if (isLoading) {
-        return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+                <Loader2 className="w-12 h-12 text-coral animate-spin" />
+                <div className="flex flex-col items-center gap-1">
+                    <p className="text-navy font-bold">Sparking your dashboard...</p>
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="text-xs text-coral font-black hover:underline mt-2 p-2"
+                    >
+                        Taking too long? Tap to Refresh
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -1152,7 +1176,7 @@ const Dashboard = () => {
                                     <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70">
                                         {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
                                             `${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-                                            : 'Planned for Tonight'}
+                                            : 'Available in Your City'}
                                     </p>
                                 </div>
                             </div>
@@ -1177,15 +1201,6 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        {/* Floating Navigation Pill */}
-                        <div className="px-4 md:px-8 -mt-5 z-10 w-full flex justify-center">
-                            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-1 flex items-center justify-center">
-                                <div className="flex items-center gap-2 py-2 px-8 text-navy bg-gray-50/50 rounded-xl border border-gray-100/50 text-[11px] font-black uppercase tracking-wider">
-                                    <Ticket className="w-4 h-4 text-coral" />
-                                    <span>Interactive Chronology</span>
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Spacer for Background Map Visualization on Mobile */}
                         <div className="h-[200px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
@@ -1501,9 +1516,10 @@ const Dashboard = () => {
                                     <span className="text-gray-400 text-xs mb-1 uppercase">/24hr</span>
                                 </div>
                                 <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Full 5-stop itineraries</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Save unlimited favorites</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Maps & Directions</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited 5-stop plans</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Switch Up & Booking</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited favorites</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Instant Directions & Rides</li>
                                 </ul>
                             </div>
                             <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-coral text-white text-xs font-black rounded-xl hover:bg-coral/90 transition-colors shadow-lg mt-auto">
@@ -1521,9 +1537,10 @@ const Dashboard = () => {
                                     <span className="text-white/50 text-xs mb-1">/mo</span>
                                 </div>
                                 <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Unlimited Switch Up</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> 7-Day Recycle Bin</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Advanced AI Customizer</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Daily pass + AI Customizer</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> 7-Day Recycle Bin access</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Anniversary & Special Occasions</li>
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority New Features</li>
                                 </ul>
                             </div>
                             <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
@@ -1633,14 +1650,41 @@ const Dashboard = () => {
             </div>
         )}
 
-        {/* ACCOUNT SETTINGS MODAL */}
         {showSettingsModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-navy/60 backdrop-blur-sm">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[90vh] md:h-[600px] overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-200">
-                    {/* Sidebar */}
-                    <div className="w-full md:w-64 bg-gray-50 border-r border-gray-100 flex flex-col p-6 overflow-y-auto max-h-[40vh] md:max-h-none flex-shrink-0">
-                        <h2 className="text-xl font-black text-navy mb-8">Settings</h2>
-                        <nav className="space-y-2 flex-1">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-6 bg-navy/60 backdrop-blur-md">
+                <div className="bg-white sm:rounded-[2.5rem] shadow-2xl w-full max-w-5xl h-full sm:h-[90vh] md:h-[650px] overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-300">
+                    
+                    {/* Header for Mobile Drill-down */}
+                    <div className="md:hidden flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-20">
+                        <div className="flex items-center gap-3">
+                            {(settingsTab && settingsTab !== 'menu') && (
+                                <button 
+                                    onClick={() => setSettingsTab('menu')}
+                                    className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-navy active:scale-90 transition-all"
+                                >
+                                    <ArrowLeft className="w-5 h-5" />
+                                </button>
+                            )}
+                            <h2 className="text-xl font-black text-navy tracking-tight">
+                                {settingsTab === 'menu' || !settingsTab ? 'Settings' : 
+                                 settingsTab.charAt(0).toUpperCase() + settingsTab.slice(1)}
+                            </h2>
+                        </div>
+                        <button 
+                            onClick={() => setShowSettingsModal(false)}
+                            className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 active:scale-90 transition-all border border-gray-100/50"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Sidebar / Menu */}
+                    <div className={`${(settingsTab && settingsTab !== 'menu') ? 'hidden md:flex' : 'flex'} w-full md:w-72 bg-gray-50/50 border-r border-gray-100 flex-col p-6 md:p-8 overflow-y-auto flex-shrink-0 transition-all duration-300`}>
+                        <div className="hidden md:block mb-10">
+                            <h2 className="text-2xl font-black text-navy tracking-tight">Settings</h2>
+                            <p className="text-gray-500 text-sm font-medium mt-1">Manage your account</p>
+                        </div>
+                        <nav className="space-y-1.5 flex-1">
                             <button
                                 onClick={() => setSettingsTab('profile')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-colors text-left ${settingsTab === 'profile' ? 'bg-white text-navy shadow-sm border border-gray-100' : 'text-gray-500 hover:text-navy hover:bg-gray-100/50'}`}
@@ -1689,10 +1733,10 @@ const Dashboard = () => {
                     </div>
 
                     {/* Content Area */}
-                    <div className="flex-1 overflow-y-auto p-8 lg:p-12 relative">
+                    <div className={`${(settingsTab === 'menu' || !settingsTab) ? 'hidden md:flex' : 'flex'} flex-1 overflow-y-auto p-8 lg:p-14 relative flex-col`}>
                         <button
                             onClick={() => setShowSettingsModal(false)}
-                            className="absolute top-6 right-6 p-2 text-gray-400 hover:text-navy hover:bg-gray-100 rounded-full transition-colors"
+                            className="hidden md:flex absolute top-8 right-8 w-10 h-10 items-center justify-center text-gray-400 hover:text-navy hover:bg-gray-100 rounded-full transition-all border border-transparent hover:border-gray-200"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -1789,7 +1833,7 @@ const Dashboard = () => {
                                 <div className={`p-6 md:p-8 rounded-3xl border-2 ${isPremium ? 'border-coral/20 bg-coral/5' : 'border-gray-100 bg-white shadow-sm'}`}>
                                     <div className="flex items-center justify-between mb-6">
                                         <div>
-                                            <h4 className="text-lg font-black text-navy">{isPremium ? 'DateSpark Premium' : 'DateSpark Free'}</h4>
+                                            <h4 className="text-lg font-black text-navy">{isPremium ? 'DateSpark Plus' : 'The Spark'}</h4>
                                             <p className="text-gray-500 font-medium mt-1">{isPremium ? 'Active Subscription' : 'Current Plan'}</p>
                                         </div>
                                         <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-white">
@@ -1802,27 +1846,33 @@ const Dashboard = () => {
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>Ultra-detailed AI generated itineraries</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
-                                            </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>All 4-5 activities unlocked per plan</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                                                <Check className="w-3.5 h-3.5 text-green-600 font-bold" />
-                                            </div>
-                                            <span className="text-gray-600 font-medium">
-                                                Save up to {isPremium ? "unlimited favorites" : "2 favorites"}
+                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                {isPremium ? "Unlimited Full 5-Stop Itineraries" : "1-2 Premium Date Ideas"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>Recycle Bin & Switch Up</span>
+                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                {isPremium ? "Unlimited 'Switch Up' (Swap any spot!)" : "Preview Itineraries (First 2 stops)"}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                                <Check className="w-3.5 h-3.5 text-green-600 font-bold" />
+                                            </div>
+                                            <span className="text-gray-600 font-medium">
+                                                Save {isPremium ? "unlimited favorites" : "up to 2 favorite dates"}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
+                                            </div>
+                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                {isPremium ? "7-Day Recycle Bin & AI Customizer" : "Limited 'Switch Up' (1 change only)"}
+                                            </span>
                                         </div>
                                     </div>
 
@@ -1851,8 +1901,8 @@ const Dashboard = () => {
                                             <h4 className="text-sm font-black text-navy mt-6 mb-2">Available Plans to Upgrade</h4>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 {[
-                                                    { name: "24-Hour Pass", price: "$1.99", desc: "Instant full access for 24 hours.", period: "24hr", type: 'daily' },
-                                                    { name: "DateSpark Plus", price: "$9.99", desc: "Unlimited memories & AI hacks.", period: "mo", type: 'premium' }
+                                                    { name: "24-Hour Pass", price: "$1.99", desc: "Unlimited plans, Switch Up & Booking.", period: "24hr", type: 'daily' },
+                                                    { name: "DateSpark Plus", price: "$9.99", desc: "AI Customizer, 7-Day Bin & Priority features.", period: "mo", type: 'premium' }
                                                 ].map((sub, idx) => (
                                                     <div key={idx} className="bg-white border border-gray-100 p-4 rounded-2xl flex flex-col justify-between hover:border-coral/40 transition-all shadow-sm">
                                                         <div>

@@ -76,7 +76,7 @@ export const WELCOME_EMAIL_TEMPLATE = (firstName) => `
                     <div class="feature-icon">1</div>
                     <div>
                         <strong style="color: #0f172a;">Plan your first date</strong>
-                        <p style="font-size: 14px; margin-top: 4px;">Head to the generator and let our AI curate the perfect NYC evening for you.</p>
+                        <p style="font-size: 14px; margin-top: 4px;">Head to the generator and let our AI curate the perfect evening for you.</p>
                     </div>
                 </div>
                 <div class="feature">

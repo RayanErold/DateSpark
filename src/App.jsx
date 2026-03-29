@@ -20,6 +20,10 @@ const LoadingScreen = () => (
 );
 
 function App() {
+  React.useEffect(() => {
+    document.title = "DateSpark | Premium AI Date Planner";
+  }, []);
+
   return (
     <Router>
       <Suspense fallback={<LoadingScreen />}>

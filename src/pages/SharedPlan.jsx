@@ -87,7 +87,7 @@ const SharedPlan = () => {
     const itinerarySteps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
     const mapCenter = itinerarySteps.length > 0
         ? { lat: itinerarySteps[0].lat, lng: itinerarySteps[0].lng }
-        : { lat: 40.7128, lng: -74.0060 }; // Default NYC
+        : { lat: 0, lng: 0 }; // Default neutral
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">

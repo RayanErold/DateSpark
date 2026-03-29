@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon, Utensils, Compass, Car, Search } from 'lucide-react';
+import { MapPin, Calendar, Clock, DollarSign, ArrowRight, Play, Heart, Ticket, Share2, Wallet, CheckCircle, X, Star, Map as MapIcon, Utensils, Compass, Car, Search, Sparkles } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const DEMO_PLAN = {
     vibe: 'Classic Romance',
-    location: 'New York City',
+    location: 'Your City',
     itinerary: [
         {
             time: '6:00 PM',
             activity: 'Scenic Night Stroll',
-            venue: 'The High Line',
-            description: 'Start your evening on the elevated historic rail line with gorgeous skyline and Hudson River views.',
+            venue: 'The Skyline Park',
+            description: 'Start your evening on the elevated historic rail line with gorgeous skyline and river views.',
             photoUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=800&q=80',
-            lat: 40.7480, lng: -74.0048,
+            lat: 40.7483, lng: -74.0048,
             rating: 4.8, reviews: 34102, price: 'Free',
             directionsUrl: '#'
         },
         {
             time: '7:30 PM',
             activity: 'Italian Candlelight Dinner',
-            venue: 'L’Artusi',
-            description: 'Signature handmade pasta and a curated wine list in a cozy, intimate West Village setting.',
+            venue: 'L’Artusi Bistro',
+            description: 'Signature handmade pasta and a curated wine list in a cozy, intimate neighborhood setting.',
             photoUrl: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=80',
             lat: 40.7338, lng: -74.0056,
             rating: 4.6, reviews: 2432, price: '50',
@@ -30,8 +30,8 @@ const DEMO_PLAN = {
         {
             time: '9:30 PM',
             activity: 'Speakeasy Cocktails',
-            venue: 'Raines Law Room',
-            description: 'Ring the doorbell to enter this sophisticated Chelsea den for world-class craft cocktails.',
+            venue: 'The Velvet Room',
+            description: 'Ring the doorbell to enter this sophisticated den for world-class craft cocktails.',
             photoUrl: 'https://images.unsplash.com/photo-1574096079513-d8259312b785?w=800&q=80',
             lat: 40.7374, lng: -73.9937,
             rating: 4.7, reviews: 1560, price: '20',
@@ -39,9 +39,9 @@ const DEMO_PLAN = {
         },
         {
             time: '11:00 PM',
-            activity: 'Skyline Views',
-            venue: 'Top of the Rock',
-            description: 'Take in 360-degree views of the Manhattan skyline from the legendary observation deck.',
+            activity: 'Stellar Views',
+            venue: 'Skyline Terrace',
+            description: 'Take in 360-degree views of the city skyline from the legendary observation deck.',
             photoUrl: 'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=800&q=80',
             lat: 40.7587, lng: -73.9787,
             rating: 4.7, reviews: 45000, price: '100',
@@ -50,8 +50,8 @@ const DEMO_PLAN = {
         {
             time: '12:30 AM',
             activity: 'Smooth Jazz',
-            venue: 'Village Vanguard',
-            description: 'End the night at the "Camelot of Jazz," the most famous basement in music history.',
+            venue: 'Blue Note Lounge',
+            description: 'End the night at the most famous basement in music history for a late night session.',
             photoUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&q=80',
             lat: 40.7361, lng: -74.0017,
             rating: 4.8, reviews: 2100, price: '30',
@@ -90,15 +90,13 @@ const Hero = () => {
             <div className="container-custom grid lg:grid-cols-2 gap-12 items-center relative z-10">
                 <div className="text-center lg:text-left space-y-8">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-navy/5 border border-navy/10 text-navy rounded-full text-sm font-bold shadow-sm backdrop-blur-sm">
-                        <div className="flex -space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-coral border-2 border-white flex items-center justify-center text-[8px] text-white">NYC</div>
-                            <div className="w-6 h-6 rounded-full bg-gold border-2 border-white flex items-center justify-center text-[8px] text-navy">CHI</div>
-                            <div className="w-6 h-6 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] text-white">SF</div>
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-coral to-pink-500 text-white">
+                            <Sparkles className="w-3 h-3" />
                         </div>
-                        <span className="pl-1">Now live in New York, Chicago & SF</span>
+                        <span className="pl-1">Available now in your city</span>
                     </div>
 
-                    <h1 className="text-5xl md:text-7xl lg:text-[80px] font-black text-navy leading-[1.05] tracking-tight">
+                    <h1 className="text-4xl md:text-7xl lg:text-[80px] font-black text-navy leading-[1.05] tracking-tight">
                         Get a full date night plan in <span className="text-transparent bg-clip-text bg-gradient-to-r from-coral via-pink-500 to-violet-500 animate-gradient-x">seconds.</span>
                     </h1>
 
@@ -139,7 +137,7 @@ const Hero = () => {
                                 </div>
                                 <div className="text-right">
                                     <span className="block font-bold">7:00 PM</span>
-                                    <span className="text-[10px] opacity-60 font-bold">NYC</span>
+                                    <span className="text-[10px] opacity-60 font-bold uppercase tracking-wider">Your City</span>
                                 </div>
                             </div>
 
@@ -175,11 +173,11 @@ const Hero = () => {
                                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 relative z-10">
                                     <div className="relative border-l-2 border-dashed border-purple-500/20 ml-14 space-y-5 pb-4">
                                         {[
-                                            { time: '6:00 PM', category: 'Walk', venue: 'The High Line', desc: 'Sunset walk on the elevated rail line.', icon: <Compass className="w-4 h-4 text-gold" />, dot: 'bg-gold', photoUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=800&q=80' },
-                                            { time: '7:30 PM', category: 'Dinner', venue: 'L’Artusi', desc: 'Cozy Italian & Candlelight in the West Village.', icon: <Utensils className="w-4 h-4 text-coral" />, dot: 'bg-coral', photoUrl: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=80' },
-                                            { time: '9:30 PM', category: 'Drinks', venue: 'Raines Law Room', desc: 'Secret speakeasy cocktails in Chelsea.', icon: <Search className="w-4 h-4 text-blue-500" />, dot: 'bg-blue-500', photoUrl: 'https://images.unsplash.com/photo-1574096079513-d8259312b785?w=800&q=80' },
-                                            { time: '11:00 PM', category: 'View', venue: 'Top of the Rock', desc: 'Breathtaking 360-degree skyline views.', icon: <Compass className="w-4 h-4 text-navy" />, dot: 'bg-navy', photoUrl: 'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=800&q=80' },
-                                            { time: '12:30 AM', category: 'Jazz', venue: 'Village Vanguard', desc: 'Legendary basement jazz performance.', icon: <Ticket className="w-4 h-4 text-purple-500" />, dot: 'bg-purple-500', photoUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&q=80' }
+                                            { time: '6:00 PM', category: 'Walk', venue: 'Skyline Park', desc: 'Sunset walk on the elevated rail line.', icon: <Compass className="w-4 h-4 text-gold" />, dot: 'bg-gold', photoUrl: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=800&q=80' },
+                                            { time: '7:30 PM', category: 'Dinner', venue: 'Pasta Bistro', desc: 'Cozy Italian & Candlelight.', icon: <Utensils className="w-4 h-4 text-coral" />, dot: 'bg-coral', photoUrl: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=80' },
+                                            { time: '9:30 PM', category: 'Drinks', venue: 'The Speakeasy', desc: 'Secret den for world-class cocktails.', icon: <Search className="w-4 h-4 text-blue-500" />, dot: 'bg-blue-500', photoUrl: 'https://images.unsplash.com/photo-1574096079513-d8259312b785?w=800&q=80' },
+                                            { time: '11:00 PM', category: 'View', venue: 'Observation Deck', desc: 'Breathtaking 360-degree city views.', icon: <Compass className="w-4 h-4 text-navy" />, dot: 'bg-navy', photoUrl: 'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=800&q=80' },
+                                            { time: '12:30 AM', category: 'Jazz', venue: 'Basement Sessions', desc: 'Legendary late night jazz performance.', icon: <Ticket className="w-4 h-4 text-purple-500" />, dot: 'bg-purple-500', photoUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&q=80' }
                                         ].map((step, idx) => (
                                             <div key={idx} className="relative pl-5">
                                                 {/* Left Absolute Time */}
@@ -291,7 +289,7 @@ const Hero = () => {
                             <div className="w-2 h-2 rounded-full bg-coral animate-ping" />
                             <span className="text-[10px] font-bold text-coral uppercase tracking-widest">Live Updates</span>
                         </div>
-                        <div className="font-black text-navy">Nearby secrets active in NYC</div>
+                        <div className="font-black text-navy">Nearby secrets active now</div>
                     </div>
                 </div>
             </div>

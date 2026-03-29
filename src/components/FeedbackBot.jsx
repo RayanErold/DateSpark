@@ -17,18 +17,35 @@ const FeedbackBot = () => {
     // Initialize position safely after paint
     useLayoutEffect(() => {
         if (typeof window !== 'undefined') {
-            setPosition({
-                x: window.innerWidth - 64, // Start pinned strictly to right edge
-                y: window.innerHeight / 2 - 30 // Start mid-screen vertically
-            });
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                // Fixed position for mobile (above bottom nav)
+                setPosition({
+                    x: window.innerWidth - 72,
+                    y: window.innerHeight - 100
+                });
+            } else {
+                setPosition({
+                    x: window.innerWidth - 64,
+                    y: window.innerHeight / 2 - 30
+                });
+            }
         }
         
         // Handle window resize to keep it snapped to the edge
         const handleResize = () => {
-            setPosition(prev => ({
-                x: prev.x > window.innerWidth / 2 ? window.innerWidth - 64 : 16,
-                y: Math.min(prev.y, window.innerHeight - 80)
-            }));
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                setPosition({
+                    x: window.innerWidth - 72,
+                    y: window.innerHeight - 100
+                });
+            } else {
+                setPosition(prev => ({
+                    x: prev.x > window.innerWidth / 2 ? window.innerWidth - 64 : 16,
+                    y: Math.min(prev.y, window.innerHeight - 80)
+                }));
+            }
         };
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
@@ -39,6 +56,9 @@ const FeedbackBot = () => {
         if (!isDragging) return;
         
         const handleMove = (e) => {
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) return; // Disable dragging on mobile to prevent layout issues
+            
             // Prevent default touch scrolling when dragging
             if (e.cancelable && e.type.includes('touch')) e.preventDefault();
             
@@ -145,7 +165,7 @@ const FeedbackBot = () => {
                     onMouseDown={handleDown}
                     onTouchStart={handleDown}
                     onClick={handleClick}
-                    className={`p-4 bg-gradient-to-br from-coral to-pink-500 text-white rounded-full shadow-2xl transition-transform flex items-center justify-center group relative border border-white/20 hover:scale-105 ${isDragging ? 'scale-95 cursor-grabbing' : 'cursor-pointer active:scale-95'}`}
+                    className={`p-3 md:p-4 bg-gradient-to-br from-coral to-pink-500 text-white rounded-full shadow-2xl transition-transform flex items-center justify-center group relative border border-white/20 hover:scale-105 ${isDragging ? 'scale-95 cursor-grabbing' : 'cursor-pointer active:scale-95'}`}
                     title="Send Feedback"
                 >
                     <div className="absolute -top-10 right-0 bg-navy text-white text-[11px] font-black px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none whitespace-nowrap hidden md:block">
