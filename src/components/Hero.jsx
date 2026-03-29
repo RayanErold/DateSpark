@@ -240,7 +240,7 @@ const Hero = () => {
                                         <p className="text-sm text-gray-500 px-6">Send a private web link to your date. They can see the plan but you keep the location a secret until 4pm!</p>
                                     </div>
                                     <div className="w-full bg-white p-4 rounded-2xl border border-dashed border-gray-200 flex items-center justify-between gap-4">
-                                        <span className="text-xs font-mono text-gray-400 truncate">datespark.app/v/x92_s0v...</span>
+                                        <span className="text-xs font-mono text-gray-400 truncate">datespark.live/v/x92_s0v...</span>
                                         <button className="text-coral font-bold text-xs uppercase hover:underline">Copy Link</button>
                                     </div>
                                 </div>

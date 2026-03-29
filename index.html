@@ -14,14 +14,14 @@
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://datespark.app/" />
+  <meta property="og:url" content="https://datespark.live/" />
   <meta property="og:title" content="DateSpark | Your Perfect Date, Planned." />
   <meta property="og:description" content="Stop arguing about where to go. Get a full, hand-crafted date itinerary in seconds." />
   <meta property="og:image" content="/og-image.png" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:url" content="https://datespark.app/" />
+  <meta property="twitter:url" content="https://datespark.live/" />
   <meta property="twitter:title" content="DateSpark | Your Perfect Date, Planned." />
   <meta property="twitter:description" content="Stop arguing about where to go. Get a full, hand-crafted date itinerary in seconds." />
   <meta property="twitter:image" content="/og-image.png" />
@@ -32,7 +32,18 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Initial Loading State for Mobile/Slow Connections -->
+    <div id="initial-loader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; z-index: 9999; font-family: 'Outfit', sans-serif;">
+      <div style="width: 48px; height: 48px; border: 4px solid #f43f5e; border-bottom-color: transparent; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite;"></div>
+      <p style="margin-top: 16px; color: #0a192f; font-weight: 800; font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase;">Sparking Your Night...</p>
+      <style>
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Prevent layout shift once React takes over */
+        #root:not(:empty) > #initial-loader { display: none !important; }
+      </style>
+    </div>
+  </div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 
