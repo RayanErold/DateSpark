@@ -92,6 +92,9 @@ const Dashboard = () => {
         email: ''
     });
     const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [showVisionBanner, setShowVisionBanner] = useState(() => {
+        return localStorage.getItem('hideVisionBanner') !== 'true';
+    });
 
     useEffect(() => {
         // Apply theme class to body for index.css targeting
@@ -351,29 +354,37 @@ const Dashboard = () => {
         if (count === 0) return;
 
         const isFromTrash = settingsTab === 'trash' && showSettingsModal;
-        let confirmMsg = `Are you sure you want to permanently delete these ${count} plans?`;
+        const isFromFavorites = activeTab === 'favorites';
         
-        // If we are NOT in the trash modal, it should be a soft delete
-        if (!isFromTrash) {
+        // New Hybrid Logic:
+        // - Trash Tab: Permanent delete
+        // - All Plans Tab: Permanent delete (User: "whenever user select them in batch or delete them, the will be erase forever")
+        // - Favorites Tab: Soft delete (User: "only when user delete from favorites, they will be tranfer to trash bin")
+        
+        let confirmMsg = `Are you sure you want to permanently delete these ${count} plans?`;
+        let isSoftDelete = false;
+
+        if (isFromFavorites && !isFromTrash) {
             confirmMsg = `Move these ${count} plans to Trash? (Stored for 7 days)`;
+            isSoftDelete = true;
         }
 
         if (!window.confirm(confirmMsg)) return;
 
         try {
-            if (isFromTrash) {
-                // Permanent Batch Delete
-                const idsParam = selectedPlanIds.map(id => `"${id}"`).join(',');
-                await supabaseRequest('DELETE', `plans?id=in.(${idsParam})`);
-                setPlans(plans.filter(p => !selectedPlanIds.includes(p.id)));
-                alert(`${count} plans deleted forever.`);
-            } else {
+            const idsParam = selectedPlanIds.map(id => `"${id}"`).join(',');
+            
+            if (isSoftDelete) {
                 // Soft Batch Delete
                 const now = new Date().toISOString();
-                const idsParam = selectedPlanIds.map(id => `"${id}"`).join(',');
                 await supabaseRequest('PATCH', `plans?id=in.(${idsParam})`, { deleted_at: now });
                 setPlans(plans.map(p => selectedPlanIds.includes(p.id) ? { ...p, deleted_at: now } : p));
                 alert(`${count} plans moved to Trash.`);
+            } else {
+                // Permanent Batch Delete
+                await supabaseRequest('DELETE', `plans?id=in.(${idsParam})`);
+                setPlans(plans.filter(p => !selectedPlanIds.includes(p.id)));
+                alert(`${count} plans deleted forever.`);
             }
             setSelectedPlanIds([]);
             setIsSelectMode(false);
@@ -389,24 +400,33 @@ const Dashboard = () => {
         const isFromFavorites = activeTab === 'favorites';
         const isFromTrash = settingsTab === 'trash' && showSettingsModal;
 
+        // New Hybrid Logic:
+        // - Trash Tab: Permanent delete
+        // - All Plans Tab: Permanent delete
+        // - Favorites Tab: Soft delete
+        
         let confirmMsg = 'Are you sure you want to permanently delete this plan?';
+        let isSoftDelete = false;
+
         if (isFromFavorites && !isFromTrash) {
             confirmMsg = 'Move this favorited plan to Trash? (Stored for 7 days)';
+            isSoftDelete = true;
         }
 
         if (!window.confirm(confirmMsg)) return;
 
         try {
-            if (isFromTrash) {
-                // Permanent Delete (only from Trash Modal)
-                await supabaseRequest('DELETE', `plans?id=eq.${planId}`);
-                setPlans(plans.filter(p => p.id !== planId));
-            } else {
-                // Soft delete (from All or Favorites)
+            if (isSoftDelete) {
+                // Soft delete
                 const now = new Date().toISOString();
                 await supabaseRequest('PATCH', `plans?id=eq.${planId}`, { deleted_at: now });
                 setPlans(plans.map(p => p.id === planId ? { ...p, deleted_at: now } : p));
                 alert('Plan moved to Trash! (Recoverable for 7 days)');
+            } else {
+                // Permanent Delete
+                await supabaseRequest('DELETE', `plans?id=eq.${planId}`);
+                setPlans(plans.filter(p => p.id !== planId));
+                if (!isFromTrash) alert('Plan deleted forever.');
             }
             if (selectedPlan && selectedPlan.id === planId) setSelectedPlan(null);
         } catch (err) {
@@ -1051,8 +1071,21 @@ const Dashboard = () => {
             )}
 
             {/* OUR VISION BANNER */}
-            <div className="bg-gradient-to-r from-violet-500/10 via-coral/5 to-white rounded-3xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between border border-gray-100 shadow-sm animate-in fade-in duration-500">
-                <div className="flex items-center gap-4">
+            {showVisionBanner && (
+                <div className="bg-gradient-to-r from-violet-500/10 via-coral/5 to-white rounded-3xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between border border-gray-100 shadow-sm animate-in fade-in duration-500 relative group">
+                    {/* Close Button */}
+                    <button 
+                        onClick={() => {
+                            setShowVisionBanner(false);
+                            localStorage.setItem('hideVisionBanner', 'true');
+                        }}
+                        className="absolute top-4 right-4 p-2 text-gray-400 hover:text-navy hover:bg-gray-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                        title="Dismiss Banner"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+
+                    <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-sm">
                         <Heart className="w-6 h-6 fill-coral text-coral" />
                     </div>
@@ -1078,13 +1111,9 @@ const Dashboard = () => {
                             Read Our Story
                         </button>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                        <div className="text-[10px] font-mono text-gray-400 opacity-50">
-                            UID: {user?.id?.slice(0, 8)}... | Plans: {plans.length}
-                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {plans.length === 0 ? (
                 <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-xl border border-navy-100/20 max-w-2xl mx-auto my-8 animate-in fade-in zoom-in-95 duration-500">

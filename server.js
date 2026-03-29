@@ -1124,53 +1124,53 @@ app.post('/api/generate-date', async (req, res) => {
             // Dynamically construct based on plan format with 4-5 steps
             if (planFormat.format === 'sightseeing-dinner-dessert') {
                 liveItinerary = [
-                    createStep('4:00 PM', getTitle(sight, 'Afternoon Exploration'), sight.name, getDesc(sight, `Start the evening with some beautiful views and culture. ${sight.description}. Address: ${sight.address}.`), sight.lat, sight.lng, null, sight.photoUrl),
-                    createStep('6:00 PM', 'Pre-Dinner Drinks', treat.name, `Grab a quick refreshment or coffee before the main meal. ${treat.description}.`, treat.lat, treat.lng, null, treat.photoUrl),
-                    createStep('7:30 PM', 'Dinner Reservation', dinner.name, `Head over for an incredible romantic dinner. ${dinner.description}. Address: ${dinner.address}.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
-                    createStep('9:30 PM', getTitle(mainEvent, 'Evening Entertainment'), mainEvent.name, getDesc(mainEvent, `Keep the night going with some local flavor. ${mainEvent.description}.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl)
+                    createStep('4:00 PM', getTitle(sight, 'Afternoon Exploration'), sight.name, getDesc(sight, `${sight.description} Start the evening with some beautiful views and culture. Address: ${sight.address}.`), sight.lat, sight.lng, null, sight.photoUrl),
+                    createStep('6:00 PM', 'Pre-Dinner Drinks', treat.name, `${treat.description} Grab a quick refreshment or coffee before the main meal.`, treat.lat, treat.lng, null, treat.photoUrl),
+                    createStep('7:30 PM', 'Dinner Reservation', dinner.name, `${dinner.description} Head over for an incredible romantic dinner. Address: ${dinner.address}.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
+                    createStep('9:30 PM', getTitle(mainEvent, 'Evening Entertainment'), mainEvent.name, getDesc(mainEvent, `${mainEvent.description} Keep the night going with some local flavor.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl)
                 ];
             } else if (planFormat.format === 'entertainment-dinner-event') {
                 liveItinerary = [
-                    createStep('3:30 PM', getTitle(sight, 'Afternoon Sights'), sight.name, getDesc(sight, `Kickoff the date by taking in some local scenery. ${sight.description}.`), sight.lat, sight.lng, null, sight.photoUrl),
-                    createStep('5:30 PM', getTitle(fun, 'Interactive Fun'), fun.name, getDesc(fun, `Break the ice with some playful competition or arcade games. ${fun.description}.`), fun.lat, fun.lng, null, fun.photoUrl),
-                    createStep('7:45 PM', 'Hearty Dinner', dinner.name, `Grab some delicious food nearby to refuel. ${dinner.description}.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
-                    createStep('9:30 PM', getTitle(mainEvent, 'Headline Event'), mainEvent.name, getDesc(mainEvent, `Time for the main attraction! ${mainEvent.description}. Enjoy the energy.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl)
+                    createStep('3:30 PM', getTitle(sight, 'Afternoon Sights'), sight.name, getDesc(sight, `${sight.description} Kickoff the date by taking in some local scenery.`), sight.lat, sight.lng, null, sight.photoUrl),
+                    createStep('5:30 PM', getTitle(fun, 'Interactive Fun'), fun.name, getDesc(fun, `${fun.description} Break the ice with some playful competition or arcade games.`), fun.lat, fun.lng, null, fun.photoUrl),
+                    createStep('7:45 PM', 'Hearty Dinner', dinner.name, `${dinner.description} Grab some delicious food nearby to refuel.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
+                    createStep('9:30 PM', getTitle(mainEvent, 'Headline Event'), mainEvent.name, getDesc(mainEvent, `${mainEvent.description} Time for the main attraction! Enjoy the energy.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl)
                 ];
             } else if (planFormat.format === 'sightseeing-event-dinner') {
                 liveItinerary = [
-                    createStep('5:00 PM', getTitle(sight, 'Golden Hour Views'), sight.name, getDesc(sight, `Catch the late afternoon vibes at this scenic spot. ${sight.description}.`), sight.lat, sight.lng, null, sight.photoUrl),
-                    createStep('6:30 PM', getTitle(mainEvent, 'Featured Event'), mainEvent.name, getDesc(mainEvent, `Experience the magic of the city at this live event. ${mainEvent.description}.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl),
-                    createStep('8:45 PM', 'Late Dinner', dinner.name, `Enjoy a fantastic late dinner and great conversation. ${dinner.description}.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
-                    createStep('10:30 PM', 'Midnight Sweet', treat.name, `End on a high note with a famous local dessert. ${treat.description}.`, treat.lat, treat.lng, null, treat.photoUrl)
+                    createStep('5:00 PM', getTitle(sight, 'Golden Hour Views'), sight.name, getDesc(sight, `${sight.description} Catch the late afternoon vibes at this scenic spot.`), sight.lat, sight.lng, null, sight.photoUrl),
+                    createStep('6:30 PM', getTitle(mainEvent, 'Featured Event'), mainEvent.name, getDesc(mainEvent, `${mainEvent.description} Experience the magic of the city at this live event.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl),
+                    createStep('8:45 PM', 'Late Dinner', dinner.name, `${dinner.description} Enjoy a fantastic late dinner and great conversation.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
+                    createStep('10:30 PM', 'Midnight Sweet', treat.name, `${treat.description} End on a high note with a famous local dessert.`, treat.lat, treat.lng, null, treat.photoUrl)
                 ];
             } else if (planFormat.format === 'dinner-event-dessert') {
                 liveItinerary = [
-                    createStep('5:30 PM', 'Early Dinner', dinner.name, `Fuel up first! Head over to this highly rated restaurant. ${dinner.description}.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
-                    createStep('7:30 PM', getTitle(mainEvent, 'Main Event'), mainEvent.name, getDesc(mainEvent, `Head over to the featured event of the evening: ${mainEvent.description}.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl),
-                    createStep('9:45 PM', getTitle(fun, 'Late Night Fun'), fun.name, getDesc(fun, `Keep the energy high with some local entertainment. ${fun.description}.`), fun.lat, fun.lng, null, fun.photoUrl),
-                    createStep('11:00 PM', 'Midnight Snack', treat.name, `Grab a late-night treat to satisfy that sweet tooth before heading home. ${treat.description}.`, treat.lat, treat.lng, null, treat.photoUrl)
+                    createStep('5:30 PM', 'Early Dinner', dinner.name, `${dinner.description} Fuel up first! Head over to this highly rated restaurant.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
+                    createStep('7:30 PM', getTitle(mainEvent, 'Main Event'), mainEvent.name, getDesc(mainEvent, `${mainEvent.description} Head over to the featured event of the evening.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl),
+                    createStep('9:45 PM', getTitle(fun, 'Late Night Fun'), fun.name, getDesc(fun, `${fun.description} Keep the energy high with some local entertainment.`), fun.lat, fun.lng, null, fun.photoUrl),
+                    createStep('11:00 PM', 'Midnight Snack', treat.name, `${treat.description} Grab a late-night treat to satisfy that sweet tooth before heading home.`, treat.lat, treat.lng, null, treat.photoUrl)
                 ];
             } else if (planFormat.format === 'sightseeing-dessert-dinner') {
                 liveItinerary = [
-                    createStep('2:00 PM', getTitle(fun, 'Daytime Activity'), fun.name, getDesc(fun, `Start early with something highly engaging! ${fun.description}.`), fun.lat, fun.lng, null, fun.photoUrl),
-                    createStep('4:30 PM', getTitle(sight, 'Afternoon Walk'), sight.name, getDesc(sight, `Take a relaxing stroll through the history and sights. ${sight.description}.`), sight.lat, sight.lng, null, sight.photoUrl),
-                    createStep('6:30 PM', 'Coffee & Pastries', treat.name, `Take a break and grab a world-class pastry or coffee. ${treat.description}.`, treat.lat, treat.lng, null, treat.photoUrl),
-                    createStep('8:00 PM', 'Dinner', dinner.name, `Enjoy a fantastic meal to wrap up the day. ${dinner.description}.`, dinner.lat, dinner.lng, null, dinner.photoUrl)
+                    createStep('2:00 PM', getTitle(fun, 'Daytime Activity'), fun.name, getDesc(fun, `${fun.description} Start early with something highly engaging!`), fun.lat, fun.lng, null, fun.photoUrl),
+                    createStep('4:30 PM', getTitle(sight, 'Afternoon Walk'), sight.name, getDesc(sight, `${sight.description} Take a relaxing stroll through the history and sights.`), sight.lat, sight.lng, null, sight.photoUrl),
+                    createStep('6:30 PM', 'Coffee & Pastries', treat.name, `${treat.description} Take a break and grab a world-class pastry or coffee.`, treat.lat, treat.lng, null, treat.photoUrl),
+                    createStep('8:00 PM', 'Dinner', dinner.name, `${dinner.description} Enjoy a fantastic meal to wrap up the day.`, dinner.lat, dinner.lng, null, dinner.photoUrl)
                 ];
             } else if (planFormat.format === 'entertainment-dessert-dinner') {
                 liveItinerary = [
-                    createStep('4:00 PM', getTitle(sight, 'City Exploration'), sight.name, getDesc(sight, `Check out this iconic area to set the mood. ${sight.description}.`), sight.lat, sight.lng, null, sight.photoUrl),
-                    createStep('5:30 PM', getTitle(fun, 'Activity & Games'), fun.name, getDesc(fun, `Get ready for some action and laughs. ${fun.description}.`), fun.lat, fun.lng, null, fun.photoUrl),
-                    createStep('7:30 PM', 'Pre-dinner Treat', treat.name, `Appetizers are dessert today. Treat yourself! ${treat.description}.`, treat.lat, treat.lng, null, treat.photoUrl),
-                    createStep('8:30 PM', 'Hearty Dinner', dinner.name, `Settle down for a fulfilling meal. ${dinner.description}.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
-                    createStep('10:30 PM', getTitle(mainEvent, 'Nightcap Event'), mainEvent.name, getDesc(mainEvent, `Finish the night strong. ${mainEvent.description}.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl)
+                    createStep('4:00 PM', getTitle(sight, 'City Exploration'), sight.name, getDesc(sight, `${sight.description} Check out this iconic area to set the mood.`), sight.lat, sight.lng, null, sight.photoUrl),
+                    createStep('5:30 PM', getTitle(fun, 'Activity & Games'), fun.name, getDesc(fun, `${fun.description} Get ready for some action and laughs.`), fun.lat, fun.lng, null, fun.photoUrl),
+                    createStep('7:30 PM', 'Pre-dinner Treat', treat.name, `${treat.description} Appetizers are dessert today. Treat yourself!`, treat.lat, treat.lng, null, treat.photoUrl),
+                    createStep('8:30 PM', 'Hearty Dinner', dinner.name, `${dinner.description} Settle down for a fulfilling meal.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
+                    createStep('10:30 PM', getTitle(mainEvent, 'Nightcap Event'), mainEvent.name, getDesc(mainEvent, `${mainEvent.description} Finish the night strong.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl)
                 ];
             } else {
                 liveItinerary = [
-                    createStep('5:00 PM', getTitle(mainEvent, 'Surprise Event'), mainEvent.name, getDesc(mainEvent, `Kick off with an exciting local event! ${mainEvent.description}.`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl),
-                    createStep('7:15 PM', 'Celebratory Dinner', dinner.name, `Feast on some incredible food. ${dinner.description}.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
-                    createStep('9:00 PM', getTitle(fun, 'Evening Amusements'), fun.name, getDesc(fun, `Burn off dinner with some local entertainment. ${fun.description}.`), fun.lat, fun.lng, null, fun.photoUrl),
-                    createStep('10:30 PM', getTitle(sight, 'Night Walk'), sight.name, getDesc(sight, `Take a romantic moonlit walk to look at the city skyline. ${sight.description}.`), sight.lat, sight.lng, null, sight.photoUrl)
+                    createStep('5:00 PM', getTitle(mainEvent, 'Surprise Event'), mainEvent.name, getDesc(mainEvent, `${mainEvent.description} Kick off with an exciting local event!`), mainEvent.lat, mainEvent.lng, mainEvent.url, mainEvent.photoUrl),
+                    createStep('7:15 PM', 'Celebratory Dinner', dinner.name, `${dinner.description} Feast on some incredible food.`, dinner.lat, dinner.lng, null, dinner.photoUrl),
+                    createStep('9:00 PM', getTitle(fun, 'Evening Amusements'), fun.name, getDesc(fun, `${fun.description} Burn off dinner with some local entertainment.`), fun.lat, fun.lng, null, fun.photoUrl),
+                    createStep('10:30 PM', getTitle(sight, 'Night Walk'), sight.name, getDesc(sight, `${sight.description} Take a romantic moonlit walk to look at the city skyline.`), sight.lat, sight.lng, null, sight.photoUrl)
                 ];
             }
 
@@ -1307,7 +1307,7 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                 rating: p.rating,
                 userRatingCount: p.userRatingCount,
                 location: p.location,
-                description: p.editorialSummary?.text || `A popular choice for ${type?.replace('_', ' ') || 'a great time'} in the city.`,
+                description: `Rating: ${p.rating || 'N/A'} ⭐ (${p.userRatingCount || 0} reviews). ${p.editorialSummary?.text || `A popular choice for ${type?.replace('_', ' ') || 'a great time'} in the city.`}`,
                 searchUrl: p.googleMapsUri,
                 photo: p.photos?.[0] ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${process.env.VITE_GOOGLE_MAPS_API_KEY}` : null
             }));
