@@ -130,15 +130,6 @@ const Dashboard = () => {
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [switchUpUses, setSwitchUpUses] = useState(() => {
         const saved = localStorage.getItem('switchUpUses');
-        const lastUseTime = localStorage.getItem('switchUpLastUseTime');
-        if (lastUseTime) {
-            const passedTime = Date.now() - parseInt(lastUseTime, 10);
-            const twentyFourHours = 24 * 60 * 60 * 1000;
-            if (passedTime >= twentyFourHours) {
-                localStorage.setItem('switchUpUses', '0');
-                return 0;
-            }
-        }
         return saved ? parseInt(saved, 10) : 0;
     });
 
@@ -453,7 +444,7 @@ const Dashboard = () => {
         // --- FREEMIUM FAVORITE LIMIT LOGIC ---
         if (!plan.is_favorite && !isPremium) {
             const currentFavoritesCount = plans.filter(p => p.is_favorite).length;
-            if (currentFavoritesCount >= 2) {
+            if (currentFavoritesCount >= 4) {
                 setShowUpgradeModal(true);
                 return; // Block saving
             }
@@ -787,6 +778,7 @@ const Dashboard = () => {
 
     const renderPlanCard = (plan, planIdx, enforceLocked = false, isCompact = false) => {
         const isLockedPlan = enforceLocked || (!isPremium && activeTab === 'all' && planIdx >= 2);
+        const isPartiallyLocked = !isPremium && activeTab === 'all' && planIdx === 1;
 
         return (
             <div
@@ -902,13 +894,13 @@ const Dashboard = () => {
                             e.stopPropagation();
                             setShowUpgradeModal(true);
                         } else {
-                            setSelectedPlan(plan);
+                            setSelectedPlan({ ...plan, isPartiallyLocked });
                         }
                     }}
                     className={`w-full py-2.5 font-bold rounded-xl border transition-colors ${isLockedPlan ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-gray-50 text-navy border-gray-100 group-hover:bg-coral group-hover:text-white group-hover:border-coral'
                         }`}
                 >
-                    {isLockedPlan ? 'Unlock Plan' : 'View Full Plan'}
+                    {isLockedPlan ? 'Unlock Plan' : (isPartiallyLocked ? 'Preview Plan' : 'View Full Plan')}
                 </button>
             </div>
         );
@@ -1298,9 +1290,9 @@ const Dashboard = () => {
                                     return (
                                         <div
                                             key={idx}
-                                            className={`relative ${isLockedStep ? 'cursor-pointer group/locked' : ''}`}
+                                            className={`relative ${(isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 1)) ? 'cursor-pointer group/locked' : ''}`}
                                             onClick={() => {
-                                                if (isLockedStep) setShowUpgradeModal(true);
+                                                if (isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 1)) setShowUpgradeModal(true);
                                             }}
                                         >
                                             {/* Absolute Time on the far left of the Line setup */}
@@ -1329,7 +1321,7 @@ const Dashboard = () => {
                                                 )}
                                             </button>
 
-                                            <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all hover:shadow-md ${isLockedStep ? 'blur-sm select-none opacity-60' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
+                                            <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all hover:shadow-md ${(isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 1)) ? 'blur-sm select-none opacity-60' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
                                                 <div className="flex items-start gap-3">
                                                     {/* Category Icon */}
                                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-50/80 border border-gray-50`}>
@@ -1397,7 +1389,7 @@ const Dashboard = () => {
                                                         className="px-2.5 py-1.5 bg-violet-50 text-violet-600 outline outline-1 outline-violet-200 text-[10px] font-black rounded-lg hover:bg-violet-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-[0_1px_8px_rgba(139,92,246,0.1)] hover:shadow-violet-200/50 group/btn"
                                                     >
                                                         <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
-                                                        Switch Up
+                                                        Swap This Spot
                                                     </button>
 
                                                     <a
@@ -1929,7 +1921,7 @@ const Dashboard = () => {
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
                                             <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Unlimited Full 5-Stop Itineraries" : "1-2 Premium Date Ideas"}
+                                                {isPremium ? "Unlimited date itinerary requests" : "5 daily date requests"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1937,7 +1929,7 @@ const Dashboard = () => {
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
                                             <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Unlimited 'Switch Up' (Swap any spot!)" : "Preview Itineraries (First 2 stops)"}
+                                                {isPremium ? "Unlimited 'Swap Spot' requests" : "2 'Swap Spot' requests total"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1945,7 +1937,7 @@ const Dashboard = () => {
                                                 <Check className="w-3.5 h-3.5 text-green-600 font-bold" />
                                             </div>
                                             <span className="text-gray-600 font-medium">
-                                                Save {isPremium ? "unlimited favorites" : "up to 2 favorite dates"}
+                                                Save {isPremium ? "unlimited favorites" : "up to 4 favorite dates"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1953,7 +1945,7 @@ const Dashboard = () => {
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
                                             <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "7-Day Recycle Bin & AI Customizer" : "Limited 'Switch Up' (1 change only)"}
+                                                {isPremium ? "7-Day Recycle Bin & AI Customizer" : "Premium 7rd+ Itinerary Locking"}
                                             </span>
                                         </div>
                                     </div>

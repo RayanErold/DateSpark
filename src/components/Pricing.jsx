@@ -9,10 +9,12 @@ const Pricing = () => {
             price: "$0",
             period: "/forever",
             features: [
-                { text: "1-2 Premium Date Ideas", icon: Star },
-                { text: "Preview Itineraries (First 2 stops)", icon: Check },
-                { text: "Save 2 Favorite Dates", icon: Heart },
-                { text: "Limited 'Switch Up' (1 change only)", icon: Check, muted: true }
+                { text: "Up to 2 itineraries per request", icon: Star },
+                { text: "1st Itinerary: Full visibility", icon: Check },
+                { text: "2nd Itinerary: First stop only", icon: Check },
+                { text: "5 daily date requests", icon: Check },
+                { text: "Swap 2 spots total", icon: Heart },
+                { text: "Save up to 4 plans a month", icon: Check }
             ],
             cta: "Try for Free",
             highlight: false,
@@ -24,11 +26,12 @@ const Pricing = () => {
             price: "$1.99",
             period: "/24hr",
             features: [
-                { text: "Unlimited Full 5-Stop Itineraries", icon: Star },
-                { text: "Unlimited 'Switch Up' (Found a spot you don't love? Swap it!)", icon: Heart },
-                { text: "Book Tables & Order Rides In-App", icon: Check },
-                { text: "Save Unlimited Favorites", icon: Check },
-                { text: "Instant Directions", icon: Check }
+                { text: "Unlimited itineraries per request", icon: Star },
+                { text: "Unlock all date stops instantly", icon: Check },
+                { text: "Unlimited 'Swap Spot' requests", icon: Heart },
+                { text: "Save unlimited favorites", icon: Check },
+                { text: "Instant Directions & Rides", icon: Check },
+                { text: "Access to best venues in your city", icon: Check }
             ],
             cta: "Unlock My Date Night",
             highlight: true,
@@ -36,21 +39,22 @@ const Pricing = () => {
             className: "bg-white text-navy border-white shadow-[0_20px_50px_rgba(244,63,94,0.3)] scale-[1.05]"
         },
         {
-            name: "DateSpark Plus",
-            tagline: "For couples who never want the magic to end.",
+            name: "Premium Monthly",
+            tagline: "Start with a 30-day free trial.",
             price: "$9.99",
             period: "/mo",
             features: [
-                { text: "Everything in the Daily Pass", icon: Star },
-                { text: "Advanced AI Customizer (Tweak your vibe)", icon: Check },
-                { text: "7-Day Recycle Bin (Recover deleted dates)", icon: Heart },
-                { text: "Anniversary & Special Occasion Planning", icon: Star },
-                { text: "Priority Access to New Features", icon: Check }
+                { text: "Everything in Daily Pass", icon: Star },
+                { text: "30-Day Free Trial (Cancel anytime)", icon: Heart },
+                { text: "AI Date Customizer & Suggestions", icon: Star },
+                { text: "In-app theme features", icon: Check },
+                { text: "7-Day recently deleted access", icon: Check },
+                { text: "Priority access to new features", icon: Check }
             ],
-            cta: "Get DateSpark Plus",
+            cta: "Start Free Trial",
             highlight: false,
             className: "bg-navy-light/50 border-white/20 text-white hover:border-coral/50",
-            savings: "Cancel Anytime"
+            savings: "30-Day Trial"
         }
     ];
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate } from 'lucide-react';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useJsApiLoader } from '@react-google-maps/api';
 import BottomNav from '../components/BottomNav';
@@ -103,15 +103,18 @@ const GeneratePlan = () => {
     // AI Custom Uses tracking for Free users
     const [aiCustomUses, setAiCustomUses] = useState(() => {
         const saved = localStorage.getItem('aiCustomUses');
-        const lastUseTime = localStorage.getItem('aiCustomLastUseTime');
+        return saved ? parseInt(saved, 10) : 0;
+    });
 
-        if (lastUseTime) {
-            const passedTime = Date.now() - parseInt(lastUseTime, 10);
-            const twentyFourHours = 24 * 60 * 60 * 1000;
-            if (passedTime >= twentyFourHours) {
-                localStorage.setItem('aiCustomUses', '0');
-                return 0;
-            }
+    const [dailyRequests, setDailyRequests] = useState(() => {
+        const saved = localStorage.getItem('dailyRequests');
+        const lastDate = localStorage.getItem('lastRequestDate');
+        const todayStr = new Date().toDateString();
+        
+        if (lastDate !== todayStr) {
+            localStorage.setItem('dailyRequests', '0');
+            localStorage.setItem('lastRequestDate', todayStr);
+            return 0;
         }
         return saved ? parseInt(saved, 10) : 0;
     });
@@ -146,6 +149,26 @@ const GeneratePlan = () => {
     });
 
     const [locationLoading, setLocationLoading] = useState(false);
+    const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+    const [detectedCity, setDetectedCity] = useState('');
+    const [waitlistEmail, setWaitlistEmail] = useState('');
+    const [waitlistLoading, setWaitlistLoading] = useState(false);
+    const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+    const [waitlistError, setWaitlistError] = useState(null);
+
+    const isLocationInNYC = (locationStr, lat, lng) => {
+        if (!locationStr && !lat) return false;
+        
+        // String check for common NYC identifiers
+        const nycKeywords = ['new york', 'brooklyn', 'queens', 'bronx', 'staten island', 'manhattan', 'ny', '100', '112', '111', '104', '103'];
+        const lowerLoc = (locationStr || '').toLowerCase();
+        const hasKeyword = nycKeywords.some(kw => lowerLoc.includes(kw));
+
+        // Bounding box for NYC roughly: 40.477, -74.259 to 40.917, -73.700
+        const isWithinCoords = lat >= 40.477 && lat <= 40.917 && lng >= -74.259 && lng <= -73.700;
+
+        return hasKeyword || isWithinCoords;
+    };
 
     const handlePreciseLocation = () => {
         if (!navigator.geolocation) {
@@ -153,18 +176,55 @@ const GeneratePlan = () => {
             return;
         }
 
+        // If already active, just toggle off
+        if (formData.usePreciseLocation) {
+            setFormData(prev => ({
+                ...prev,
+                usePreciseLocation: false,
+                location: ''
+            }));
+            return;
+        }
+
         setLocationLoading(true);
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                setFormData(prev => ({
-                    ...prev,
-                    lat: latitude,
-                    lng: longitude,
-                    usePreciseLocation: !prev.usePreciseLocation,
-                    location: 'Current Location'
-                }));
-                setLocationLoading(false);
+                
+                // Use Geocoder to turn coordinates into a friendly name
+                if (window.google?.maps?.Geocoder) {
+                    const geocoder = new window.google.maps.Geocoder();
+                    geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
+                        let readableLocation = 'Current Location';
+                        
+                        if (status === 'OK' && results[0]) {
+                            const neighborhood = results[0].address_components.find(c => c.types.includes('neighborhood'))?.long_name;
+                            const sublocality = results[0].address_components.find(c => c.types.includes('sublocality'))?.long_name;
+                            const locality = results[0].address_components.find(c => c.types.includes('locality'))?.long_name;
+                            
+                            readableLocation = neighborhood || sublocality || locality || results[0].formatted_address.split(',')[0];
+                        }
+
+                        setFormData(prev => ({
+                            ...prev,
+                            lat: latitude,
+                            lng: longitude,
+                            usePreciseLocation: true,
+                            location: readableLocation
+                        }));
+                        setLocationLoading(false);
+                    });
+                } else {
+                    // Fallback
+                    setFormData(prev => ({
+                        ...prev,
+                        lat: latitude,
+                        lng: longitude,
+                        usePreciseLocation: true,
+                        location: 'Current Location'
+                    }));
+                    setLocationLoading(false);
+                }
             },
             (err) => {
                 console.error("Location error:", err);
@@ -210,6 +270,15 @@ const GeneratePlan = () => {
         let newHistory = [];
         if (!isRefinement) {
             if (!initialPrompt.trim()) return;
+            if (!formData.location) {
+                setError("Please select a location first.");
+                return;
+            }
+            if (!isLocationInNYC(formData.location, formData.lat, formData.lng)) {
+                setDetectedCity(formData.location);
+                setShowWaitlistModal(true);
+                return;
+            }
             newHistory = [{ role: 'user', text: initialPrompt }];
         } else {
             if (!refinePrompt.trim()) return;
@@ -228,7 +297,13 @@ const GeneratePlan = () => {
                     conversationHistory: newHistory,
                     ideaCount: 3,
                     userId: user?.id,
-                    budget: aiBudget
+                    budget: aiBudget,
+                    location: formData.location,
+                    lat: formData.lat,
+                    lng: formData.lng,
+                    usePreciseLocation: formData.usePreciseLocation,
+                    date: formData.date,
+                    time: formData.time
                 })
             });
 
@@ -255,6 +330,10 @@ const GeneratePlan = () => {
 
     const handleGenerateCustom = async (e) => {
         e.preventDefault();
+        if (!isPremium && dailyRequests >= 5) {
+            setShowPremiumModal(true);
+            return;
+        }
         if (!isPremium && aiCustomUses >= 2) {
             setShowAiAddonModal(true);
             return;
@@ -283,10 +362,12 @@ const GeneratePlan = () => {
             if (!response.ok) throw new Error('Failed to build custom itinerary.');
 
             if (!isPremium) {
-                const newUses = aiCustomUses + 1;
-                setAiCustomUses(newUses);
-                localStorage.setItem('aiCustomUses', newUses.toString());
-                localStorage.setItem('aiCustomLastUseTime', Date.now().toString());
+                const newAiUses = aiCustomUses + 1;
+                const newDailyReqs = dailyRequests + 1;
+                setAiCustomUses(newAiUses);
+                setDailyRequests(newDailyReqs);
+                localStorage.setItem('aiCustomUses', newAiUses.toString());
+                localStorage.setItem('dailyRequests', newDailyReqs.toString());
             }
 
             navigate('/dashboard');
@@ -296,8 +377,46 @@ const GeneratePlan = () => {
         }
     };
 
+    const handleWaitlistSubmit = async (e) => {
+        if (e) e.preventDefault();
+        if (!waitlistEmail) return;
+        setWaitlistLoading(true);
+        setWaitlistError(null);
+        try {
+            const response = await fetch('/api/waitlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: waitlistEmail })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setWaitlistSuccess(true);
+            } else {
+                setWaitlistError(data.error || 'Failed to join waitlist');
+            }
+        } catch (err) {
+            console.error('Waitlist join error:', err);
+            setWaitlistError('Network error. Please try again.');
+        } finally {
+            setWaitlistLoading(false);
+        }
+    };
+
     const handleSubmitClassic = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
+
+        // --- NYC ONLY GATING ---
+        if (!isLocationInNYC(formData.location, formData.lat, formData.lng)) {
+            setDetectedCity(formData.location);
+            setShowWaitlistModal(true);
+            return;
+        }
+
+        if (!isPremium && dailyRequests >= 5) {
+            setShowPremiumModal(true);
+            return;
+        }
+
         setIsGenerating(true);
         setError(null);
 
@@ -310,13 +429,19 @@ const GeneratePlan = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: user.id,
-                    ideaCount,
+                    ideaCount: isPremium ? ideaCount : 2,
                     ...formData
                 })
             });
 
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Failed to generate plan.');
+
+            if (!isPremium) {
+                const newDailyReqs = dailyRequests + 1;
+                setDailyRequests(newDailyReqs);
+                localStorage.setItem('dailyRequests', newDailyReqs.toString());
+            }
             navigate('/dashboard');
         } catch (err) {
             setError(err.message);
@@ -416,7 +541,76 @@ const GeneratePlan = () => {
                                     </div>
 
                                     <form onSubmit={handleSuggestConcepts} className="space-y-8">
-                                        <div className="space-y-4">
+                                         <div className="space-y-4">
+                                            {/* Location Input for AI Mode */}
+                                            <div className="relative group">
+                                                <Compass className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Where in NYC? (Neighborhood or Zip)"
+                                                    required
+                                                    value={formData.location}
+                                                    onChange={(e) => handleLocationChange(e.target.value)}
+                                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                                    onFocus={() => formData.location.length >= 3 && setShowSuggestions(true)}
+                                                    className="w-full pl-14 pr-32 py-5 bg-gray-50 border-2 border-gray-100 rounded-[2rem] focus:outline-none focus:border-violet-500 text-[15px] font-bold text-navy shadow-inner transition-all"
+                                                />
+                                                {showSuggestions && suggestions.length > 0 && (
+                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                                        {suggestions.map((s) => (
+                                                            <button
+                                                                key={s.place_id}
+                                                                type="button"
+                                                                onMouseDown={() => handleSelectSuggestion(s)}
+                                                                className="w-full px-6 py-4 text-left hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0 transition-colors"
+                                                            >
+                                                                <MapPin className="w-4 h-4 text-gray-400" />
+                                                                <div>
+                                                                    <div className="text-[14px] font-bold text-navy">{s.structured_formatting.main_text}</div>
+                                                                    <div className="text-[11px] text-gray-400">{s.structured_formatting.secondary_text}</div>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={handlePreciseLocation}
+                                                    disabled={locationLoading}
+                                                    className={`absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg active:scale-95 ${
+                                                        formData.usePreciseLocation 
+                                                        ? 'bg-green-500 text-white shadow-green-500/20' 
+                                                        : 'bg-violet-600 text-white shadow-violet-600/30 hover:bg-violet-700 animate-pulse-subtle'
+                                                    }`}
+                                                >
+                                                    {locationLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Locate className="w-3.5 h-3.5" />}
+                                                    {formData.usePreciseLocation ? 'GPS: ACTIVE' : 'Use My Location'}
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="relative group">
+                                                    <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                                                    <input
+                                                        type="date"
+                                                        required
+                                                        value={formData.date}
+                                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[13px] font-bold text-navy shadow-inner"
+                                                    />
+                                                </div>
+                                                <div className="relative group">
+                                                    <Clock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                                                    <input
+                                                        type="time"
+                                                        required
+                                                        value={formData.time}
+                                                        onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[13px] font-bold text-navy shadow-inner"
+                                                    />
+                                                </div>
+                                            </div>
+
                                             <textarea
                                                 placeholder="e.g. 'I want to take her to a museum to chill, and finish with some highly rated artisanal ice cream.'"
                                                 value={initialPrompt}
@@ -432,7 +626,7 @@ const GeneratePlan = () => {
                                                     placeholder="Budget (optional, e.g. $200)"
                                                     value={aiBudget}
                                                     onChange={(e) => setAiBudget(e.target.value)}
-                                                    className="w-full pl-12 pr-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[14px] font-bold text-navy"
+                                                    className="w-full pl-12 pr-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[14px] font-bold text-navy shadow-inner"
                                                 />
                                             </div>
                                         </div>
@@ -554,10 +748,14 @@ const GeneratePlan = () => {
                                         type="button"
                                         onClick={handlePreciseLocation}
                                         disabled={locationLoading}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-2 bg-coral/10 hover:bg-coral/20 text-coral rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-1.5 transition-all"
+                                        className={`absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg active:scale-95 ${
+                                            formData.usePreciseLocation 
+                                            ? 'bg-green-500 text-white shadow-green-500/20' 
+                                            : 'bg-coral text-white shadow-coral/30 hover:bg-coral-600 animate-pulse-subtle'
+                                        }`}
                                     >
-                                        {locationLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Locate className="w-3 h-3" />}
-                                        {formData.usePreciseLocation ? 'Using GPS' : 'Precise Loc'}
+                                        {locationLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Locate className="w-3.5 h-3.5" />}
+                                        {formData.usePreciseLocation ? 'GPS: ACTIVE' : 'Use My Location'}
                                     </button>
                                 </div>
 
@@ -835,6 +1033,88 @@ const GeneratePlan = () => {
             )}
 
             <BottomNav onProfileClick={() => navigate('/dashboard')} />
+
+            {/* Waitlist Modal for non-NYC locations */}
+            {showWaitlistModal && (
+                <div className="fixed inset-0 bg-navy/60 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
+                    <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-300 border border-violet-100">
+                        <button
+                            onClick={() => setShowWaitlistModal(false)}
+                            className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-all font-black"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        
+                        <div className="w-20 h-20 bg-gradient-to-br from-violet-100 to-fuchsia-100 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-3">
+                            <Sparkles className="w-10 h-10 text-violet-600" />
+                        </div>
+                        
+                        <div className="text-center space-y-4">
+                            <h3 className="text-3xl font-black text-navy tracking-tight leading-tight">
+                                Coming to <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-500">Your City</span> Soon!
+                            </h3>
+                            <p className="text-gray-500 font-bold leading-relaxed px-2">
+                                DateSpark is currently exclusive to <span className="text-navy font-black italic underline decoration-coral decoration-2">New York City</span>. 
+                                We detected you're in <span className="text-violet-600 font-black">"{detectedCity || 'a new territory'}"</span>.
+                            </p>
+                        </div>
+
+                        <div className="mt-10">
+                            {waitlistSuccess ? (
+                                <div className="p-8 bg-green-50 border border-green-100 rounded-[2rem] text-center space-y-3 animate-in fade-in zoom-in-95 duration-500">
+                                    <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-2">
+                                        <Check className="w-6 h-6" />
+                                    </div>
+                                    <h4 className="text-xl font-black text-navy">You're on the list!</h4>
+                                    <p className="text-gray-500 font-bold text-sm">We'll email you the second we launch in {detectedCity || 'your city'}.</p>
+                                    <button
+                                        onClick={() => setShowWaitlistModal(false)}
+                                        className="mt-4 text-green-600 text-sm font-black uppercase tracking-widest hover:underline"
+                                    >
+                                        I'll stay in NYC for now
+                                    </button>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+                                    <div className="relative">
+                                        <input
+                                            type="email"
+                                            placeholder="Enter your email..."
+                                            required
+                                            value={waitlistEmail}
+                                            onChange={(e) => setWaitlistEmail(e.target.value)}
+                                            className={`w-full px-6 py-5 bg-gray-50 border-2 rounded-[1.5rem] focus:outline-none focus:border-violet-500 text-[15px] font-bold text-navy shadow-inner transition-all placeholder:text-gray-400 ${waitlistError ? 'border-red-300' : 'border-gray-100'}`}
+                                        />
+                                        {waitlistError && (
+                                            <p className="text-red-500 text-[10px] font-black uppercase tracking-wider mt-2 px-4 animate-in fade-in slide-in-from-top-1">
+                                                ⚠️ {waitlistError}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={waitlistLoading}
+                                        className="w-full bg-navy text-white text-lg font-black py-5 rounded-[1.5rem] flex items-center justify-center gap-3 hover:bg-navy/90 hover:-translate-y-1 transition-all shadow-xl shadow-navy/20 active:scale-95 disabled:opacity-50"
+                                    >
+                                        {waitlistLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Target className="w-5 h-5" /> Notify Me!</>}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWaitlistModal(false)}
+                                        className="w-full bg-gray-50 text-gray-400 text-sm font-black py-4 rounded-[1.5rem] hover:text-gray-600 transition-colors"
+                                    >
+                                        Not now, I'll stay in NYC
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+                        
+                        <p className="mt-8 text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] text-center">
+                            Exclusive &bull; AI Powered &bull; NYC First
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

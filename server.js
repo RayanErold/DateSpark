@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Resend } from 'resend'; // Import Resend
 import Stripe from 'stripe';
+import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +19,12 @@ dotenv.config();
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null; // Initialize Resend conditionally
+const SERVER_VERSION = '1.0.1-DEBUG';
+if (resend) {
+    console.log(`[${SERVER_VERSION}] Resend Email Client - INITIALIZED`);
+} else {
+    console.warn(`[${SERVER_VERSION}] Resend Email Client - DISABLED (Check RESEND_API_KEY in .env)`);
+}
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
@@ -328,11 +335,14 @@ const createBookingUrl = (type, name, date, time) => {
 app.post('/api/waitlist', async (req, res) => {
     const { email } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required' });
-    }
-
     try {
+        const logEntry = (msg) => `${new Date().toISOString()} - ${msg}\n`;
+        const logPath = path.join(__dirname, 'debug_email.txt');
+        await fs.appendFile(logPath, logEntry(`>>> WAITLIST REQUEST RECEIVED: ${email}`));
+        
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
         // 1. Check if email already exists
         const { data: existingUser, error: fetchError } = await supabase
             .from('waitlist')
@@ -359,7 +369,11 @@ app.post('/api/waitlist', async (req, res) => {
         // --- SEND WELCOME EMAIL ---
         try {
             if (resend) {
-                await resend.emails.send({
+                const attemptMsg = `[${SERVER_VERSION}] Waitlist Email - Attempting to send to: ${email}`;
+                console.log(attemptMsg);
+                await fs.appendFile(logPath, logEntry(attemptMsg));
+
+                const { data: emailData, error: emailError } = await resend.emails.send({
                     from: 'DateSpark <hello@datespark.live>', // Branded sender from verified domain
                     to: [email],
                     subject: 'Welcome to DateSpark – Let the Date Planning Begin! 💖',
@@ -403,16 +417,23 @@ app.post('/api/waitlist', async (req, res) => {
                         </div>
                     `
                 });
+
+                if (emailError) {
+                    const errMsg = `Waitlist Welcome Email - ERROR from Resend: ${JSON.stringify(emailError)}`;
+                    console.error(errMsg);
+                    await fs.appendFile(logPath, logEntry(errMsg));
+                } else {
+                    const successMsg = `Waitlist Welcome Email - SENT SUCCESS: ${emailData?.id}`;
+                    console.log(successMsg);
+                    await fs.appendFile(logPath, logEntry(successMsg));
+                }
             } else {
-                console.warn("Resend API Key not found. Check RESEND_API_KEY in .env.");
+                const skipMsg = "Waitlist Email - SKIPPED (Resend client not initialized).";
+                console.warn(skipMsg);
+                await fs.appendFile(logPath, logEntry(skipMsg));
             }
         } catch (emailErr) {
-            console.error('Waitlist Welcome Email Failed:', {
-                message: emailErr.message,
-                name: emailErr.name,
-                statusCode: emailErr.statusCode
-            });
-            // We don't throw email errors so the user successfully completes waitlist joins regardless
+            console.error('Waitlist Welcome Email - CRITICAL FAILED:', emailErr.message);
         }
 
         res.status(201).json({
@@ -424,13 +445,39 @@ app.post('/api/waitlist', async (req, res) => {
         res.status(500).json({ error: 'Failed to join waitlist. Please try again later.' });
     }
 });
-
 // AI Idea Generation (Gemini)
 app.post('/api/suggest-date-concepts', async (req, res) => {
-    const { conversationHistory, ideaCount = 3, userId } = req.body;
+    const { conversationHistory, ideaCount = 3, userId, location, date, time, budget, lat, lng, usePreciseLocation } = req.body;
 
     if (!conversationHistory || !Array.isArray(conversationHistory) || conversationHistory.length === 0) {
         return res.status(400).json({ error: 'conversationHistory array is required' });
+    }
+
+    try {
+        // --- TIER ENFORCEMENT ---
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_premium')
+            .eq('id', userId)
+            .single();
+
+        const isPremium = profile?.is_premium || false;
+
+        // Daily Limit Check
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const { count: dailyCount } = await supabase
+            .from('plans')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('created_at', startOfToday.toISOString());
+
+        if (!isPremium && dailyCount && dailyCount >= 5) {
+            return res.status(403).json({ error: 'Daily limit reached (5/day). Upgrade to Premium for unlimited!' });
+        }
+    } catch (err) {
+        console.error('Tier enforcement error in AI suggest:', err.message);
     }
 
     const validHistory = conversationHistory.filter(msg => msg && msg.text && msg.text.trim().length > 0);
@@ -438,7 +485,28 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
         return res.status(400).json({ error: 'Please enter a prompt to get started.' });
     }
 
-    const cacheKey = `ai_concepts_${JSON.stringify(validHistory)}`;
+    const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
+    let detectedLocation = (location && location !== 'Current Location') ? location : "New York City";
+
+    // --- REVERSE GEOCODING FOR PRECISION ---
+    if (usePreciseLocation && lat && lng && GOOGLE_API_KEY) {
+        try {
+            const geoRes = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+                params: { latlng: `${lat},${lng}`, key: GOOGLE_API_KEY }
+            });
+            const result = geoRes.data?.results?.[0];
+            if (result) {
+                const neighborhood = result.address_components.find(c => c.types.includes('neighborhood'))?.long_name;
+                const sublocality = result.address_components.find(c => c.types.includes('sublocality'))?.long_name;
+                detectedLocation = neighborhood || sublocality || result.formatted_address || detectedLocation;
+                console.log('AI CONCEPT - Detected GPS Location:', detectedLocation);
+            }
+        } catch (err) {
+            console.error('AI CONCEPT - Reverse Geocoding failed:', err.message);
+        }
+    }
+
+    const cacheKey = `ai_concepts_${JSON.stringify(validHistory)}_${detectedLocation}`;
     const cachedData = cache.get(cacheKey);
     let savedTitles = [];
 
@@ -471,7 +539,10 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
 
         const genAI = new GoogleGenerativeAI(apiKey);
 
-        let systemInstruction = `You are a premium date concierge in New York City. The user wants you to help them "Create their own date".
+        const targetLocation = detectedLocation;
+        const targetDate = date || "today";
+
+        let systemInstruction = `You are a premium date concierge in ${targetLocation}. The user wants you to help them "Create their own date" for ${targetDate}${time ? ' at ' + time : ''}.
 Generate EXACTLY ${ideaCount} distinct, high-level date concepts that fit their request and chat history.`;
 
         if (savedTitles.length > 0) {
@@ -490,9 +561,9 @@ Return ONLY a valid JSON object formatted EXACTLY like this:
       "budgetStr": "Expected budget (e.g., '$150' or '$$')",
       "vibeCategory": "A short category (e.g., 'Romantic', 'Active')",
       "searchTerms": [
-         "Term 1 (e.g., Dinner) MUST Apply Geographic Clustering (e.g., 'in West Village, NYC') AND Add Smart Fallbacks by adding OR (e.g. 'Anita Gelato OR dessert in West Village, NYC')",
-         "Term 2 (e.g., Event)",
-         "Term 3 (e.g., Dessert)"
+         "Term 1 (e.g., Dinner) MUST Apply Geographic Clustering (e.g., 'in ${targetLocation}') AND Add Smart Fallbacks by adding OR (e.g. 'Anita Gelato OR dessert in ${targetLocation}')",
+         "Term 2 (e.g., Event) in ${targetLocation}",
+         "Term 3 (e.g., Dessert) in ${targetLocation}"
       ],
       "durations": ["1.5 hours", "2 hours", "45 mins"]
     }
@@ -553,6 +624,33 @@ app.post('/api/generate-custom-date', async (req, res) => {
     }
 
     try {
+        // --- TIER ENFORCEMENT ---
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_premium')
+            .eq('id', userId)
+            .single();
+
+        const isPremium = profile?.is_premium || false;
+
+        // Daily Limit Check
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const { count: dailyCount } = await supabase
+            .from('plans')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('created_at', startOfToday.toISOString());
+
+        if (!isPremium && dailyCount && dailyCount >= 5) {
+            return res.status(403).json({ error: 'Daily limit reached (5/day). Upgrade to Premium for unlimited!' });
+        }
+    } catch (err) {
+        console.error('Tier enforcement error in AI generate:', err.message);
+    }
+
+    try {
         const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
         let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
@@ -574,14 +672,19 @@ app.post('/api/generate-custom-date', async (req, res) => {
         }
 
         const fetchPlaces = async (searchString) => {
-            const parsedRadius = radius ? Number(radius) : 8046; // Default to 5 miles
+            const parsedRadius = radius ? Number(radius) : 5632; // Default to 3.5 miles for better local focus
             const pCacheKey = `custom_${parsedRadius}_${Buffer.from(searchString).toString('base64')}`;
             if (cache.has(pCacheKey)) return cache.get(pCacheKey);
             if (!GOOGLE_API_KEY) return null;
 
+            // Reinforce the location name in the query to prevent "drifting" to Manhattan
+            const finalQuery = (location && !searchString.toLowerCase().includes(location.toLowerCase())) 
+                ? `${searchString} in ${location}` 
+                : searchString;
+
             try {
                 const res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
-                    textQuery: searchString,
+                    textQuery: finalQuery,
                     locationBias: {
                         circle: {
                             center: centerCoords,
@@ -681,7 +784,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
                 venue: place.name,
                 description: `${place.description} Address: ${place.address}. Expected duration: ${duration}.`,
                 url: place.url || null,
-                searchUrl: `https://www.google.com/search?q=${encodeURIComponent(place.name + ' New York City')}`,
+                searchUrl: `https://www.google.com/search?q=${encodeURIComponent(place.name + ' ' + (location || 'New York City'))}`,
                 directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`,
                 lat: place.lat,
                 lng: place.lng,
@@ -700,7 +803,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
             user_id: userId,
             vibe: concept.title,
             budget: concept.budgetStr || 'moderate',
-            location: 'New York City, NY',
+            location: location === 'Current Location' ? 'Precision GPS' : (location || 'New York City, NY'),
             itinerary: planPayload
         };
 
@@ -764,7 +867,7 @@ app.get('/api/plans/:id', async (req, res) => {
 
 // Classical Generation Flow
 app.post('/api/generate-date', async (req, res) => {
-    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng, dietary, usePreciseLocation } = req.body;
+    const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng, dietary, usePreciseLocation, ideaCount = 3 } = req.body;
     console.log('API - /api/generate-date - Body Extract:', { userId, location, vibe, date });
 
     if (!userId || !location) {
@@ -773,6 +876,33 @@ app.post('/api/generate-date', async (req, res) => {
     }
 
     try {
+        // --- TIER ENFORCEMENT ---
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_premium')
+            .eq('id', userId)
+            .single();
+
+        const isPremium = profile?.is_premium || false;
+
+        // Daily Limit Check
+        if (!isPremium) {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+
+            const { count: dailyCount } = await supabase
+                .from('plans')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', userId)
+                .gte('created_at', startOfToday.toISOString());
+
+            if (dailyCount && dailyCount >= 5) {
+                return res.status(403).json({ error: 'Daily limit reached (5/day). Upgrade to Premium for unlimited!' });
+            }
+        }
+
+        const effectiveIdeaCount = isPremium ? ideaCount : Math.min(ideaCount, 2);
+        
         const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
         const nycNeighborhoods = [
@@ -786,9 +916,26 @@ app.post('/api/generate-date', async (req, res) => {
         const chosenNeighborhood = pool[Math.floor(Math.random() * pool.length)];
 
         let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
+        let displayLocation = location;
 
         if (lat && lng) {
             centerCoords = { latitude: Number(lat), longitude: Number(lng) };
+            if (usePreciseLocation && GOOGLE_API_KEY) {
+                try {
+                    const geoRes = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+                        params: { latlng: `${lat},${lng}`, key: GOOGLE_API_KEY }
+                    });
+                    const result = geoRes.data?.results?.[0];
+                    if (result) {
+                        const neighborhood = result.address_components.find(c => c.types.includes('neighborhood'))?.long_name;
+                        const sublocality = result.address_components.find(c => c.types.includes('sublocality'))?.long_name;
+                        displayLocation = neighborhood || sublocality || result.formatted_address || "Nearby 你";
+                        console.log('CLASSIC GENERATE - Detected GPS Location:', displayLocation);
+                    }
+                } catch (err) {
+                    console.error('CLASSIC GENERATE - Reverse Geocoding failed:', err.message);
+                }
+            }
         } else if (GOOGLE_API_KEY) {
             try {
                 // Geocode the specific neighborhood for exact location bias Node triggers
@@ -799,12 +946,12 @@ app.post('/api/generate-date', async (req, res) => {
                 if (geoRes.data?.results?.[0]) {
                     const locData = geoRes.data.results[0].geometry.location;
                     centerCoords = { latitude: locData.lat, longitude: locData.lng };
+                    displayLocation = chosenNeighborhood;
                 }
             } catch (err) {
                 console.error('Geocoding failed inside classic:', err.message);
             }
         }
-
         let events = [];
         let restaurants = [];
         let entertainment = [];
@@ -1180,13 +1327,6 @@ app.post('/api/generate-date', async (req, res) => {
                 steps: liveItinerary
             };
 
-            generatedPlans.push({
-                user_id: userId,
-                vibe: planFormat.vibeLabel,
-                budget: budget || 'moderate',
-                location: 'New York City, NY', // Strictly enforce NYC
-                itinerary: planPayload
-            });
         }
 
         // Save generated plans to Supabase (bulk insert)
