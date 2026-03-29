@@ -36,7 +36,7 @@ export const OTP_EMAIL_TEMPLATE = (token) => `
             <p style="font-size: 14px;">This code will expire in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
         </div>
         <div class="footer">
-            &copy; 2026 DateSpark. Made with &hearts; in New York City.
+            &copy; 2026 DateSpark. Made with &hearts; for couples everywhere.
         </div>
     </div>
 </body>

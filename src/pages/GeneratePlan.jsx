@@ -93,7 +93,11 @@ const GeneratePlan = () => {
     };
 
     const popularNeighborhoods = [
-        "Downtown", "Midtown", "Westside", "Eastside", "Waterfront", "Arts District", "Historic Center", "Residential Area"
+        "Lower East Side", "SoHo", "West Village", "East Village", "Greenwich Village",
+        "Chelsea", "Tribeca", "Upper East Side", "Upper West Side", "Hell's Kitchen",
+        "Financial District", "Williamsburg", "Dumbo", "Greenpoint", "Bushwick",
+        "Astoria", "Long Island City", "Harlem", "Brooklyn Heights", "Prospect Heights",
+        "Fort Greene", "Park Slope"
     ];
 
     // AI Custom Uses tracking for Free users
@@ -222,7 +226,7 @@ const GeneratePlan = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     conversationHistory: newHistory,
-                    ideaCount: 3, // Consistently return 3 ideas
+                    ideaCount: 3,
                     userId: user?.id,
                     budget: aiBudget
                 })

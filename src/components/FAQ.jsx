@@ -9,7 +9,7 @@ const FAQ = () => {
         },
         {
             question: "Which cities are supported right now?",
-            answer: "We currently support New York, Los Angeles, Chicago, London, and Tokyo. We're adding new cities every week!"
+            answer: "We support major cities worldwide! From London to Tokyo, New York to Sydney, we're adding new locations every day to help you find the perfect date spot."
         },
         {
             question: "Can I regenerate a plan if I don't like it?",

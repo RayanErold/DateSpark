@@ -2,7 +2,49 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, LogOut, Plus, MapPin, Calendar, Clock, X, Map as MapIcon, Compass, Trash2, Ticket, Share2, Wallet, Car, LayoutGrid, Bookmark, User, Settings, CreditCard, Bell, ChevronDown, Check, Circle, Search, Utensils, Globe, Loader2, Lock, Sparkles, ArrowLeft } from 'lucide-react';
+import { 
+    Heart, 
+    MessageCircle, 
+    Share2, 
+    Trash2, 
+    Search, 
+    X, 
+    ChevronRight, 
+    Calendar, 
+    MapPin, 
+    Clock, 
+    Sparkles, 
+    Download, 
+    Star, 
+    Lock, 
+    Ticket, 
+    ExternalLink, 
+    Plus, 
+    Layout, 
+    Utensils, 
+    Compass, 
+    History,
+    FileText,
+    ArrowLeft,
+    Monitor,
+    Smartphone,
+    CreditCard,
+    Zap,
+    Check,
+    LogOut,
+    Map as MapIcon,
+    Wallet,
+    Car,
+    LayoutGrid,
+    Bookmark,
+    User,
+    Settings,
+    Bell,
+    ChevronDown,
+    Circle,
+    Globe,
+    Loader2
+} from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { loadStripe } from '@stripe/stripe-js';
 import BottomNav from '../components/BottomNav';
@@ -663,12 +705,13 @@ const Dashboard = () => {
 
             const updatedItinerary = isArrayItinerary ? steps : { ...currentPlan.itinerary, steps };
 
-            const { error } = await supabase
-                .from('plans')
-                .update({ itinerary: updatedItinerary })
-                .eq('id', selectedPlan.id);
-
-            if (error) throw error;
+            try {
+                // Use the more reliable window.fetch helper
+                await supabaseRequest('PATCH', `plans?id=eq.${selectedPlan.id}`, { itinerary: updatedItinerary });
+            } catch (err) {
+                console.error('Switch Up Database Error:', err);
+                throw new Error(`Database Update Failed: ${err.message}`);
+            }
 
             // Update local state
             setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, itinerary: updatedItinerary } : p));
@@ -687,7 +730,7 @@ const Dashboard = () => {
 
         } catch (error) {
             console.error('Error confirming switch:', error);
-            alert('Failed to update the plan. Please try again.');
+            alert(`Failed to update the plan: ${error.message}. Please try again.`);
         }
     };
 
@@ -1176,7 +1219,7 @@ const Dashboard = () => {
                                     <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70">
                                         {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
                                             `${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-                                            : 'Available in Your City'}
+                                            : 'Available in New York City'}
                                     </p>
                                 </div>
                             </div>
@@ -1327,6 +1370,16 @@ const Dashboard = () => {
                                                         <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
                                                         Switch Up
                                                     </button>
+
+                                                    <a
+                                                        href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="px-2.5 py-1.5 bg-gray-50 text-gray-600 outline outline-1 outline-gray-200 text-[10px] font-bold rounded-lg hover:bg-gray-800 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                    >
+                                                        <Search className="w-3 h-3" /> Search on Google
+                                                    </a>
 
                                                     {step.lat && step.lng && (
                                                         <a
