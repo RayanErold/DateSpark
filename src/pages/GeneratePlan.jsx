@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check } from 'lucide-react';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import BottomNav from '../components/BottomNav';
 
@@ -22,7 +22,7 @@ const GeneratePlan = () => {
     const [error, setError] = useState(null);
 
     const nycNeighborhoods = [
-        "West Village", "Soho", "Lower East Side", "Greenwich Village", "East Village", 
+        "West Village", "Soho", "Lower East Side", "Greenwich Village", "East Village",
         "Chelsea", "Tribeca", "Gramercy", "Upper West Side", "Upper East Side",
         "Williamsburg", "Dumbo", "Greenpoint", "Astoria", "Long Island City",
         "Financial District", "Battery Park City", "Murray Hill", "Hell's Kitchen"
@@ -339,7 +339,7 @@ const GeneratePlan = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: user.id,
-                    ideaCount, 
+                    ideaCount,
                     ...formData
                 })
             });
@@ -349,7 +349,7 @@ const GeneratePlan = () => {
             console.log('GeneratePlan - Response body:', result);
 
             if (!response.ok) throw new Error(result.error || 'Failed to generate plan.');
-            
+
             console.log('GeneratePlan - Navigation to dashboard...');
             navigate('/dashboard');
         } catch (err) {
@@ -422,84 +422,116 @@ const GeneratePlan = () => {
                 {mode === 'ai_custom' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
                         {aiConcepts.length === 0 ? (
-                            <div className="bg-white rounded-3xl shadow-[0_2px_40px_rgba(0,0,0,0.04)] border border-gray-100 p-8 sm:p-10 mb-24">
-                                <form onSubmit={handleSuggestConcepts} className="space-y-6">
+                            <div className="bg-white rounded-[2.5rem] shadow-[0_8px_60px_rgba(0,0,0,0.05)] border border-gray-100 p-8 sm:p-12 mb-24 animate-in fade-in slide-in-from-bottom-6 duration-500">
+                                <div className="space-y-10">
+                                    {/* AI Starter Suggestions */}
                                     <div className="space-y-4">
-                                        <label className="flex items-center gap-2 text-[16px] font-bold text-navy">
-                                            Describe your perfect date idea...
-                                        </label>
-                                        <textarea
-                                            placeholder="e.g. 'I want to take her to Chipotle, then visit MoMA to chill, and finish with some highly rated artisanal ice cream in Midtown.'"
-                                            value={initialPrompt}
-                                            onChange={(e) => setInitialPrompt(e.target.value)}
-                                            rows={5}
-                                            className="w-full px-5 py-5 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all text-[15px] font-medium placeholder-gray-400 resize-none text-gray-700"
-                                            required
-                                        />
-                                        <p className="text-[14px] text-gray-500 font-medium px-1">
-                                            Be as specific as you want. Our AI will pitch you {ideaCount} distinct ideas based on this prompt.
-                                        </p>
+                                        <h3 className="text-xs font-black text-violet-500 uppercase tracking-widest pl-1">Get Inspired</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {[
+                                                { icon: "☕", text: "West Village coffee crawl & hidden gems", prompt: "Plan a cozy evening in West Village starting with a specialty coffee crawl, some bookstore browsing, and ending with a hidden gem romantic dinner." },
+                                                { icon: "🍕", text: "DUMBO adventure: Pizza & park views", prompt: "High-energy date in DUMBO/Brooklyn Heights. Includes a walk across the bridge, the best local pizza, and a scenic sunset spot by the water." },
+                                                { icon: "🎷", text: "Luxury night: Cocktails & secret jazz", prompt: "A sophisticated NYC night out. Start with high-end cocktails at a speakeasy, followed by an intimate jazz club experience and late-night dessert." },
+                                                { icon: "🎮", text: "Fun & Games: Arcade & casual eats", prompt: "A playful date featuring a retro arcade or barcade, followed by casual street food and a fun activity like mini-golf or bowling." }
+                                            ].map((starter, i) => (
+                                                <button
+                                                    key={i}
+                                                    type="button"
+                                                    onClick={() => setInitialPrompt(starter.prompt)}
+                                                    className="group flex items-start gap-3 p-4 bg-violet-50/50 border border-violet-100 rounded-2xl text-left hover:bg-violet-600 hover:border-violet-600 transition-all duration-300"
+                                                >
+                                                    <span className="text-2xl group-hover:scale-110 transition-transform">{starter.icon}</span>
+                                                    <span className="text-[13px] font-bold text-navy group-hover:text-white transition-colors leading-tight">
+                                                        {starter.text}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                        <div className="space-y-3">
-                                            <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                                <Calendar className="text-violet-500 w-4 h-4" /> Pick a Date
-                                            </label>
-                                            <input
-                                                type="date"
-                                                required
-                                                min={today}
-                                                value={formData.date}
-                                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                                className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[14px] font-medium text-gray-700"
-                                            />
+                                    <form onSubmit={handleSuggestConcepts} className="space-y-8">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between px-1">
+                                                <label className="text-[16px] font-black text-navy">
+                                                    Or craft your own dream date...
+                                                </label>
+                                                <span className="text-[11px] font-bold text-gray-400 uppercase">AI Generator</span>
+                                            </div>
+                                            <div className="relative group">
+                                                <textarea
+                                                    placeholder="e.g. 'I want to take her to Chipotle, then visit MoMA to chill, and finish with some highly rated artisanal ice cream in Midtown.'"
+                                                    value={initialPrompt}
+                                                    onChange={(e) => setInitialPrompt(e.target.value)}
+                                                    rows={4}
+                                                    className="w-full px-6 py-6 bg-gray-50/50 border-2 border-gray-100 rounded-[2rem] focus:outline-none focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/5 transition-all text-[15px] font-medium placeholder-gray-400 resize-none text-gray-700 shadow-inner"
+                                                    required
+                                                />
+                                                <div className="absolute bottom-4 right-6 flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                                                    <Sparkles className="w-3 h-3 text-violet-400" /> Powered by Gemini Ultra
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="space-y-3">
-                                            <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                                <Compass className="text-violet-500 w-4 h-4" /> Search Radius
-                                            </label>
-                                            <select
-                                                value={customRadius}
-                                                onChange={(e) => setCustomRadius(Number(e.target.value))}
-                                                className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                            <div className="space-y-3">
+                                                <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                                    <Calendar className="text-violet-500 w-4 h-4" /> Pick a Date
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    required
+                                                    min={today}
+                                                    value={formData.date}
+                                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                                    className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[14px] font-medium text-gray-700"
+                                                />
+                                            </div>
+                                            <div className="space-y-3">
+                                                <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                                    <Compass className="text-violet-500 w-4 h-4" /> Search Radius
+                                                </label>
+                                                <select
+                                                    value={customRadius}
+                                                    onChange={(e) => setCustomRadius(Number(e.target.value))}
+                                                    className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
+                                                >
+                                                    <option value={1609}>1 Mile</option>
+                                                    <option value={4828}>3 Miles</option>
+                                                    <option value={8046}>5 Miles</option>
+                                                    <option value={16093}>10 Miles</option>
+                                                    <option value={24140}>Citywide (15+ Miles)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
+                                                    <Sparkles className="text-violet-500 w-4 h-4" /> How many ideas?
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="7"
+                                                    value={ideaCount}
+                                                    onChange={(e) => setIdeaCount(Number(e.target.value))}
+                                                    className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[15px] font-medium text-gray-700"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4">
+                                            <button
+                                                type="submit"
+                                                disabled={isSuggesting || !initialPrompt.trim()}
+                                                className="w-full bg-navy text-white hover:bg-navy/90 py-4 rounded-xl text-[16px] font-bold flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                                             >
-                                                <option value={1609}>1 Mile</option>
-                                                <option value={4828}>3 Miles</option>
-                                                <option value={8046}>5 Miles</option>
-                                                <option value={16093}>10 Miles</option>
-                                                <option value={24140}>Citywide (15+ Miles)</option>
-                                            </select>
+                                                {isSuggesting ? (
+                                                    <><Loader2 className="w-5 h-5 animate-spin" /> {conversationHistory.length > 0 ? 'Refining...' : 'Analyzing request...'}</>
+                                                ) : (
+                                                    <><Wand2 className="w-5 h-5" /> Pitch me some ideas</>
+                                                )}
+                                            </button>
                                         </div>
-                                        <div className="space-y-3">
-                                            <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                                <Sparkles className="text-violet-500 w-4 h-4" /> How many ideas?
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="7"
-                                                value={ideaCount}
-                                                onChange={(e) => setIdeaCount(Number(e.target.value))}
-                                                className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors text-[15px] font-medium text-gray-700"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-4">
-                                        <button
-                                            type="submit"
-                                            disabled={isSuggesting || !initialPrompt.trim()}
-                                            className="w-full bg-navy text-white hover:bg-navy/90 py-4 rounded-xl text-[16px] font-bold flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                                        >
-                                            {isSuggesting ? (
-                                                <><Loader2 className="w-5 h-5 animate-spin" /> {conversationHistory.length > 0 ? 'Refining...' : 'Analyzing request...'}</>
-                                            ) : (
-                                                <><Wand2 className="w-5 h-5" /> Pitch me some ideas</>
-                                            )}
-                                        </button>
-                                    </div>
-                                </form>
+                                    </form>
+                                </div>
                             </div>
                         ) : (
                             <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -594,21 +626,84 @@ const GeneratePlan = () => {
                                     </button>
                                 </div>
                             </div>
-                        )
-                        }
-                    </div >
-                )}
+                        )}
+                    </div>
+                )}         )}
 
-                {/* --- CLASSIC MODE --- */}
-                {
-                    mode === 'classic' && (
-                        <div className="bg-white rounded-3xl shadow-[0_4px_40px_rgba(0,0,0,0.04)] border border-gray-100 p-8 sm:p-10 mb-20 animate-in fade-in zoom-in-95 duration-500 relative">
-                            <form onSubmit={handleSubmitClassic} className="space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            <MapPin className="text-coral w-4 h-4" /> City or Neighborhood
-                                        </label>
+            {/* --- CLASSIC MODE --- */}
+            {mode === 'classic' && (
+                <div className="bg-white rounded-[2.5rem] shadow-[0_8px_60px_rgba(0,0,0,0.05)] border border-gray-100 p-8 sm:p-12 mb-20 animate-in fade-in zoom-in-95 duration-500 relative">
+                    <form onSubmit={handleSubmitClassic} className="space-y-10">
+                        {/* SECTION: LOCATION */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between px-1">
+                                <label className="flex items-center gap-2 text-[15px] font-black text-navy uppercase tracking-wider">
+                                    <MapPin className="text-coral w-4 h-4" /> Where to?
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={handleGetCurrentLocation}
+                                    className="text-[11px] font-black text-coral hover:text-coral/80 flex items-center gap-1.5 transition-colors"
+                                >
+                                    <Compass className="w-3.5 h-3.5" /> Detect my city
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. New York City, NY"
+                                    value={formData.location}
+                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                    className="w-full px-6 py-4 bg-gray-50/50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 focus:ring-4 focus:ring-coral/5 text-[15px] font-bold text-navy transition-all placeholder-gray-300"
+                                />
+                                {isLocating && (
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-coral" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* SECTION: BUDGET & RADIUS */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <label className="flex items-center gap-2 text-[15px] font-black text-navy uppercase tracking-wider px-1">
+                                    <DollarSign className="text-coral w-4 h-4" /> Target Budget
+                                </label>
+                                <div className="flex p-1 bg-gray-50 rounded-2xl border border-gray-100">
+                                    {[
+                                        { label: '$', desc: 'Budget', value: '$50' },
+                                        { label: '$$', desc: 'Casual', value: '$100' },
+                                        { label: '$$$', desc: 'Date Night', value: '$250' },
+                                        { label: '$$$$', desc: 'Luxury', value: '$500+' }
+                                    ].map((tier) => (
+                                        <button
+                                            key={tier.label}
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, budget: tier.value })}
+                                            className={`flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all ${formData.budget === tier.value ? 'bg-white shadow-md text-coral border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
+                                        >
+                                            <span className="text-base font-black tracking-widest">{tier.label}</span>
+                                            <span className="text-[10px] font-bold uppercase mt-0.5">{tier.desc}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <form onSubmit={handleSubmitClassic} className="space-y-10">
+                                    {/* SECTION: LOCATION */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between px-1">
+                                            <label className="flex items-center gap-2 text-[15px] font-black text-navy uppercase tracking-wider">
+                                                <MapPin className="text-coral w-4 h-4" /> Where to?
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={handleGetCurrentLocation}
+                                                className="text-[11px] font-black text-coral hover:text-coral/80 flex items-center gap-1.5 transition-colors"
+                                            >
+                                                <Compass className="w-3.5 h-3.5" /> Detect my city
+                                            </button>
+                                        </div>
                                         <div className="relative">
                                             <input
                                                 type="text"
@@ -616,400 +711,199 @@ const GeneratePlan = () => {
                                                 placeholder="e.g. New York City, NY"
                                                 value={formData.location}
                                                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                                className="w-full px-5 py-3.5 pl-12 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral text-[15px] font-medium text-gray-700 transition-colors"
+                                                className="w-full px-6 py-4 bg-gray-50/50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 focus:ring-4 focus:ring-coral/5 text-[15px] font-bold text-navy transition-all placeholder-gray-300"
                                             />
-                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer hover:text-coral transition-colors" onClick={handleGetCurrentLocation} title="Use My Current Location">
-                                                {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            <Compass className="text-coral w-4 h-4" /> Search Radius
-                                        </label>
-                                        <select
-                                            value={formData.radius}
-                                            onChange={(e) => setFormData({ ...formData, radius: Number(e.target.value) })}
-                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
-                                        >
-                                            <option value={1609}>1 Mile</option>
-                                            <option value={4828}>3 Miles</option>
-                                            <option value={8046}>5 Miles</option>
-                                            <option value={16093}>10 Miles</option>
-                                            <option value={24140}>Citywide (15+ Miles)</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {/* Neighborhood Input Multi-Select */}
-                                <div className="space-y-3">
-                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                        <Compass className="text-coral w-4 h-4" /> Specific Neighborhoods (Max 3)
-                                    </label>
-                                    <div className="relative">
-                                        <div
-                                             onClick={() => setShowNeighborhoodDropdown(!showNeighborhoodDropdown)}
-                                             className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl flex items-center justify-between text-[15px] font-medium text-gray-700 transition-colors hover:border-coral cursor-pointer"
-                                         >
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {formData.usePreciseLocation && (
-                                                    <span className="bg-violet-100 text-violet-600 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 animate-in zoom-in-95">
-                                                        <MapPin className="w-3 h-3" /> Precise Location
-                                                        <div className="hover:text-navy cursor-pointer ml-1" onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, usePreciseLocation: false, lat: null, lng: null }); }}>
-                                                            ×
-                                                        </div>
-                                                    </span>
-                                                )}
-                                                {(formData.neighborhoods || []).length === 0 && !formData.usePreciseLocation ? (
-                                                    <span className="text-gray-400">Select Up to 3 Neighborhoods (Leave blank for random)</span>
-                                                ) : (
-                                                    (formData.neighborhoods || []).map(nb => (
-                                                        <span key={nb} className="bg-coral/10 text-coral text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
-                                                            {nb}
-                                                            <div className="hover:text-navy cursor-pointer ml-1" onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, neighborhoods: (formData.neighborhoods || []).filter(n => n !== nb) }); }}>
-                                                                ×
-                                                            </div>
-                                                        </span>
-                                                    ))
-                                                )}
-                                            </div>
-                                             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showNeighborhoodDropdown ? 'rotate-180' : ''}`} />
-                                         </div>
-
-                                        {showNeighborhoodDropdown && (
-                                            <div className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-72 overflow-y-auto p-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                <div className="mb-2 p-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handlePreciseLocation();
-                                                        }}
-                                                        className={`w-full flex items-center justify-between p-3 rounded-xl transition-all border ${formData.usePreciseLocation
-                                                            ? "bg-violet-50 border-violet-200 text-violet-700 shadow-sm"
-                                                            : "bg-gradient-to-r from-violet-500 to-indigo-600 border-transparent text-white shadow-md hover:shadow-lg hover:scale-[1.02]"
-                                                            }`}
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`p-2 rounded-lg ${formData.usePreciseLocation ? "bg-violet-200 text-violet-700" : "bg-white/20 text-white"}`}>
-                                                                {locationLoading ? (
-                                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                                ) : (
-                                                                    <MapPin className="w-4 h-4" />
-                                                                )}
-                                                            </div>
-                                                            <div className="text-left">
-                                                                <p className="font-bold text-[14px]">
-                                                                    {formData.usePreciseLocation ? "Precise Location Active" : "Use My Precise Location"}
-                                                                </p>
-                                                                <p className={`text-[11px] font-medium ${formData.usePreciseLocation ? "text-violet-500" : "text-white/80"}`}>
-                                                                    {formData.usePreciseLocation ? "Using your GPS for better results" : "Find venues right where you are"}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        {formData.usePreciseLocation && <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />}
-                                                    </button>
+                                            {isLocating && (
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                                    <Loader2 className="w-4 h-4 animate-spin text-coral" />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-1">                                                     {nycNeighborhoods.map(nb => {
-                                                         const currentNb = formData.neighborhoods || [];
-                                                         const isChecked = currentNb.includes(nb);
-                                                         const isDisabled = !isChecked && currentNb.length >= 3;
-                                                         return (
-                                                             <button
-                                                                 type="button"
-                                                                 key={nb}
-                                                                 disabled={isDisabled}
-                                                                 onClick={() => {
-                                                                     if (isChecked) {
-                                                                         setFormData({ ...formData, neighborhoods: currentNb.filter(n => n !== nb) });
-                                                                     } else if (currentNb.length < 3) {
-                                                                         setFormData({ ...formData, neighborhoods: [...currentNb, nb] });
-                                                                     }
-                                                                 }}
-                                                                 className={`flex items-center gap-2 p-2.5 rounded-xl text-[13px] font-medium transition-colors text-left ${isChecked ? 'bg-coral/5 text-coral' : 'hover:bg-gray-50 text-gray-700'} ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                                                             >
-                                                                 <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isChecked ? 'bg-coral border-coral text-white' : 'border-gray-300'}`}>
-                                                                     {isChecked && <Check className="w-2.5 h-2.5" />}
-                                                                 </div>
-                                                                 {nb}
-                                                             </button>
-                                                         );
-                                                     })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                        <Heart className="text-coral w-4 h-4" /> What's the vibe?
-                                    </label>
-                                    <select
-                                        value={formData.vibe}
-                                        onChange={(e) => setFormData({ ...formData, vibe: e.target.value })}
-                                        className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
-                                    >
-                                        {vibes.map((v) => (
-                                            <option key={v.id} value={v.id}>
-                                                {v.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Dietary Restrictions Dropdown */}
-                                <div className="space-y-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowDietaryOptions(!showDietaryOptions)}
-                                        className="flex items-center justify-between w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all duration-200 cursor-pointer group"
-                                    >
-                                        <div className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            <Utensils className="text-coral w-4 h-4 group-hover:scale-110 transition-transform" />
-                                            Dietary Preferences
-                                            <span className="text-gray-400 font-medium text-xs">(Optional)</span>
-                                            {formData.dietary?.length > 0 && (
-                                                <span className="bg-coral/10 text-coral text-[10px] px-1.5 py-0.5 rounded-full font-black">
-                                                    {formData.dietary.length}
-                                                </span>
                                             )}
                                         </div>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showDietaryOptions ? 'rotate-180' : ''}`} />
-                                    </button>
+                                    </div>
 
-                                    {showDietaryOptions && (
-                                        <div className="flex flex-wrap gap-2 p-4 bg-white border border-gray-100 rounded-xl shadow-inner animate-fade-in">
-                                            {['Vegan', 'Vegetarian', 'Gluten-Free', 'Halal', 'Kosher', 'Nut Allergy', 'Dairy-Free'].map((diet) => {
-                                                const isSelected = formData.dietary?.includes(diet);
-                                                return (
+                                    {/* SECTION: BUDGET & RADIUS */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <label className="flex items-center gap-2 text-[15px] font-black text-navy uppercase tracking-wider px-1">
+                                                <DollarSign className="text-coral w-4 h-4" /> Target Budget
+                                            </label>
+                                            <div className="flex p-1 bg-gray-50 rounded-2xl border border-gray-100">
+                                                {[
+                                                    { label: '$', desc: 'Budget', value: '$50' },
+                                                    { label: '$$', desc: 'Casual', value: '$100' },
+                                                    { label: '$$$', desc: 'Date Night', value: '$250' },
+                                                    { label: '$$$$', desc: 'Luxury', value: '$500+' }
+                                                ].map((tier) => (
                                                     <button
+                                                        key={tier.label}
                                                         type="button"
-                                                        key={diet}
-                                                        onClick={() => toggleDietary(diet)}
-                                                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${isSelected
-                                                            ? 'bg-coral text-white border-coral shadow-sm shadow-coral/20'
-                                                            : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
-                                                            }`}
+                                                        onClick={() => setFormData({ ...formData, budget: tier.value })}
+                                                        className={`flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all ${formData.budget === tier.value ? 'bg-white shadow-md text-coral border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
                                                     >
-                                                        {diet}
+                                                        <span className="text-base font-black tracking-widest">{tier.label}</span>
+                                                        <span className="text-[10px] font-bold uppercase mt-0.5">{tier.desc}</span>
                                                     </button>
-                                                );
-                                            })}
+                                                ))}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            <Calendar className="text-coral w-4 h-4" /> Date
-                                        </label>
-                                        <input
-                                            type="date"
-                                            required
-                                            min={today}
-                                            value={formData.date}
-                                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                            className="w-full px-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[14px] font-medium text-gray-700"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            Start Time
-                                        </label>
-                                        <input
-                                            type="time"
-                                            required
-                                            value={formData.startTime}
-                                            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                                            className="w-full px-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[14px] font-medium text-gray-700"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            End Time
-                                        </label>
-                                        <input
-                                            type="time"
-                                            required
-                                            value={formData.endTime}
-                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                            className="w-full px-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[14px] font-medium text-gray-700"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            <DollarSign className="text-coral w-4 h-4" /> Target Budget
-                                        </label>
-                                        <input
-                                            type="text"
-                                            required
-                                            placeholder="e.g. $100"
-                                            value={formData.budget}
-                                            onChange={handleBudgetChange}
-                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium placeholder-gray-400 text-gray-700"
-                                        />
+                                        <div className="space-y-4">
+                                            <label className="flex items-center gap-2 text-[15px] font-black text-navy uppercase tracking-wider px-1">
+                                                <Compass className="text-coral w-4 h-4" /> Search Radius
+                                            </label>
+                                            <div className="relative group">
+                                                <select
+                                                    value={formData.radius}
+                                                    onChange={(e) => setFormData({ ...formData, radius: Number(e.target.value) })}
+                                                    className="w-full px-6 py-4 bg-gray-50/50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 focus:ring-4 focus:ring-coral/5 transition-all text-[15px] font-bold text-navy appearance-none cursor-pointer"
+                                                >
+                                                    <option value={1609}>1 Mile (Walking)</option>
+                                                    <option value={4828}>3 Miles (Brooklyn/Local)</option>
+                                                    <option value={8046}>5 Miles (Standard)</option>
+                                                    <option value={16093}>10 Miles (Greater City)</option>
+                                                    <option value={24140}>Citywide (15+ Miles)</option>
+                                                </select>
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none group-hover:text-coral transition-colors" />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            <Sparkles className="text-coral w-4 h-4" /> Interest-Based Filtering
+                                    {/* SECTION: VIBE SELECTION */}
+                                    <div className="space-y-6">
+                                        <label className="flex items-center gap-2 text-[15px] font-black text-navy uppercase tracking-wider px-1">
+                                            <Heart className="text-coral w-4 h-4" /> Choose the energy
                                         </label>
-                                        <select
-                                            value={formData.interests}
-                                            onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
-                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium appearance-none cursor-pointer text-gray-700"
-                                        >
-                                            {interestCategories.map((category) => (
-                                                <option key={category.id} value={category.id}>
-                                                    {category.label}
-                                                </option>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            {[
+                                                { id: 'chill', label: 'Chill & Cozy', icon: '🛋️' },
+                                                { id: 'fancy', label: 'Fancy', icon: '🕯️' },
+                                                { id: 'active', label: 'Active', icon: '🧗' },
+                                                { id: 'hidden', label: 'Gems', icon: '💎' },
+                                            ].map((v) => (
+                                                <button
+                                                    key={v.id}
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, vibe: v.id })}
+                                                    className={`flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all duration-300 ${formData.vibe === v.id ? 'border-coral bg-coral/5 shadow-lg shadow-coral/10 scale-[1.02]' : 'border-gray-100 bg-white hover:border-coral/30 hover:bg-coral/5'}`}
+                                                >
+                                                    <span className="text-2xl">{v.icon}</span>
+                                                    <span className={`text-[13px] font-black tracking-tight ${formData.vibe === v.id ? 'text-coral' : 'text-gray-500'}`}>{v.label}</span>
+                                                </button>
                                             ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-[15px] font-bold text-navy">
-                                            <Sparkles className="text-coral w-4 h-4" /> How many ideas?
-                                        </label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="7"
-                                            value={ideaCount}
-                                            onChange={(e) => setIdeaCount(Number(e.target.value))}
-                                            className="w-full px-5 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:border-coral focus:ring-1 focus:ring-coral transition-colors text-[15px] font-medium text-gray-700"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="pt-6">
-                                    <button
-                                        type="submit"
-                                        disabled={isGenerating || !formData.location}
-                                        className="w-full bg-navy text-white hover:bg-navy/90 py-4 rounded-xl text-[16px] font-bold flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                                    >
-                                        {isGenerating ? (
-                                            <><Loader2 className="w-5 h-5 animate-spin" /> Curating your perfect date...</>
-                                        ) : (
-                                            <><Sparkles className="w-5 h-5" /> Generate Itinerary</>
-                                        )}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )
-                }
-            </main >
+                                    onClick={() => {
+                                        setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any' }));
+                                        handleSubmitClassic({ preventDefault: () => { } });
+                                    }}
+                                    className="text-[13px] font-bold text-gray-400 hover:text-coral transition-colors flex items-center justify-center gap-1 mx-auto"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5" /> Surprise Me! <span className="ml-1 opacity-60">›</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+            </main>
 
             {/* Premium Upgrade Modal */}
-            {
-                showPremiumModal && (
-                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
-                            <button
-                                onClick={() => setShowPremiumModal(false)}
-                                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-                            >
-                                ✕
-                            </button>
+            {showPremiumModal && (
+                <div className="fixed inset-0 bg-navy/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
+                        <button
+                            onClick={() => setShowPremiumModal(false)}
+                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                            ✕
+                        </button>
 
-                            <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-violet-200">
-                                <Wand2 className="w-8 h-8 text-white" />
-                            </div>
-
-                            <h3 className="text-2xl font-black text-navy mb-2">Create your own date</h3>
-                            <p className="text-gray-500 mb-6 leading-relaxed">
-                                Take complete control over your itinerary. Describe exactly what you want, and our AI will build custom options using live data across New York City.
-                            </p>
-
-                            <div className="space-y-3 mb-8">
-                                <div className="flex items-center gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-violet-500 flex-shrink-0" />
-                                    <span className="font-medium text-gray-700">Type any custom prompt</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-violet-500 flex-shrink-0" />
-                                    <span className="font-medium text-gray-700">Receive 3 distinct blueprints</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-violet-500 flex-shrink-0" />
-                                    <span className="font-medium text-gray-700">Highly customized locations</span>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => {
-                                    setIsPremium(true); // Mock unlocking it
-                                    setShowPremiumModal(false);
-                                    setMode('ai_custom');
-                                }}
-                                className="w-full bg-navy text-white text-lg font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
-                            >
-                                Upgrade for $4.99 <ArrowLeft className="w-5 h-5 rotate-180" />
-                            </button>
-                            <p className="text-center text-xs text-gray-400 font-bold uppercase mt-4">
-                                *Mock click: will instantly unlock feature for testing
-                            </p>
+                        <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-violet-200">
+                            <Wand2 className="w-8 h-8 text-white" />
                         </div>
-                    </div>
-                )
-            }
 
-            {/* $2.99 AI Customizer Add-On Modal */}
-            {
-                showAiAddonModal && (
-                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-200 border border-gray-100">
-                            <button
-                                onClick={() => setShowAiAddonModal(false)}
-                                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-                            >
-                                ✕
-                            </button>
+                        <h3 className="text-2xl font-black text-navy mb-2">Create your own date</h3>
+                        <p className="text-gray-500 mb-6 leading-relaxed">
+                            Take complete control over your itinerary. Describe exactly what you want, and our AI will build custom options using live data across New York City.
+                        </p>
 
-                            <div className="w-16 h-16 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-coral/20">
-                                <Sparkles className="w-8 h-8 text-white" />
+                        <div className="space-y-3 mb-8">
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-violet-500 flex-shrink-0" />
+                                <span className="font-medium text-gray-700">Type any custom prompt</span>
                             </div>
-
-                            <h3 className="text-2xl font-black text-navy mb-2">Unlock Unlimited AI</h3>
-                            <p className="text-gray-500 mb-6 leading-relaxed font-medium">
-                                You've used all 3 free AI generations. For just $2.99, get unlimited access to the AI date customizer forever.
-                            </p>
-
-                            <div className="space-y-4 mb-8 bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                                <div className="flex items-center gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-coral flex-shrink-0" />
-                                    <span className="font-bold text-navy">Unlimited custom prompts</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-coral flex-shrink-0" />
-                                    <span className="font-bold text-navy">Refine ideas endlessly</span>
-                                </div>
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-violet-500 flex-shrink-0" />
+                                <span className="font-medium text-gray-700">Receive 3 distinct blueprints</span>
                             </div>
-
-                            <button
-                                onClick={() => {
-                                    alert("Redirecting to Stripe for $2.99 AI Add-On...");
-                                    setIsPremium(true); // Mock unlocking it
-                                    setShowAiAddonModal(false);
-                                    setMode('ai_custom');
-                                }}
-                                className="w-full bg-gradient-to-r from-coral to-pink-500 text-white text-lg font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-coral/30 hover:-translate-y-0.5 transition-all active:translate-y-0"
-                            >
-                                Unlock for $2.99 <ArrowRight className="w-5 h-5" />
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-violet-500 flex-shrink-0" />
+                                <span className="font-medium text-gray-700">Highly customized locations</span>
+                            </div>
                         </div>
+
+                        <button
+                            onClick={() => {
+                                setIsPremium(true); // Mock unlocking it
+                                setShowPremiumModal(false);
+                                setMode('ai_custom');
+                            }}
+                            className="w-full bg-navy text-white text-lg font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                        >
+                            Upgrade for $4.99 <ArrowRight className="w-5 h-5" />
+                        </button>
+                        <p className="text-center text-xs text-gray-400 font-bold uppercase mt-4">
+                            *Mock click: will instantly unlock feature for testing
+                        </p>
                     </div>
-                )
-            }
+                </div>
+            )}
+
+            {/* AI Add-On Modal */}
+            {showAiAddonModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-200 border border-gray-100">
+                        <button
+                            onClick={() => setShowAiAddonModal(false)}
+                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                            ✕
+                        </button>
+
+                        <div className="w-16 h-16 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-coral/20">
+                            <Sparkles className="w-8 h-8 text-white" />
+                        </div>
+
+                        <h3 className="text-2xl font-black text-navy mb-2">Unlock Unlimited AI</h3>
+                        <p className="text-gray-500 mb-6 leading-relaxed font-medium">
+                            You've used all 3 free AI generations. For just $2.99, get unlimited access to the AI date customizer forever.
+                        </p>
+
+                        <div className="space-y-4 mb-8 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-coral flex-shrink-0" />
+                                <span className="font-bold text-navy">Unlimited custom prompts</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-coral flex-shrink-0" />
+                                <span className="font-bold text-navy">Refine ideas endlessly</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                alert("Redirecting to Stripe for $2.99 AI Add-On...");
+                                setIsPremium(true); // Mock unlocking it
+                                setShowAiAddonModal(false);
+                                setMode('ai_custom');
+                            }}
+                            className="w-full bg-gradient-to-r from-coral to-pink-500 text-white text-lg font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-coral/30 hover:-translate-y-0.5 transition-all active:translate-y-0"
+                        >
+                            Unlock for $2.99 <ArrowRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <BottomNav onProfileClick={() => navigate('/dashboard')} />
-        </div >
+        </div>
     );
 };
 
