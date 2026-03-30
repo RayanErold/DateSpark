@@ -1,4 +1,14 @@
 console.log('>>> [PRODUCTION] Server process starting at: ' + new Date().toISOString());
+// --- GLOBAL EXCEPTION HANDLERS (CAPTURE SILENT KILLERS) ---
+process.on('uncaughtException', (err) => {
+    console.error('!!! [CRITICAL] UNCAUGHT EXCEPTION:', err.message);
+    console.error(err.stack);
+    // On Render, we want to stay alive long enough to see the log
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('!!! [CRITICAL] UNHANDLED REJECTION:', reason);
+});
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -20,13 +30,20 @@ dotenv.config();
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null; // Initialize Resend conditionally
-const SERVER_VERSION = '1.0.1-DEBUG';
-if (resend) {
-    console.log(`[${SERVER_VERSION}] Resend Email Client - INITIALIZED`);
-} else {
-    console.warn(`[${SERVER_VERSION}] Resend Email Client - DISABLED (Check RESEND_API_KEY in .env)`);
+const SERVER_VERSION = '1.0.1-ROBUST';
+
+// --- FAIL-SAFE STRIPE INITIALIZATION ---
+let stripe = null;
+try {
+    if (process.env.STRIPE_SECRET_KEY) {
+        stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        console.log(`[${SERVER_VERSION}] Stripe Client - INITIALIZED`);
+    } else {
+        console.warn(`[${SERVER_VERSION}] Stripe Client - DISABLED (Missing STRIPE_SECRET_KEY)`);
+    }
+} catch (err) {
+    console.error(`[${SERVER_VERSION}] Stripe Initialization FAILED:`, err.message);
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 5005;
@@ -36,38 +53,50 @@ const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 app.use(cors());
 app.use(express.json());
 
-// Supabase Setup
+// --- FAIL-SAFE SUPABASE INITIALIZATION ---
+let supabase = null;
 const supabaseUrl = process.env.SUPABASE_URL;
-// Use the Service Role Key for backend operations to bypass RLS when inserting plans
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env');
+try {
+    if (supabaseUrl && supabaseServiceKey) {
+        supabase = createClient(supabaseUrl, supabaseServiceKey);
+        console.log(`[${SERVER_VERSION}] Supabase Client - INITIALIZED`);
+    } else {
+        console.error(`[${SERVER_VERSION}] Supabase Client - CRITICAL: Missing URL or Service Key!`);
+    }
+} catch (err) {
+    console.error(`[${SERVER_VERSION}] Supabase Initialization FAILED:`, err.message);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// Connectivity check on start
+// --- BOOT SUMMARY ---
 console.log(`[${SERVER_VERSION}] --- SYSTEM DIAGNOSTICS ---`);
-console.log(`[${SERVER_VERSION}] Connecting to: ${supabaseUrl?.substring(0, 20)}...`);
+console.log(`[${SERVER_VERSION}] Node Version: ${process.version}`);
+console.log(`[${SERVER_VERSION}] PORT: ${process.env.PORT || 5005}`);
+console.log(`[${SERVER_VERSION}] Supabase URL: ${supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'MISSING'}`);
+console.log(`[${SERVER_VERSION}] Google API Key: ${process.env.VITE_GOOGLE_MAPS_API_KEY ? 'SET' : 'MISSING'}`);
+console.log(`[${SERVER_VERSION}] Gemini API Key: ${process.env.GEMINI_API_KEY ? 'SET' : 'MISSING'}`);
+console.log(`[${SERVER_VERSION}] Stripe Key: ${process.env.STRIPE_SECRET_KEY ? 'SET' : 'MISSING'}`);
+console.log(`[${SERVER_VERSION}] Resend Key: ${process.env.RESEND_API_KEY ? 'SET' : 'MISSING'}`);
 
 const runDiagnostics = async () => {
-    // Test PLANS table
-    const { count: planCount, error: planError } = await supabase.from('plans').select('*', { count: 'exact', head: true });
-    if (planError) console.error(`[DIAGNOSTIC] PLANS Table Error:`, planError.message);
-    else console.log(`[DIAGNOSTIC] PLANS Table OK - Count:`, planCount || 0);
+    if (!supabase) {
+        console.error('[DIAGNOSTIC] Skipping DB check - Supabase client not initialized.');
+        return;
+    }
+    try {
+        const { count: planCount, error: planError } = await supabase.from('plans').select('*', { count: 'exact', head: true });
+        if (planError) console.error(`[DIAGNOSTIC] PLANS Table Error:`, planError.message);
+        else console.log(`[DIAGNOSTIC] PLANS Table OK - Count:`, planCount || 0);
 
-    // Test PROFILES table
-    const { data: profData, error: profError } = await supabase.from('profiles').select('*').limit(1);
-    console.log(`[DIAGNOSTIC] Environment: Node ${process.version}`);
-    if (profError) {
-        if (profError.message.includes('relation "public.profiles" does not exist')) {
-            console.error(`[DIAGNOSTIC] PROFILES Table Missing! Run the SQL in implementation_plan.md.`);
-        } else {
+        const { error: profError } = await supabase.from('profiles').select('*').limit(1);
+        if (profError) {
             console.error(`[DIAGNOSTIC] PROFILES Table Error:`, profError.message);
+        } else {
+            console.log(`[DIAGNOSTIC] PROFILES Table OK ✅`);
         }
-    } else {
-        console.log(`[DIAGNOSTIC] PROFILES Table OK - Live and Syncing 🥂`);
+    } catch (err) {
+        console.error('[DIAGNOSTIC] DB Check failed:', err.message);
     }
 };
 

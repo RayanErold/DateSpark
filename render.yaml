@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: datespark
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVarGroups: []
+    autoDeploy: true
