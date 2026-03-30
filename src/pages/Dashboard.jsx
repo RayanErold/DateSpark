@@ -757,7 +757,18 @@ const Dashboard = () => {
             // If activity is generic (e.g. "Stop 1"), use the venue name or a generic "interesting place"
             let searchQuery = step.activity;
             if (searchQuery.toLowerCase().includes('stop ') || searchQuery.length < 3) {
-                searchQuery = step.venue || 'interesting place';
+                // Try to infer a better query from the venue or description
+                if (step.venue && !step.venue.toLowerCase().includes('venue')) {
+                    searchQuery = `${step.venue} vibes`;
+                } else {
+                    searchQuery = 'trending spots';
+                }
+            } else if (searchQuery.toLowerCase().includes('dinner') || searchQuery.toLowerCase().includes('restaurant')) {
+                searchQuery = 'highly rated restaurants';
+            } else if (searchQuery.toLowerCase().includes('dessert') || searchQuery.toLowerCase().includes('treat')) {
+                searchQuery = 'famous dessert spots';
+            } else if (searchQuery.toLowerCase().includes('entertainment') || searchQuery.toLowerCase().includes('activity')) {
+                searchQuery = 'fun interactive experiences';
             }
 
             const response = await axios.post('/api/nearby-alternatives', {
@@ -795,8 +806,8 @@ const Dashboard = () => {
                 venue: alt.name || 'New Venue',
                 address: alt.address || originalStep.address,
                 rating: alt.rating || originalStep.rating,
-                description: alt.description || originalStep.description, // Fallback to original description if needed
-                photoUrl: alt.photo || originalStep.photoUrl,
+                description: alt.description || 'No description available.',
+                photoUrl: alt.photo || 'https://images.unsplash.com/photo-1496806342719-f997480fe5ad?w=800&q=80',
                 lat: alt.location?.latitude || originalStep.lat,
                 lng: alt.location?.longitude || originalStep.lng,
                 searchUrl: alt.searchUrl || `https://www.google.com/search?q=${encodeURIComponent(alt.name || 'New Venue')}`,

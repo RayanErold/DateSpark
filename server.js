@@ -390,6 +390,24 @@ const getPlacePhotoUrl = (photoName, apiKey) => {
     return `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=800&maxWidthPx=800&key=${apiKey}`;
 };
 
+const getCategoryFallback = (type) => {
+    const t = (type || '').toLowerCase();
+    if (t.includes('restaurant') || t.includes('food') || t.includes('dinner')) {
+        return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+    }
+    if (t.includes('dessert') || t.includes('bakery') || t.includes('sweet')) {
+        return 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80';
+    }
+    if (t.includes('entertainment') || t.includes('fun') || t.includes('activity') || t.includes('game')) {
+        return 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800&q=80';
+    }
+    if (t.includes('event') || t.includes('show') || t.includes('theater') || t.includes('music')) {
+        return 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80';
+    }
+    // Default: Scenic NYC / Sightseeing
+    return 'https://images.unsplash.com/photo-1496806342719-f997480fe5ad?w=800&q=80';
+};
+
 const enrichFallbackPlace = async (place, type, apiKey) => {
     const query = `${place.name}, ${place.address}`;
     try {
@@ -418,7 +436,7 @@ const enrichFallbackPlace = async (place, type, apiKey) => {
         };
     } catch (err) {
         console.error(`Failed to enrich fallback ${place.name}:`, err.message);
-        return { ...place, photoUrl: placeholderPhoto, url: null, placeId: null };
+        return { ...place, photoUrl: getCategoryFallback(type), url: null, placeId: null };
     }
 };
 
@@ -654,6 +672,10 @@ Generate EXACTLY ${ideaCount} distinct, high-level date concepts that fit their 
             systemInstruction += `\nCRITICAL: DO NOT generate any ideas with titles that match these already saved titles: [${savedTitles.join(', ')}]. Give them completely fresh concepts.`;
         }
 
+        if (budget) {
+            systemInstruction += `\nUSER BUDGET CONSTRAINT: The user has specified a budget of ${budget}. Ensure all concepts and their "budgetStr" are strictly aligned with this financial preference.`;
+        }
+
         systemInstruction += `\nCRITICAL INSTRUCTION: Even if the user's request is very short, vague, or just a few words, you MUST still generate exactly ${ideaCount} complete, creative concepts based on whatever clues they provided. NEVER complain about the input. NEVER ask for a longer prompt. NEVER use the word "prompt" or say more information is required to generate ideas.
 Additionally, you MUST ask 1 or 2 friendly clarifying questions (e.g. "Do you prefer indoor or outdoor?", "What's your typical budget?") to help narrow down their exact preferences for the next iteration.
 
@@ -721,8 +743,8 @@ Return ONLY a valid JSON object formatted EXACTLY like this:
 // Build Custom Itinerary from AI Concept
 app.post('/api/generate-custom-date', async (req, res) => {
     try {
-        const { userId, concept, date, radius, location, lat, lng } = req.body;
-        console.log('API - /api/generate-custom-date - Request Received:', { userId, vibe: concept?.title, date });
+        const { userId, concept, date, radius, budget, location, lat, lng } = req.body;
+        console.log('API - /api/generate-custom-date - Request Received:', { userId, vibe: concept?.title, date, budget, radius });
 
         // --- 1. STRICT INPUT VALIDATION ---
         if (!userId) return res.status(400).json({ error: 'User ID is required.' });
@@ -906,7 +928,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
         const finalPlan = {
             user_id: userId,
             vibe: concept.title,
-            budget: concept.budgetStr || 'moderate',
+            budget: budget || concept.budgetStr || 'moderate',
             location: location === 'Current Location' ? 'Precision GPS' : (location || 'New York City, NY'),
             itinerary: {
                 metadata: { planDate: date || new Date().toISOString().split('T')[0], isCustomAI: true },
@@ -1496,7 +1518,9 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                 location: p.location,
                 description: `Rating: ${p.rating || 'N/A'} ⭐ (${p.userRatingCount || 0} reviews). ${p.editorialSummary?.text || `A popular choice for ${type?.replace('_', ' ') || 'a great time'} in the city.`}`,
                 searchUrl: p.googleMapsUri,
-                photo: p.photos?.[0] ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${process.env.VITE_GOOGLE_MAPS_API_KEY}` : null
+                photo: p.photos?.[0] 
+                    ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${process.env.VITE_GOOGLE_MAPS_API_KEY}` 
+                    : getCategoryFallback(type)
             }));
 
         // FINAL FALLBACK: If no live nearby results, return the enriched curated ones
@@ -1521,7 +1545,10 @@ app.post('/api/nearby-alternatives', async (req, res) => {
             }));
         }
 
-        res.json({ alternatives: filtered });
+        // Randomize the results so the user doesn't see the same order every time
+        const shuffled = filtered.sort(() => 0.5 - Math.random());
+        
+        res.json({ alternatives: shuffled });
     } catch (error) {
         console.error('Error fetching alternatives:', error.response?.data || error.message);
         res.status(500).json({ error: 'Failed to fetch alternatives' });

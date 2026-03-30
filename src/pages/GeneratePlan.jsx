@@ -427,6 +427,7 @@ const GeneratePlan = () => {
                     ideaCount: 3,
                     userId: currentUser.id,
                     budget: aiBudget,
+                    radius: customRadius,
                     location: formData.location,
                     lat: formData.lat,
                     lng: formData.lng,
@@ -483,6 +484,7 @@ const GeneratePlan = () => {
                     userId: currentUser.id,
                     concept: selectedConcept,
                     date: formData.date,
+                    budget: aiBudget,
                     radius: customRadius,
                     location: formData.location,
                     lat: formData.lat,
@@ -822,6 +824,31 @@ const GeneratePlan = () => {
                                                     onChange={(e) => setAiBudget(e.target.value)}
                                                     className="w-full pl-12 pr-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[14px] font-bold text-navy shadow-inner"
                                                 />
+                                            </div>
+
+                                            {/* Search Radius Slider */}
+                                            <div className="bg-gray-50/50 border-2 border-gray-100 rounded-3xl p-6 space-y-4 shadow-sm">
+                                                <div className="flex justify-between items-center px-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Compass className="w-4 h-4 text-violet-500" />
+                                                        <span className="text-[12px] font-black text-navy uppercase tracking-widest">Search Distance</span>
+                                                    </div>
+                                                    <span className="text-sm font-black text-violet-600 bg-violet-50 px-3 py-1 rounded-lg">{(customRadius / 1609.34).toFixed(1)} miles</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="804"   // 0.5 miles
+                                                    max="32186" // 20 miles
+                                                    step="804"  // 0.5 mile increments
+                                                    value={customRadius}
+                                                    onChange={(e) => setCustomRadius(Number(e.target.value))}
+                                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                                                />
+                                                <div className="flex justify-between text-[10px] font-bold text-gray-400 px-1 uppercase tracking-tighter">
+                                                    <span>Walking</span>
+                                                    <span>Local</span>
+                                                    <span>Driving</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <button
