@@ -394,7 +394,7 @@ const Dashboard = () => {
 
                     <div className="flex items-center gap-4 relative">
                         {/* Mock Toggle for testing Premium Features in Header */}
-                        <div className="hidden sm:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
+                        <div className="hidden md:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button
                                 onClick={() => {

@@ -626,7 +626,7 @@ const GeneratePlan = () => {
                     </div>
 
                     {/* Mock Toggle for testing Premium Features in Header */}
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                    <div className="hidden md:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                         <button
                             onClick={(e) => {
@@ -1252,10 +1252,11 @@ const GeneratePlan = () => {
                                         <span className="text-gray-400 text-xs mb-1 uppercase">/24hr</span>
                                     </div>
                                     <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited 5-stop plans</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Switch Up & Booking</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited favorites</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Instant Directions & Rides</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited plans generation</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Access to unlimited swap spots</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Access to best venues</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlock all stops instantly</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Get directions & rides</li>
                                     </ul>
                                 </div>
                                 <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-coral text-white text-xs font-black rounded-xl hover:bg-coral/90 transition-colors shadow-lg mt-auto">
@@ -1273,10 +1274,12 @@ const GeneratePlan = () => {
                                         <span className="text-white/50 text-xs mb-1">/mo</span>
                                     </div>
                                     <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Daily pass + AI Customizer</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> 7-Day Recycle Bin access</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Anniversary & Special Occasions</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority New Features</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Theme customization</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> AI plans customizer</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Unlimited plans generation</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Access to unlimited swap spots</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Access to best venues</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority access to new features</li>
                                     </ul>
                                 </div>
                                 <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">

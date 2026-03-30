@@ -11,12 +11,12 @@ const Pricing = () => {
             price: "$0",
             period: "/forever",
             features: [
-                { text: "Up to 2 itineraries per request", icon: Star },
-                { text: "1st Itinerary: Full visibility", icon: Check },
-                { text: "2nd Itinerary: First stop only", icon: Check },
-                { text: "5 daily date requests", icon: Check },
-                { text: "Swap 2 spots total", icon: Heart },
-                { text: "Save up to 4 plans a month", icon: Check }
+                { text: "Up to 5 date plans per day", icon: Star },
+                { text: "Save up to 4 plans in a month", icon: Check },
+                { text: "Limited swap spots", icon: Check },
+                { text: "See 1 full plan at a time", icon: Check },
+                { text: "Basic venue access", icon: Check },
+                { text: "No custom themes", icon: Check }
             ],
             cta: "Try for Free",
             highlight: false,
@@ -28,12 +28,12 @@ const Pricing = () => {
             price: "$1.99",
             period: "/24hr",
             features: [
-                { text: "Unlimited itineraries per request", icon: Star },
-                { text: "Unlock all date stops instantly", icon: Check },
-                { text: "Unlimited 'Swap Spot' requests", icon: Heart },
-                { text: "Save unlimited favorites", icon: Check },
-                { text: "Instant Directions & Rides", icon: Check },
-                { text: "Access to best venues in your city", icon: Check }
+                { text: "Unlimited plans generation", icon: Star },
+                { text: "Access to unlimited swap spots", icon: Heart },
+                { text: "Access to best venues", icon: Check },
+                { text: "AI plans customizer (24h)", icon: Star },
+                { text: "Unlock all stops instantly", icon: Check },
+                { text: "Get directions & rides", icon: Check }
             ],
             cta: "Unlock My Date Night",
             highlight: true,
@@ -41,16 +41,16 @@ const Pricing = () => {
             className: "bg-white text-navy border-white shadow-[0_20px_50px_rgba(244,63,94,0.3)] scale-[1.05]"
         },
         {
-            name: "Premium Monthly",
-            tagline: "Start with a 30-day free trial.",
+            name: "DateSpark Plus",
+            tagline: "The ultimate romantic companion.",
             price: "$9.99",
             period: "/mo",
             features: [
-                { text: "Everything in Daily Pass", icon: Star },
-                { text: "30-Day Free Trial (Cancel anytime)", icon: Heart },
-                { text: "AI Date Customizer & Suggestions", icon: Star },
-                { text: "In-app theme features", icon: Check },
-                { text: "7-Day recently deleted access", icon: Check },
+                { text: "Unlimited plans generation", icon: Star },
+                { text: "Access to unlimited swap spots", icon: Heart },
+                { text: "Access to best venues", icon: Check },
+                { text: "Theme customization", icon: Check },
+                { text: "AI plans customizer", icon: Star },
                 { text: "Priority access to new features", icon: Check }
             ],
             cta: "Start Free Trial",
@@ -121,7 +121,7 @@ const Pricing = () => {
                                     const planMap = {
                                         "The Spark": "free",
                                         "24-Hour Pass": "daily",
-                                        "Premium Monthly": "premium"
+                                        "DateSpark Plus": "premium"
                                     };
                                     
                                     const type = planMap[sub.name];

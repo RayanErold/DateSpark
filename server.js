@@ -1726,6 +1726,37 @@ app.get('/api/user-plans', async (req, res) => {
     }
 });
 
+// Secure Proxy for Deleting Plans (Bypasses Frontend JWT/RLS issues)
+app.post('/api/delete-plan', async (req, res) => {
+    const { planId, isBatch } = req.body;
+    if (!planId) return res.status(400).json({ error: 'Plan ID required' });
+
+    try {
+        console.log(`[Proxy] DELETING plan(s): ${planId} (Batch: ${isBatch || false})`);
+        
+        let query = supabase.from('plans').delete();
+        
+        if (isBatch) {
+            const ids = planId.split(',');
+            query = query.in('id', ids);
+        } else {
+            query = query.eq('id', planId);
+        }
+
+        const { data, error } = await query.select();
+
+        if (error) {
+            console.error('[Proxy] Delete Error:', error);
+            return res.status(500).json({ error: error.message });
+        }
+        
+        res.json({ success: true, count: data?.length || 0 });
+    } catch (err) {
+        console.error('[Proxy] Server Delete Error:', err.message);
+        res.status(500).json({ error: 'Failed to delete itinerary' });
+    }
+});
+
 // Serve frontend static files in production
 const distPath = path.resolve(process.cwd(), 'dist');
 app.use(express.static(distPath));
