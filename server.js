@@ -58,6 +58,7 @@ const runDiagnostics = async () => {
 
     // Test PROFILES table
     const { data: profData, error: profError } = await supabase.from('profiles').select('*').limit(1);
+    console.log(`[DIAGNOSTIC] Environment: Node ${process.version}`);
     if (profError) {
         if (profError.message.includes('relation "public.profiles" does not exist')) {
             console.error(`[DIAGNOSTIC] PROFILES Table Missing! Run the SQL in implementation_plan.md.`);
@@ -1678,8 +1679,18 @@ app.get('/api/user-plans', async (req, res) => {
 });
 
 // Serve frontend static files in production
-const distPath = path.resolve(__dirname, 'dist');
+const distPath = path.resolve(process.cwd(), 'dist');
 app.use(express.static(distPath));
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        version: SERVER_VERSION,
+        node: process.version,
+        timestamp: new Date().toISOString()
+    });
+});
 
 // Catch-all route to serve index.html for React Router
 app.get(/.*/, (req, res, next) => {
