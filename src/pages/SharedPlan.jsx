@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles } from 'lucide-react';
+import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const darkMapStyle = [
@@ -159,11 +159,61 @@ const SharedPlan = () => {
                                             </div>
                                         )}
 
-                                        {step.directionsUrl && (
-                                            <a href={step.directionsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-coral hover:text-coral/80 transition-colors">
-                                                <MapPin className="w-4 h-4" /> View on Map
+                                        <div className="flex flex-wrap items-center gap-2 mt-4">
+                                            {step.directionsUrl && (
+                                                <a
+                                                    href={step.directionsUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-[10px] font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                >
+                                                    <MapPin className="w-3 h-3" /> Get Directions
+                                                </a>
+                                            )}
+
+                                            {step.url && (
+                                                <a
+                                                    href={step.url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-2.5 py-1.5 bg-indigo-50 text-indigo-600 outline outline-1 outline-indigo-200 text-[10px] font-bold rounded-lg hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                >
+                                                    <Compass className="w-3 h-3" /> Visit Official Website
+                                                </a>
+                                            )}
+
+                                            {step.bookingUrl && (
+                                                <a
+                                                    href={step.bookingUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-[10px] font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                >
+                                                    {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
+                                                    {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Book Tickets'}
+                                                </a>
+                                            )}
+
+                                            <a
+                                                href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1.5 bg-gray-50 text-gray-600 outline outline-1 outline-gray-200 text-[10px] font-bold rounded-lg hover:bg-gray-800 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                            >
+                                                <Search className="w-3 h-3" /> Search on Google
                                             </a>
-                                        )}
+
+                                            {step.lat && step.lng && (
+                                                <a
+                                                    href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-2.5 py-1.5 bg-black text-white text-[10px] font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
+                                                >
+                                                    <Car className="w-3 h-3" /> Get a Ride
+                                                </a>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}

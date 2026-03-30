@@ -186,8 +186,9 @@ const Dashboard = () => {
         const baseUrl = import.meta.env.VITE_SUPABASE_URL;
         const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-        // Use anonKey for all requests to ensure consistency with the initial fetch
-        const token = anonKey; 
+        // Use the user's active session token if available to bypass RLS, otherwise fallback to anonKey
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || anonKey; 
         
         const options = {
             method,
@@ -244,37 +245,23 @@ const Dashboard = () => {
                     });
 
 
-                    // Fetch plans using direct window.fetch for maximum reliability
+                    // Fetch plans with explicit session refresh and advanced error logging
+                    // Fetch plans via the backend proxy to bypass potential frontend JWT/400 errors
                     const fetchPlans = async () => {
                         try {
-                            const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-                            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-                            const response = await fetch(`${baseUrl}/rest/v1/plans?select=*`, {
-                                headers: {
-                                    'apikey': anonKey,
-                                    'Authorization': `Bearer ${anonKey}`,
-                                    'Content-Type': 'application/json',
-                                    'Prefer': 'return=representation'
-                                }
-                            });
-
+                            console.log('Dashboard - Fetching plans via server proxy for user:', user.id);
+                            
+                            const response = await fetch(`/api/user-plans?userId=${user.id}`);
                             if (!response.ok) {
-                                const errBody = await response.text();
-                                throw new Error(`HTTP ${response.status}: ${errBody}`);
+                                const errData = await response.json();
+                                throw new Error(errData.error || `Proxy error: ${response.status}`);
                             }
 
                             const data = await response.json();
-
-                            // Sort and filter by user_id in JS for now to be safe
-                            const userPlans = (data || []).filter(p => p.user_id === user.id);
-                            const sortedData = userPlans.sort((a, b) =>
-                                new Date(b.created_at) - new Date(a.created_at)
-                            );
-
-                            setPlans(sortedData);
+                            console.log('Dashboard - Successfully fetched plans via proxy:', data.length);
+                            setPlans(data || []);
                         } catch (err) {
-                            console.error('Plan Fetch Error:', err);
+                            console.error('Final Plan Fetch Error (via Proxy):', err.message);
                         }
                     };
 
@@ -307,11 +294,11 @@ const Dashboard = () => {
         try {
             const baseUrl = import.meta.env.VITE_SUPABASE_URL;
             const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-            const response = await fetch(`${baseUrl}/rest/v1/plans?select=*`, {
+            const response = await fetch(`${baseUrl}/rest/v1/plans?user_id=eq.${user?.id}&select=*`, {
                 headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` }
             });
             const data = await response.json();
-            const userPlans = (data || []).filter(p => p.user_id === user?.id);
+            const userPlans = data || [];
             setPlans(userPlans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
             alert(`Found ${data?.length} total plans. ${userPlans.length} for you.`);
         } catch (err) {
@@ -1280,7 +1267,7 @@ const Dashboard = () => {
 
                         <div className="p-6 sm:p-8 pt-8 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative mt-[-1rem]">
                             <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
-                                {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps)?.map((step, idx) => {
+                                {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [])?.map((step, idx) => {
                                     const isLockedStep = !isPremium && idx >= 2;
 
                                     // Assign specific colors for styling dots
@@ -1369,6 +1356,17 @@ const Dashboard = () => {
                                                         </a>
                                                     )}
 
+                                                    {step.url && (
+                                                        <a
+                                                            href={step.url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="px-2.5 py-1.5 bg-indigo-50 text-indigo-600 outline outline-1 outline-indigo-200 text-[10px] font-bold rounded-lg hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                        >
+                                                            <Compass className="w-3 h-3" /> Visit Official Website
+                                                        </a>
+                                                    )}
+
                                                     {step.bookingUrl && (
                                                         <a
                                                             href={step.bookingUrl}
@@ -1377,7 +1375,7 @@ const Dashboard = () => {
                                                             className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-[10px] font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                         >
                                                             {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
-                                                            {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Find Tickets'}
+                                                            {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Book Tickets'}
                                                         </a>
                                                     )}
 

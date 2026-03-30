@@ -26,10 +26,19 @@ const Signup = () => {
         setIsLoading(true);
         setError(null);
 
+        const email = formData.email?.trim().toLowerCase();
+        const password = formData.password;
+
+        if (!email || !password) {
+            setError("Email and password are required.");
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const { data, error } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
+                email,
+                password,
                 options: {
                     data: {
                         first_name: formData.firstName,
@@ -38,22 +47,55 @@ const Signup = () => {
                 }
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error('Raw Supabase Signup Error:', error);
+                
+                // Detect multiple variations of "Already Registered" error
+                const isAlreadyRegistered = 
+                    error.message?.toLowerCase().includes('already registered') || 
+                    error.message?.toLowerCase().includes('already exists') ||
+                    error.message?.toLowerCase().includes('already in use') ||
+                    error.code === 'user_already_exists';
+
+                if (isAlreadyRegistered) {
+                    setError(
+                        <div className="flex flex-col gap-2">
+                            <span>An account with this email already exists.</span>
+                            <Link to="/login" className="text-white bg-red-600 px-3 py-1.5 rounded-lg text-center font-bold hover:bg-red-700 transition-colors">
+                                Sign in instead
+                            </Link>
+                        </div>
+                    );
+                    return;
+                }
+                throw error;
+            }
+
+            // Check if user already exists (Supabase returns success but empty identities for existing users)
+            const isExistingUser = data?.user && (!data.user.identities || data.user.identities.length === 0);
+            
+            if (isExistingUser) {
+                 setError(
+                    <div className="flex flex-col gap-2">
+                        <span>An account with this email already exists.</span>
+                        <Link to="/login" className="text-white bg-red-600 px-3 py-1.5 rounded-lg text-center font-bold hover:bg-red-700 transition-colors">
+                            Sign in instead
+                        </Link>
+                    </div>
+                );
+                return;
+            }
 
             // On successful signup, redirect to dashboard
             if (data?.user) {
+                console.log('Signup success, entering verification mode');
                 setVerificationMode(true);
             }
         } catch (err) {
-            console.error('Signup error detail:', err);
-            const errorInfo = {
-                message: err.message,
-                name: err.name,
-                code: err.code,
-                status: err.status,
-                keys: Object.keys(err)
-            };
-            setError(`DEBUG: ${JSON.stringify(errorInfo)}`);
+            console.error('Final Signup Error:', err);
+            // Show the raw message for debugging, but fall back to a generic one
+            const message = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            setError(`Error: ${message}`);
         } finally {
             setIsLoading(false);
         }
@@ -71,16 +113,23 @@ const Signup = () => {
                 type: 'signup'
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error('Raw Verification Error:', error);
+                throw error;
+            }
 
             // Trigger Welcome Email in background (Silent failure preferred for UX)
+            const welcomeData = {
+                email: formData.email.trim(),
+                firstName: formData.firstName
+            };
+            
+            console.log('Verification success, triggering welcome email:', welcomeData);
+            
             fetch('/api/send-welcome', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: formData.email,
-                    firstName: formData.firstName
-                })
+                body: JSON.stringify(welcomeData)
             }).catch(e => console.error('Welcome email trigger failed:', e));
 
             navigate('/dashboard');
@@ -110,7 +159,7 @@ const Signup = () => {
                     <div className="bg-white py-8 px-4 shadow sm:rounded-2xl sm:px-10 border border-gray-100">
                         <form className="space-y-6" onSubmit={handleVerifyOtp}>
                             {error && (
-                                <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium">
+                                <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100 italic">
                                     {error}
                                 </div>
                             )}
@@ -123,7 +172,7 @@ const Signup = () => {
                                         required
                                         placeholder="12345678"
                                         value={verificationCode}
-                                        onChange={(e) => setVerificationCode(e.target.value)}
+                                        onChange={(e) => setVerificationCode(e.target.value.replace(/\s/g, '').replace(/\D/g, ''))}
                                         className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-coral focus:border-transparent transition-all sm:text-sm text-center text-xl font-bold tracking-[0.2em]"
                                     />
                                 </div>
@@ -166,7 +215,7 @@ const Signup = () => {
                 <div className="bg-white py-8 px-4 shadow sm:rounded-2xl sm:px-10 border border-gray-100">
                     <form className="space-y-6" onSubmit={handleSignup}>
                         {error && (
-                            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium">
+                            <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100 italic">
                                 {error}
                             </div>
                         )}

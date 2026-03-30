@@ -159,9 +159,13 @@ const GeneratePlan = () => {
     const isLocationInNYC = (locationStr, lat, lng) => {
         if (!locationStr && !lat) return false;
         
-        // String check for common NYC identifiers
-        const nycKeywords = ['new york', 'brooklyn', 'queens', 'bronx', 'staten island', 'manhattan', 'ny', '100', '112', '111', '104', '103'];
-        const lowerLoc = (locationStr || '').toLowerCase();
+        // String check for common NYC identifiers and neighborhoods
+        const nycKeywords = [
+            'new york', 'brooklyn', 'queens', 'bronx', 'staten island', 'manhattan', 'ny', 
+            '100', '112', '111', '104', '103', 'soho', 'chelsea', 'astoria', 'williamsburg', 
+            'dumbo', 'harlem', 'village', 'heights', 'park slope', 'long island city'
+        ];
+        const lowerLoc = (locationStr || '').toLowerCase().trim();
         const hasKeyword = nycKeywords.some(kw => lowerLoc.includes(kw));
 
         // Bounding box for NYC roughly: 40.477, -74.259 to 40.917, -73.700
@@ -475,31 +479,31 @@ const GeneratePlan = () => {
             </header>
 
             <main className="flex-grow flex flex-col pt-16 px-4 sm:px-6 relative z-10 w-full max-w-2xl mx-auto">
-                <div className="text-center mb-12 relative animate-in fade-in slide-in-from-top-4 duration-700">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-50 text-violet-600 rounded-full border border-violet-100 mb-6 group cursor-default shadow-sm animate-pulse">
+                <div className="text-center mb-8 sm:mb-12 relative animate-in fade-in slide-in-from-top-4 duration-700">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-50 text-violet-600 rounded-full border border-violet-100 mb-4 sm:mb-6 group cursor-default shadow-sm animate-pulse">
                         <Sparkles className="w-3 h-3 group-hover:rotate-12 transition-transform" />
                         <span className="text-[10px] font-black uppercase tracking-widest">AI-Powered Experience</span>
                     </div>
-                    <h1 className="text-4xl md:text-6xl font-black text-navy mb-6 tracking-tighter leading-[1.1]">
+                    <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-navy mb-4 sm:mb-6 tracking-tighter leading-[1.1]">
                         Design your <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 via-fuchsia-500 to-coral">perfect date</span>
                     </h1>
-                    <p className="text-gray-500 text-lg md:text-xl font-medium max-w-lg mx-auto leading-relaxed">
+                    <p className="text-gray-500 text-xs sm:text-lg md:text-xl font-medium max-w-lg mx-auto leading-relaxed px-4">
                         Stop planning, start experiencing. Your <span className="text-navy font-black italic">perfect night out</span> is just a few clicks away.
                     </p>
                 </div>
 
-                <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-[1.5rem] mb-12 border border-white shadow-xl shadow-navy/5">
+                <div className="flex bg-gray-200/50 backdrop-blur-sm p-1 sm:p-1.5 rounded-2xl sm:rounded-[1.5rem] mb-8 sm:mb-12 border border-white shadow-xl shadow-navy/5">
                     <button
                         onClick={() => handleModeSwitch('classic')}
-                        className={`flex-1 py-4 px-6 rounded-[1.25rem] font-black text-lg flex items-center justify-center gap-3 transition-all duration-500 ${mode === 'classic' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
+                        className={`flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${mode === 'classic' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
                     >
-                        <MapPin className={`w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
+                        <MapPin className={`w-4 h-4 sm:w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
                     </button>
                     <button
                         onClick={() => handleModeSwitch('ai_custom')}
-                        className={`relative flex-1 py-4 px-6 rounded-[1.25rem] font-black text-lg flex items-center justify-center gap-3 transition-all duration-500 ${mode === 'ai_custom' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
+                        className={`relative flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${mode === 'ai_custom' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
                     >
-                        <Wand2 className={`w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
+                        <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
                         Create your own date
                     </button>
                 </div>
@@ -553,7 +557,7 @@ const GeneratePlan = () => {
                                                     onChange={(e) => handleLocationChange(e.target.value)}
                                                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                                     onFocus={() => formData.location.length >= 3 && setShowSuggestions(true)}
-                                                    className="w-full pl-14 pr-32 py-5 bg-gray-50 border-2 border-gray-100 rounded-[2rem] focus:outline-none focus:border-violet-500 text-[15px] font-bold text-navy shadow-inner transition-all"
+                                                    className="w-full pl-14 pr-32 py-4 sm:py-5 bg-gray-50 border-2 border-gray-100 rounded-[2rem] focus:outline-none focus:border-violet-500 text-[15px] font-bold text-navy shadow-inner transition-all"
                                                 />
                                                 {showSuggestions && suggestions.length > 0 && (
                                                     <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
@@ -633,7 +637,7 @@ const GeneratePlan = () => {
                                         <button
                                             type="submit"
                                             disabled={isSuggesting || !initialPrompt.trim()}
-                                            className="w-full bg-navy text-white hover:bg-navy/90 py-4 rounded-xl text-[16px] font-bold flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-sm"
+                                            className="w-full bg-navy text-white hover:bg-navy/90 py-3.5 sm:py-4 rounded-xl text-[15px] sm:text-[16px] font-bold flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-sm"
                                         >
                                             {isSuggesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Wand2 className="w-5 h-5" /> Pitch me some ideas</>}
                                         </button>
@@ -696,7 +700,7 @@ const GeneratePlan = () => {
                                 <button
                                     onClick={handleGenerateCustom}
                                     disabled={selectedConceptIndex === null || isGenerating}
-                                    className="w-full bg-navy text-white hover:bg-navy/90 py-4 rounded-xl font-bold flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg"
+                                    className="w-full bg-navy text-white hover:bg-navy/90 py-3.5 sm:py-4 rounded-xl font-bold flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg"
                                 >
                                     {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <><MapPin className="w-5 h-5" /> Generate Itinerary</>}
                                 </button>
@@ -724,7 +728,7 @@ const GeneratePlan = () => {
                                         onChange={(e) => handleLocationChange(e.target.value)}
                                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                         onFocus={() => formData.location.length >= 3 && setShowSuggestions(true)}
-                                        className="w-full pl-14 pr-32 py-5 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[15px] font-bold text-navy shadow-sm transition-all"
+                                        className="w-full pl-14 pr-32 py-4 sm:py-5 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[15px] font-bold text-navy shadow-sm transition-all"
                                     />
                                     {showSuggestions && suggestions.length > 0 && (
                                         <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
@@ -767,7 +771,7 @@ const GeneratePlan = () => {
                                             required
                                             value={formData.date}
                                             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[14px] font-bold text-navy shadow-sm"
+                                            className="w-full px-5 py-3.5 sm:py-4 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[14px] font-bold text-navy shadow-sm"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -777,7 +781,7 @@ const GeneratePlan = () => {
                                             required
                                             value={formData.time}
                                             onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[14px] font-bold text-navy shadow-sm"
+                                            className="w-full px-5 py-3.5 sm:py-4 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[14px] font-bold text-navy shadow-sm"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -787,7 +791,7 @@ const GeneratePlan = () => {
                                             required
                                             value={formData.endTime}
                                             onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[14px] font-bold text-navy shadow-sm"
+                                            className="w-full px-5 py-3.5 sm:py-4 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[14px] font-bold text-navy shadow-sm"
                                         />
                                     </div>
                                 </div>
@@ -827,7 +831,7 @@ const GeneratePlan = () => {
                                         min="0"
                                         max="1000"
                                         step="50"
-                                        value={parseInt(formData.budget?.replace('$', '') || 0)}
+                                        value={parseInt((formData.budget || '$0').replace('$', '') || 0)}
                                         onChange={(e) => setFormData({ ...formData, budget: `$${e.target.value}` })}
                                         className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-coral"
                                     />
@@ -953,7 +957,7 @@ const GeneratePlan = () => {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any' }));
+                                        setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any', budget: '$200' }));
                                         handleSubmitClassic({ preventDefault: () => { } });
                                     }}
                                     className="w-full bg-white text-coral border-2 border-coral/20 hover:border-coral/40 hover:bg-coral/5 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 group"

@@ -139,8 +139,15 @@ const Waitlist = () => {
                                 </form>
 
                                 {error && (
-                                    <div className="text-red-400 text-sm font-bold bg-white/5 py-2 px-4 rounded-xl border border-red-400/20 inline-block">
-                                        ⚠️ {error}
+                                    <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-6 py-4 rounded-2xl flex items-center justify-center gap-3 animate-shake max-w-lg mx-auto">
+                                        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                                            <Bell className="w-4 h-4 text-red-500" />
+                                        </div>
+                                        <p className="text-sm font-bold leading-tight text-left">
+                                            {error.includes('already registered') 
+                                                ? "You're already in the loop! Check your email for your rewards." 
+                                                : error}
+                                        </p>
                                     </div>
                                 )}
 
