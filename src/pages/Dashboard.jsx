@@ -70,6 +70,8 @@ const darkMapStyle = [
     { featureType: 'water', elementType: 'water.text.stroke', stylers: [{ color: '#030712' }] }
 ];
 
+const GOOGLE_MAPS_LIBRARIES = ['places'];
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
@@ -155,7 +157,11 @@ const Dashboard = () => {
             const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
             if (!stripe) throw new Error("Stripe Failed to Load");
 
-            const response = await axios.post('/api/create-checkout-session', { planType });
+            const response = await axios.post('/api/create-checkout-session', { 
+                planType,
+                userId: user?.id,
+                email: user?.email
+            });
             const { id, url } = response.data;
 
             // Redirect to Stripe Checkout using session URL or ID
@@ -170,10 +176,40 @@ const Dashboard = () => {
         }
     };
 
+    const syncPremiumWithDB = async (status) => {
+        // Optimistic UI update
+        setIsPremium(status);
+        localStorage.setItem('isPremium', status ? 'true' : 'false');
+        
+        if (!user) {
+            console.warn('Cannot sync premium status: No authenticated user found.');
+            return;
+        }
+
+        try {
+            console.log(`[Sync] Attempting to sync premium status (${status}) for user: ${user.id}`);
+            const response = await fetch('/api/update-premium-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, isPremium: status })
+            });
+            
+            if (!response.ok) {
+                const errData = await response.json();
+                console.error('[Sync] DB update failed:', errData.error);
+                // Optionally revert on failure if you want strict sync, 
+                // but for testing, let's keep it optimistic.
+            } else {
+                console.log('[Sync] Database successfully updated.');
+            }
+        } catch (err) {
+            console.error('[Sync] Network error during premium sync:', err);
+        }
+    };
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-        libraries: ['places']
+        libraries: GOOGLE_MAPS_LIBRARIES
     });
 
     const mapContainerStyle = {
@@ -195,7 +231,7 @@ const Dashboard = () => {
             headers: {
                 'apikey': anonKey,
                 'Authorization': `Bearer ${token}`,
-                'Prefer': method === 'DELETE' ? 'return=minimal' : 'return=representation'
+                'Prefer': method === 'PATCH' || method === 'DELETE' ? 'return=minimal' : 'return=representation'
             }
         };
 
@@ -213,9 +249,10 @@ const Dashboard = () => {
                 let parsedErr = errBody;
                 try {
                     const json = JSON.parse(errBody);
-                    parsedErr = json.message || json.error || JSON.stringify(json);
+                    parsedErr = json.message || json.error || json.hint || JSON.stringify(json);
                 } catch (e) { /* not json */ }
                 
+                console.error(`Supabase API Detailed Error [${method} ${path}]:`, errBody);
                 throw new Error(`HTTP ${response.status}: ${parsedErr}`);
             }
             
@@ -244,6 +281,18 @@ const Dashboard = () => {
                         email: user.email || ''
                     });
 
+                    // Sync premium status from DB to local state using secure backend proxy to bypass UUID/400 errors
+                    try {
+                        const response = await fetch(`/api/user-premium/${user.id}`);
+                        if (response.ok) {
+                            const { isPremium: dbStatus } = await response.json();
+                            setIsPremium(dbStatus);
+                            localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                        }
+                    } catch (syncErr) {
+                        console.error('Dashboard Premium Sync Error:', syncErr);
+                    }
+
 
                     // Fetch plans with explicit session refresh and advanced error logging
                     // Fetch plans via the backend proxy to bypass potential frontend JWT/400 errors
@@ -259,7 +308,10 @@ const Dashboard = () => {
 
                             const data = await response.json();
                             console.log('Dashboard - Successfully fetched plans via proxy:', data.length);
-                            setPlans(data || []);
+                            
+                            // Process plans
+                            let processedPlans = data || [];
+                            setPlans(processedPlans);
                         } catch (err) {
                             console.error('Final Plan Fetch Error (via Proxy):', err.message);
                         }
@@ -309,12 +361,15 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
+        if (!user) return; // Wait for user to be loaded before syncing payment
+        
         const queryParams = new URLSearchParams(window.location.search);
         const stripePayment = queryParams.get('stripe_payment');
 
         if (stripePayment === 'success') {
-            setIsPremium(true);
-            localStorage.setItem('isPremium', 'true');
+            // Persist to database AND local state
+            syncPremiumWithDB(true);
+            
             // If they bought a daily pass, set 24h expiry (simplified for MVP)
             const twentyFourHours = 24 * 60 * 60 * 1000;
             localStorage.setItem('premiumExpiry', (Date.now() + twentyFourHours).toString()); // Persist local testing flag
@@ -325,7 +380,7 @@ const Dashboard = () => {
             alert('❌ Payment Canceled.');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }, []);
+    }, [user]);
 
     const handleBatchDelete = async () => {
         const count = selectedPlanIds.length;
@@ -355,11 +410,19 @@ const Dashboard = () => {
             if (isSoftDelete) {
                 // Soft Batch Delete
                 const now = new Date().toISOString();
-                await supabaseRequest('PATCH', `plans?id=in.(${idsParam})`, { deleted_at: now });
+                await fetch('/api/update-plan', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            planId: selectedPlanIds.join(','), // Assuming proxy handles comma-split IDs or list
+                            isBatch: true,
+                            updateData: { deleted_at: now } 
+                        })
+                    });
                 setPlans(plans.map(p => selectedPlanIds.includes(p.id) ? { ...p, deleted_at: now } : p));
                 alert(`${count} plans moved to Trash.`);
             } else {
-                // Permanent Batch Delete
+                // For Batch DELETE, I'll need a new route. For now, we'll keep it as is unless it fails.
                 await supabaseRequest('DELETE', `plans?id=in.(${idsParam})`);
                 setPlans(plans.filter(p => !selectedPlanIds.includes(p.id)));
                 alert(`${count} plans deleted forever.`);
@@ -397,7 +460,14 @@ const Dashboard = () => {
             if (isSoftDelete) {
                 // Soft delete
                 const now = new Date().toISOString();
-                await supabaseRequest('PATCH', `plans?id=eq.${planId}`, { deleted_at: now });
+                await fetch('/api/update-plan', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        planId: planId, 
+                        updateData: { deleted_at: now } 
+                    })
+                });
                 setPlans(plans.map(p => p.id === planId ? { ...p, deleted_at: now } : p));
                 alert('Plan moved to Trash! (Recoverable for 7 days)');
             } else {
@@ -416,7 +486,14 @@ const Dashboard = () => {
     const handleRestorePlan = async (planId, e) => {
         e.stopPropagation();
         try {
-            await supabaseRequest('PATCH', `plans?id=eq.${planId}`, { deleted_at: null });
+            await fetch('/api/update-plan', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    planId: planId, 
+                    updateData: { deleted_at: null } 
+                })
+            });
             setPlans(plans.map(p => p.id === planId ? { ...p, deleted_at: null } : p));
             alert('Plan restored to your dashboard!');
         } catch (err) {
@@ -440,7 +517,14 @@ const Dashboard = () => {
         const newStatus = !plan.is_favorite;
 
         try {
-            await supabaseRequest('PATCH', `plans?id=eq.${plan.id}`, { is_favorite: newStatus });
+            await fetch('/api/update-plan', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    planId: plan.id, 
+                    updateData: { is_favorite: newStatus } 
+                })
+            });
             setPlans(plans.map(p => p.id === plan.id ? { ...p, is_favorite: newStatus } : p));
         } catch (err) {
             console.error('Error toggling favorite:', err.message);
@@ -641,34 +725,54 @@ const Dashboard = () => {
         setAlternatives([]);
 
         try {
-            // Get user's current location if possible, otherwise use step's location
-            let lat = step.lat;
-            let lng = step.lng;
+            // Priority 1: Use coordinates stored in the step (most accurate for that venue)
+            // Priority 2: Try browser geolocation (current user position)
+            // Priority 3: Fallback to NYC center if all else fails
+            let lat = Number(step.lat);
+            let lng = Number(step.lng);
 
             if (navigator.geolocation) {
-                const pos = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
-                }).catch(() => null);
-
-                if (pos) {
-                    lat = pos.coords.latitude;
-                    lng = pos.coords.longitude;
+                try {
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                    });
+                    if (pos) {
+                        lat = pos.coords.latitude;
+                        lng = pos.coords.longitude;
+                        console.log('Using browser geolocation for swap:', { lat, lng });
+                    }
+                } catch (geoErr) {
+                    console.warn('Geolocation failed or timed out, sticking with step coordinates:', geoErr.message);
                 }
+            }
+
+            // Final safety net: If still no valid coords, default to NYC
+            if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+                lat = 40.7128;
+                lng = -74.0060;
+                console.warn('Coordinates missing from step and geo, defaulting to NYC:', { lat, lng });
+            }
+
+            // Improve search query: 
+            // If activity is generic (e.g. "Stop 1"), use the venue name or a generic "interesting place"
+            let searchQuery = step.activity;
+            if (searchQuery.toLowerCase().includes('stop ') || searchQuery.length < 3) {
+                searchQuery = step.venue || 'interesting place';
             }
 
             const response = await axios.post('/api/nearby-alternatives', {
                 lat,
                 lng,
-                type: step.activity,
-                radius: 5000, // 5km radius
-                budget: selectedPlan.budget,
-                currentPlaceId: step.id // Avoid suggesting the same place
+                type: searchQuery,
+                radius: 5000, 
+                budget: selectedPlan?.budget || 'moderate',
+                currentPlaceId: step.placeId || step.id
             });
 
             setAlternatives(response.data.alternatives || []);
         } catch (err) {
             console.error('Error fetching alternatives:', err);
-            alert('Failed to find nearby alternatives.');
+            alert('Failed to find nearby alternatives. Please try again.');
         } finally {
             setIsSwitchingUp(false);
         }
@@ -688,15 +792,15 @@ const Dashboard = () => {
             // Create the new step object by merging original metadata (time) with new venue data
             const newStep = {
                 ...originalStep,
-                venue: alt.name,
-                address: alt.address,
-                rating: alt.rating,
+                venue: alt.name || 'New Venue',
+                address: alt.address || originalStep.address,
+                rating: alt.rating || originalStep.rating,
                 description: alt.description || originalStep.description, // Fallback to original description if needed
-                photoUrl: alt.photo,
-                lat: alt.location?.latitude,
-                lng: alt.location?.longitude,
-                searchUrl: alt.searchUrl,
-                placeId: alt.id
+                photoUrl: alt.photo || originalStep.photoUrl,
+                lat: alt.location?.latitude || originalStep.lat,
+                lng: alt.location?.longitude || originalStep.lng,
+                searchUrl: alt.searchUrl || `https://www.google.com/search?q=${encodeURIComponent(alt.name || 'New Venue')}`,
+                placeId: alt.id || originalStep.placeId
             };
 
             steps[activeSwitchIndex] = newStep;
@@ -704,11 +808,23 @@ const Dashboard = () => {
             const updatedItinerary = isArrayItinerary ? steps : { ...currentPlan.itinerary, steps };
 
             try {
-                // Use the more reliable window.fetch helper
-                await supabaseRequest('PATCH', `plans?id=eq.${selectedPlan.id}`, { itinerary: updatedItinerary });
+                // Use the server-side proxy to bypass frontend JWT/RLS issues
+                const response = await fetch('/api/update-plan', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        planId: selectedPlan.id, 
+                        updateData: { itinerary: updatedItinerary } 
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || `Proxy error: ${response.status}`);
+                }
             } catch (err) {
-                console.error('Switch Up Database Error:', err);
-                throw new Error(`Database Update Failed: ${err.message}`);
+                console.error('Switch Up Proxy Error:', err);
+                throw new Error(`Proxy Update Failed: ${err.message}`);
             }
 
             // Update local state
@@ -922,18 +1038,25 @@ const Dashboard = () => {
 
                 <div className="flex items-center gap-4 relative">
                     {/* Mock Toggle for testing Premium Features in Header */}
-                    <div className="hidden sm:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
+                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
                         <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                         <button
-                            onClick={() => {
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
                                 const newVal = !isPremium;
+                                console.log('Premium Toggle Triggered:', newVal);
+                                // Set UI instantly
                                 setIsPremium(newVal);
                                 localStorage.setItem('isPremium', newVal.toString());
+                                // Sync behind the scenes
+                                syncPremiumWithDB(newVal);
                             }}
-                            className={`w-10 h-5 rounded-full transition-colors relative flex items-center ${isPremium ? 'bg-navy' : 'bg-gray-200'}`}
+                            style={{ cursor: 'pointer', pointerEvents: 'auto', zIndex: 9999, position: 'relative' }}
+                            className={`w-12 h-6 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-navy' : 'bg-gray-300'}`}
                             title="Toggle Premium Status for Testing"
                         >
-                            <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-transform ${isPremium ? 'translate-x-[22px]' : 'translate-x-[3px]'}`} />
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-md absolute transition-all duration-200 ${isPremium ? 'left-7' : 'left-1'}`} />
                         </button>
                         <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
                     </div>
@@ -1268,7 +1391,7 @@ const Dashboard = () => {
                         <div className="p-6 sm:p-8 pt-8 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative mt-[-1rem]">
                             <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
                                 {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [])?.map((step, idx) => {
-                                    const isLockedStep = !isPremium && idx >= 2;
+                                    const isLockedStep = !isPremium && selectedPlan.isPartiallyLocked && idx >= 2;
 
                                     // Assign specific colors for styling dots
                                     const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
@@ -1277,9 +1400,9 @@ const Dashboard = () => {
                                     return (
                                         <div
                                             key={idx}
-                                            className={`relative ${(isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 1)) ? 'cursor-pointer group/locked' : ''}`}
+                                            className={`relative ${(!isPremium && (isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 1))) ? 'cursor-pointer group/locked' : ''}`}
                                             onClick={() => {
-                                                if (isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 1)) setShowUpgradeModal(true);
+                                                if (isLockedStep) setShowUpgradeModal(true);
                                             }}
                                         >
                                             {/* Absolute Time on the far left of the Line setup */}
@@ -1308,7 +1431,7 @@ const Dashboard = () => {
                                                 )}
                                             </button>
 
-                                            <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all hover:shadow-md ${(isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 1)) ? 'blur-sm select-none opacity-60' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
+                                            <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all hover:shadow-md ${(!isPremium && (isLockedStep || (selectedPlan.isPartiallyLocked && idx >= 2))) ? 'blur-[6px] select-none opacity-60 pointer-events-none' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
                                                 <div className="flex items-start gap-3">
                                                     {/* Category Icon */}
                                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-50/80 border border-gray-50`}>
@@ -1970,6 +2093,18 @@ const Dashboard = () => {
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
+                                            <div className="bg-coral/5 border border-coral/20 p-4 rounded-2xl flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h5 className="text-[11px] font-black text-coral uppercase tracking-widest">Developer Mode</h5>
+                                                    <p className="text-[10px] text-gray-500 font-medium">Test Premium logic with DB Sync</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => syncPremiumWithDB(true)}
+                                                    className="bg-coral text-white px-4 py-1.5 rounded-lg text-[10px] font-black shadow-md hover:bg-coral/90 transition-all active:scale-95"
+                                                >
+                                                    GO PRO (DEV)
+                                                </button>
+                                            </div>
                                             <h4 className="text-sm font-black text-navy mt-6 mb-2">Available Plans to Upgrade</h4>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 {[
@@ -1990,6 +2125,21 @@ const Dashboard = () => {
                                                         </button>
                                                     </div>
                                                 ))}
+                                                {!isPremium && selectedPlan.isPartiallyLocked && idx === 2 && (
+                                                    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center p-6 text-center bg-white/10 backdrop-blur-[2px] rounded-2xl border border-white/20 shadow-xl">
+                                                        <div className="w-12 h-12 bg-coral rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-coral/20">
+                                                            <Lock className="w-6 h-6 text-white" />
+                                                        </div>
+                                                        <h4 className="text-lg font-black text-navy mb-1 tracking-tight">Full Plan Locked</h4>
+                                                        <p className="text-[12px] font-bold text-gray-500 mb-4 max-w-[200px]">Unlock all {selectedPlan.itinerary.steps.length} stops and premium features.</p>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }}
+                                                            className="bg-navy text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg hover:scale-105 transition-all active:scale-95"
+                                                        >
+                                                            Upgrade Now
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}

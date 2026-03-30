@@ -29,6 +29,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 5005;
+const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
 // Middleware
 app.use(cors());
@@ -46,11 +47,29 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Connectivity check on start
-supabase.from('plans').select('count', { count: 'exact', head: true })
-    .then(({ count, error }) => {
-        if (error) console.error('Supabase Connectivity Error (STARTUP):', error.message);
-        else console.log('Supabase Connectivity OK - Plans existing in table:', count || 0);
-    });
+console.log(`[${SERVER_VERSION}] --- SYSTEM DIAGNOSTICS ---`);
+console.log(`[${SERVER_VERSION}] Connecting to: ${supabaseUrl?.substring(0, 20)}...`);
+
+const runDiagnostics = async () => {
+    // Test PLANS table
+    const { count: planCount, error: planError } = await supabase.from('plans').select('*', { count: 'exact', head: true });
+    if (planError) console.error(`[DIAGNOSTIC] PLANS Table Error:`, planError.message);
+    else console.log(`[DIAGNOSTIC] PLANS Table OK - Count:`, planCount || 0);
+
+    // Test PROFILES table
+    const { data: profData, error: profError } = await supabase.from('profiles').select('*').limit(1);
+    if (profError) {
+        if (profError.message.includes('relation "public.profiles" does not exist')) {
+            console.error(`[DIAGNOSTIC] PROFILES Table Missing! Run the SQL in implementation_plan.md.`);
+        } else {
+            console.error(`[DIAGNOSTIC] PROFILES Table Error:`, profError.message);
+        }
+    } else {
+        console.log(`[DIAGNOSTIC] PROFILES Table OK - Live and Syncing 🥂`);
+    }
+};
+
+runDiagnostics();
 
 // --- Stripe Checkout Endpoint ---
 app.post('/api/create-checkout-session', async (req, res) => {
@@ -331,6 +350,93 @@ const createBookingUrl = (type, name, date, time) => {
     return { url: null, type: null };
 };
 
+// Routes Helper Logic (Fallback Enriched Venues)
+const placeholderPhoto = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80';
+
+const fallbackMap = {
+    Sightseeing: [
+        { name: "The High Line", address: "Gansevoort St, NY", lat: 40.7480, lng: -74.0048, description: "Beautiful elevated park with scenic Hudson river views." },
+        { name: "Brooklyn Bridge Park", address: "334 Furman St, Brooklyn", lat: 40.7011, lng: -73.9958, description: "Unmatched views of lower Manhattan and bridges." },
+        { name: "The Vessel", address: "20 Hudson Yards, NY", lat: 40.7538, lng: -74.0017, description: "Interactive architectural landmark." },
+        { name: "Grand Central Terminal", address: "89 E 42nd St, NY", lat: 40.7527, lng: -73.9772, description: "Historic terminal with celestial ceiling." },
+        { name: "Governor's Island", address: "Governors Island, NY", lat: 40.6892, lng: -74.0169, description: "Island oasis with panoramic skyline views." },
+        { name: "Radio City Music Hall", address: "1260 6th Ave, NY", lat: 40.7599, lng: -73.9799, description: "Classic landmark in Rockefeller Center." },
+        { name: "Flatiron Building", address: "175 5th Ave, NY", lat: 40.7411, lng: -73.9897, description: "Iconic wedge-shaped building." }
+    ],
+    Entertainment: [
+        { name: "Bowlmor Lanes Times Square", address: "222 W 44th St, NY", lat: 40.7585, lng: -73.9884, description: "Luxury bowling spot." },
+        { name: "Barcade Chelsea", address: "148 W 24th St, NY", lat: 40.7441, lng: -73.9950, description: "Vintage arcade and bar." },
+        { name: "Nitehawk Cinema", address: "136 Metropolitan Ave, Brooklyn", lat: 40.7159, lng: -73.9622, description: "Dine-in theater experience." },
+        { name: "Standard Shuffleboard Club", address: "Brooklyn, NY", lat: 40.6781, lng: -73.9866, description: "Vintage board gaming and shuffleboard." }
+    ],
+    Restaurant: [
+        { name: "Balthazar", address: "80 Spring St, NY", lat: 40.7226, lng: -73.9981, description: "Parisian-style brasserie." },
+        { name: "Carbone", address: "181 Thompson St, NY", lat: 40.7285, lng: -73.9996, description: "Retro Italian dining room." },
+        { name: "Katz's Delicatessen", address: "205 E Houston St, NY", lat: 40.7222, lng: -73.9875, description: "Famous pastrami deli." }
+    ],
+    Dessert: [
+        { name: "Magnolia Bakery", address: "401 Bleecker St, NY", lat: 40.7356, lng: -74.0041, description: "Famous banana pudding." },
+        { name: "Dominique Ansel Bakery", address: "189 Spring St, NY", lat: 40.7252, lng: -74.0029, description: "Award-winning cronut bakery." },
+        { name: "Levain Bakery", address: "167 W 74th St, NY", lat: 40.7799, lng: -73.9803, description: "Giant gooey cookies." }
+    ],
+    Event: [
+        { name: "Comedy Cellar", address: "117 MacDougal St, NY", lat: 40.7303, lng: -74.0006, description: "Historic comedy club." },
+        { name: "Stardust Diner", address: "1650 Broadway, NY", lat: 40.7618, lng: -73.9839, description: "Singing servers diner." }
+    ]
+};
+
+const getPlacePhotoUrl = (photoName, apiKey) => {
+    if (!photoName) return placeholderPhoto;
+    return `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=800&maxWidthPx=800&key=${apiKey}`;
+};
+
+const enrichFallbackPlace = async (place, type, apiKey) => {
+    const query = `${place.name}, ${place.address}`;
+    try {
+        const searchRes = await axios.post('https://places.googleapis.com/v1/places:searchText', 
+        {
+            textQuery: query,
+            includedType: (type || 'point_of_interest').toLowerCase()
+        },
+        {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': apiKey,
+                'X-Goog-FieldMask': 'places.id,places.displayName,places.photos,places.googleMapsUri'
+            }
+        });
+
+        const data = searchRes.data;
+        const matchedPlace = data.places?.[0];
+        const photoName = matchedPlace?.photos?.[0]?.name;
+
+        return {
+            ...place,
+            photoUrl: getPlacePhotoUrl(photoName, apiKey),
+            url: matchedPlace?.googleMapsUri || null,
+            placeId: matchedPlace?.id || null
+        };
+    } catch (err) {
+        console.error(`Failed to enrich fallback ${place.name}:`, err.message);
+        return { ...place, photoUrl: placeholderPhoto, url: null, placeId: null };
+    }
+};
+
+const mergeWithFallbacks = async (apiResults, type, apiKey, limit = 7) => {
+    const list = [...apiResults];
+    const fbList = fallbackMap[type] || fallbackMap.Sightseeing;
+    let fbIdx = 0;
+
+    while (list.length < limit) {
+        const item = fbList[fbIdx % fbList.length];
+        const enriched = await enrichFallbackPlace(item, type, apiKey);
+        list.push(enriched);
+        fbIdx++;
+    }
+
+    return list;
+};
+
 // Routes
 app.post('/api/waitlist', async (req, res) => {
     const { email } = req.body;
@@ -485,7 +591,6 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
         return res.status(400).json({ error: 'Please enter a prompt to get started.' });
     }
 
-    const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
     let detectedLocation = (location && location !== 'Current Location') ? location : "New York City";
 
     // --- REVERSE GEOCODING FOR PRECISION ---
@@ -615,49 +720,61 @@ Return ONLY a valid JSON object formatted EXACTLY like this:
 
 // Build Custom Itinerary from AI Concept
 app.post('/api/generate-custom-date', async (req, res) => {
-    const { userId, concept, date, radius, location, lat, lng } = req.body;
-    console.log('API - /api/generate-custom-date - Body:', { userId, vibe: concept?.title, date });
-
-    if (!userId || !concept) {
-        console.error('API - Missing userId or concept');
-        return res.status(400).json({ error: 'User ID and Concept are required.' });
-    }
-
     try {
-        // --- TIER ENFORCEMENT ---
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_premium')
-            .eq('id', userId)
-            .single();
+        const { userId, concept, date, radius, location, lat, lng } = req.body;
+        console.log('API - /api/generate-custom-date - Request Received:', { userId, vibe: concept?.title, date });
 
-        const isPremium = profile?.is_premium || false;
+        // --- 1. STRICT INPUT VALIDATION ---
+        if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+        if (!concept || !concept.title) return res.status(400).json({ error: 'Concept/Vibe selection is required.' });
+        if (!date) return res.status(400).json({ error: 'Date is required for planning.' });
+        
+        // Sanitize numeric inputs
+        const parsedLat = lat ? Number(lat) : null;
+        const parsedLng = lng ? Number(lng) : null;
+        const parsedRadius = radius ? Number(radius) : 5632; // Default to 3.5 miles
+        
+        if (lat && isNaN(parsedLat)) return res.status(400).json({ error: 'Invalid latitude value.' });
+        if (lng && isNaN(parsedLng)) return res.status(400).json({ error: 'Invalid longitude value.' });
+        if (radius && isNaN(parsedRadius)) return res.status(400).json({ error: 'Invalid radius value.' });
 
-        // Daily Limit Check
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
+        // --- 2. TIER ENFORCEMENT ---
+        let isPremium = false;
+        try {
+            const { data: profile, error: profError } = await supabase
+                .from('profiles')
+                .select('is_premium')
+                .eq('id', userId)
+                .single();
+            
+            if (profError && profError.code !== 'PGRST116') throw profError;
+            isPremium = profile?.is_premium || false;
 
-        const { count: dailyCount } = await supabase
-            .from('plans')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .gte('created_at', startOfToday.toISOString());
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
 
-        if (!isPremium && dailyCount && dailyCount >= 5) {
-            return res.status(403).json({ error: 'Daily limit reached (5/day). Upgrade to Premium for unlimited!' });
+            const { count: dailyCount, error: countError } = await supabase
+                .from('plans')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', userId)
+                .gte('created_at', startOfToday.toISOString());
+            
+            if (countError) throw countError;
+
+            if (!isPremium && dailyCount && dailyCount >= 5) {
+                return res.status(403).json({ error: 'Daily limit reached (5/day). Upgrade to Premium for unlimited!' });
+            }
+        } catch (tierErr) {
+            console.error('Tier enforcement error - Continuing with cautious defaults:', tierErr.message);
+            // We continue even if tier check fails, but log it for debugging
         }
-    } catch (err) {
-        console.error('Tier enforcement error in AI generate:', err.message);
-    }
 
-    try {
-        const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
-
+        // --- 3. GEOLOCATION / COORDINATES ---
         let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
 
-        if (lat && lng) {
-            centerCoords = { latitude: Number(lat), longitude: Number(lng) };
-        } else if (GOOGLE_API_KEY && location) {
+        if (parsedLat && parsedLng) {
+            centerCoords = { latitude: parsedLat, longitude: parsedLng };
+        } else if (GOOGLE_API_KEY && location && location !== 'Current Location') {
             try {
                 const geoRes = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
                     params: { address: location, key: GOOGLE_API_KEY }
@@ -666,19 +783,18 @@ app.post('/api/generate-custom-date', async (req, res) => {
                     const locData = geoRes.data.results[0].geometry.location;
                     centerCoords = { latitude: locData.lat, longitude: locData.lng };
                 }
-            } catch (err) {
-                console.error('Geocoding failed inside custom:', err.message);
+            } catch (geoErr) {
+                console.error('Geocoding failed - falling back to NYC:', geoErr.message);
             }
         }
 
+        // --- 4. DATA FETCHING (INTERNAL HELPERS) ---
         const fetchPlaces = async (searchString) => {
-            const parsedRadius = radius ? Number(radius) : 5632; // Default to 3.5 miles for better local focus
             const pCacheKey = `custom_${parsedRadius}_${Buffer.from(searchString).toString('base64')}`;
             if (cache.has(pCacheKey)) return cache.get(pCacheKey);
             if (!GOOGLE_API_KEY) return null;
 
-            // Reinforce the location name in the query to prevent "drifting" to Manhattan
-            const finalQuery = (location && !searchString.toLowerCase().includes(location.toLowerCase())) 
+            const finalQuery = (location && location !== 'Current Location' && !searchString.toLowerCase().includes(location.toLowerCase())) 
                 ? `${searchString} in ${location}` 
                 : searchString;
 
@@ -700,18 +816,20 @@ app.post('/api/generate-custom-date', async (req, res) => {
                 });
 
                 if (res.data && res.data.places && res.data.places.length > 0) {
-                    const place = res.data.places[0]; // Take the best match
+                    const place = res.data.places[0];
                     let photoUrl = null;
                     if (place.photos && place.photos.length > 0) {
                         photoUrl = `https://places.googleapis.com/v1/${place.photos[0].name}/media?maxHeightPx=400&maxWidthPx=400&key=${GOOGLE_API_KEY}`;
                     }
 
                     const getPriceStr = (level) => {
-                        if (level === 'PRICE_LEVEL_INEXPENSIVE') return '$';
-                        if (level === 'PRICE_LEVEL_MODERATE') return '$$';
-                        if (level === 'PRICE_LEVEL_EXPENSIVE') return '$$$';
-                        if (level === 'PRICE_LEVEL_VERY_EXPENSIVE') return '$$$$';
-                        return 'N/A';
+                        const mapping = {
+                            'PRICE_LEVEL_INEXPENSIVE': '$',
+                            'PRICE_LEVEL_MODERATE': '$$',
+                            'PRICE_LEVEL_EXPENSIVE': '$$$',
+                            'PRICE_LEVEL_VERY_EXPENSIVE': '$$$$'
+                        };
+                        return mapping[level] || 'N/A';
                     };
 
                     const result = {
@@ -719,62 +837,52 @@ app.post('/api/generate-custom-date', async (req, res) => {
                         description: `Rating: ${place.rating || 'N/A'} ⭐ (${place.userRatingCount || 0} reviews). Price: ${getPriceStr(place.priceLevel)}.`,
                         lat: place.location?.latitude,
                         lng: place.location?.longitude,
-                        address: place.formattedAddress || 'New York City, NY',
+                        address: place.formattedAddress || 'Nearby Venue',
                         photoUrl: photoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
                         url: place.websiteUri || null
                     };
                     cache.set(pCacheKey, result);
                     return result;
                 }
-            } catch (err) { console.error(`Failed Google Places custom fetch for ${searchString}:`, err.response?.data || err.message); }
+            } catch (err) { 
+                console.error(`Google Places Error for ${searchString}:`, err.response?.data || err.message); 
+            }
             return null;
         };
 
+        // --- 5. ITINERARY BUILDING ---
         const terms = concept.searchTerms || [];
         const durationStrs = concept.durations || ["1.5 hrs", "2 hrs", "1.5 hrs"];
+        const startTimes = concept.startTimes || ["7:00 PM", "8:30 PM", "10:30 PM"];
 
         const placePromises = terms.map(term => fetchPlaces(term));
         const placesResults = await Promise.all(placePromises);
 
-        const genericRealPlaces = [
-            { name: "Central Park", address: "New York, NY", lat: 40.7826, lng: -73.9656, description: "Iconic park in the center of Manhattan." },
-            { name: "The High Line", address: "Gansevoort St, NY", lat: 40.7480, lng: -74.0048, description: "Beautiful elevated park with scenic Hudson river views." },
-            { name: "Chelsea Market", address: "75 9th Ave, NY", lat: 40.7420, lng: -74.0048, description: "Famous food hall and shopping mall." },
-            { name: "Washington Square Park", address: "Washington Square, NY", lat: 40.7308, lng: -73.9973, description: "Vibrant park in Greenwich Village." },
-            { name: "Brooklyn Bridge Park", address: "334 Furman St, Brooklyn", lat: 40.7011, lng: -73.9958, description: "Unmatched skyline views." }
-        ];
-
-        const getFallback = (i) => {
-            const fallback = genericRealPlaces[i % genericRealPlaces.length];
-            return {
-                name: fallback.name,
-                description: fallback.description,
-                lat: fallback.lat, lng: fallback.lng,
-                address: fallback.address,
-                photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-                url: null
-            };
-        };
-
-        const startTimes = ['5:00 PM', '7:00 PM', '9:30 PM'];
-
-        let liveItinerary = [];
+        const liveItinerary = [];
 
         for (let i = 0; i < terms.length; i++) {
-            const place = placesResults[i] || getFallback(i);
-            const timeStr = startTimes[i] || `${5 + i * 2}:00 PM`;
+            let place = placesResults[i];
+            
+            if (!place) {
+                const termLower = (terms[i] || '').toLowerCase();
+                let fbType = 'Sightseeing';
+                if (termLower.includes('food') || termLower.includes('dinner') || termLower.includes('eat')) fbType = 'Restaurant';
+                else if (termLower.includes('drink') || termLower.includes('club') || termLower.includes('bar')) fbType = 'Entertainment';
+                else if (termLower.includes('dessert') || termLower.includes('cake') || termLower.includes('ice cream')) fbType = 'Dessert';
+                else if (termLower.includes('show') || termLower.includes('comedy') || termLower.includes('theater')) fbType = 'Event';
+                
+                const fbList = fallbackMap[fbType] || fallbackMap.Sightseeing;
+                place = await enrichFallbackPlace(fbList[i % fbList.length], fbType, GOOGLE_API_KEY);
+            }
+
+            const timeStr = startTimes[i] || `${7 + i * 2}:00 PM`;
             const duration = durationStrs[i] || "2 hours";
 
-            // Guess category type based on venue or search term keyword
             let stepType = 'event';
             const termLower = (terms[i] || '').toLowerCase();
             const venueLower = place.name.toLowerCase();
-            if (termLower.includes('food') || termLower.includes('restaurant') || termLower.includes('dinner') ||
-                venueLower.includes('restaurant') || venueLower.includes('cafe') || venueLower.includes('bistro') || venueLower.includes('kitchen')) {
-                stepType = 'restaurant';
-            } else if (termLower.includes('dessert') || termLower.includes('ice cream') || termLower.includes('bakery') || venueLower.includes('bakery') || venueLower.includes('dessert')) {
-                stepType = 'dessert';
-            }
+            if (termLower.includes('food') || venueLower.includes('restaurant') || venueLower.includes('cafe')) stepType = 'restaurant';
+            else if (termLower.includes('dessert') || venueLower.includes('bakery')) stepType = 'dessert';
 
             const booking = createBookingUrl(stepType, place.name, date, timeStr);
 
@@ -782,7 +890,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
                 time: timeStr,
                 activity: `Stop ${i + 1} (${duration})`,
                 venue: place.name,
-                description: `${place.description} Address: ${place.address}. Expected duration: ${duration}.`,
+                description: `${place.description} Address: ${place.address}.`,
                 url: place.url || null,
                 searchUrl: `https://www.google.com/search?q=${encodeURIComponent(place.name + ' ' + (location || 'New York City'))}`,
                 directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`,
@@ -794,35 +902,30 @@ app.post('/api/generate-custom-date', async (req, res) => {
             });
         }
 
-        const planPayload = {
-            metadata: { planDate: date || new Date().toISOString().split('T')[0], isCustomAI: true },
-            steps: liveItinerary
-        };
-
+        // --- 6. DATABASE INSERTION ---
         const finalPlan = {
             user_id: userId,
             vibe: concept.title,
             budget: concept.budgetStr || 'moderate',
             location: location === 'Current Location' ? 'Precision GPS' : (location || 'New York City, NY'),
-            itinerary: planPayload
+            itinerary: {
+                metadata: { planDate: date || new Date().toISOString().split('T')[0], isCustomAI: true },
+                steps: liveItinerary
+            }
         };
 
-        console.log('API - Inserting custom plan for user:', userId);
-        const { data, error } = await supabase
-            .from('plans')
-            .insert([finalPlan])
-            .select();
+        const { data, error: insError } = await supabase.from('plans').insert([finalPlan]).select();
+        if (insError) throw insError;
 
-        if (error) {
-            console.error('API - Supabase Insertion Error:', error);
-            throw error;
-        }
+        res.status(201).json({ success: true, plans: data });
 
-        console.log('API - Successfully inserted plans:', data?.length || 0);
-        res.status(201).json({ plans: data });
     } catch (err) {
-        console.error('Custom Generate Plan Error:', err);
-        res.status(500).json({ error: 'Failed to build custom plan.', details: err.message });
+        console.error('CRITICAL ERROR - /api/generate-custom-date:', err);
+        res.status(500).json({ 
+            error: 'Failed to generate custom date plan.', 
+            details: err.message,
+            hint: 'Please check your inputs or try again later.'
+        });
     }
 });
 
@@ -903,8 +1006,6 @@ app.post('/api/generate-date', async (req, res) => {
 
         const effectiveIdeaCount = isPremium ? ideaCount : Math.min(ideaCount, 2);
         
-        const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
-
         const nycNeighborhoods = [
             "West Village", "Soho", "Lower East Side", "Greenwich Village", "East Village",
             "Chelsea", "Tribeca", "Gramercy", "Upper West Side", "Upper East Side",
@@ -1135,69 +1236,11 @@ app.post('/api/generate-date', async (req, res) => {
             }
         }
 
-        const fallbackMap = {
-            Sightseeing: [
-                { name: "The High Line", address: "Gansevoort St, NY", lat: 40.7480, lng: -74.0048, description: "Beautiful elevated park with scenic Hudson river views Node triggers." },
-                { name: "Brooklyn Bridge Park", address: "334 Furman St, Brooklyn", lat: 40.7011, lng: -73.9958, description: "Unmatched views of lower manhattan and bridges triggers." },
-                { name: "The Vessel", address: "20 Hudson Yards, NY", lat: 40.7538, lng: -74.0017, description: "Interactive matrix architectural landmark triggers Node." },
-                { name: "Grand Central Terminal", address: "89 E 42nd St, NY", lat: 40.7527, lng: -73.9772, description: "Historic celestial ceiling and historic romantic layout Node." },
-                { name: "Governor's Island", address: "Governors Island, NY", lat: 40.6892, lng: -74.0169, description: "Island oasis with panoramic skyline viewpoints Node triggers." },
-                { name: "Radio City Music Hall", address: "1260 6th Ave, NY", lat: 40.7599, lng: -73.9799, description: "Classic landmark inside rockefeller center Node triggers." },
-                { name: "Flatiron Building", address: "175 5th Ave, NY", lat: 40.7411, lng: -73.9897, description: "Iconic wedge triangular view node layout fixes." }
-            ],
-            Entertainment: [
-                { name: "Bowlmor Lanes Times Square", address: "222 W 44th St, NY", lat: 40.7585, lng: -73.9884, description: "Iconic luxury glowing arena Node triggers." },
-                { name: "Barcade Chelsea", address: "148 W 24th St, NY", lat: 40.7441, lng: -73.9950, description: "Vintage arcade cabinet retro classic Node triggers." },
-                { name: "Nitehawk Cinema", address: "136 Metropolitan Ave, Brooklyn", lat: 40.7159, lng: -73.9622, description: "Dine-in theater loop Node triggers layout fixes." },
-                { name: "Standard Shuffleboard Club", address: "Brooklyn, NY", lat: 40.6781, lng: -73.9866, description: "Vintage board gaming setups triggers Absolute layout." }
-            ],
-            Restaurant: [
-                { name: "Balthazar", address: "80 Spring St, NY", lat: 40.7226, lng: -73.9981, description: "Famous Parisian romantic brasserie triggers layout fits." },
-                { name: "Carbone", address: "181 Thompson St, NY", lat: 40.7285, lng: -73.9996, description: "Iconic retro Italian dining room layout fixes." },
-                { name: "Katz's Delicatessen", address: "205 E Houston St, NY", lat: 40.7222, lng: -73.9875, description: "World famous pastrami layout fixes index fits setup Node." }
-            ],
-            Dessert: [
-                { name: "Magnolia Bakery", address: "401 Bleecker St, NY", lat: 40.7356, lng: -74.0041, description: "Famous banana pudding Node triggers absolute layout fixes." },
-                { name: "Dominique Ansel Bakery", address: "189 Spring St, NY", lat: 40.7252, lng: -74.0029, description: "Award-winning cronut pastry triggers layout fits Node triggers." },
-                { name: "Levain Bakery", address: "167 W 74th St, NY", lat: 40.7799, lng: -73.9803, description: "Giant gooey cookies that are highly romantic Node triggers." }
-            ],
-            Event: [
-                { name: "Comedy Cellar", address: "117 MacDougal St, NY", lat: 40.7303, lng: -74.0006, description: "Underground historic comedy club Node triggers absolute layout." },
-                { name: "Stardust Diner", address: "1650 Broadway, NY", lat: 40.7618, lng: -73.9839, description: "Singing servers classic diner vibes Node layout triggers." }
-            ]
-        };
-
-        const getFallback = (type, i) => {
-            const list = fallbackMap[type] || fallbackMap['Sightseeing'];
-            const item = list[i % list.length];
-            return {
-                ...item,
-                photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-                url: null
-            };
-        };
-
-        const mergeWithFallsbacks = (apiResults, type) => {
-            let list = [...apiResults];
-            let fbIdx = 0;
-            const fbList = fallbackMap[type] || fallbackMap['Sightseeing'];
-            while (list.length < 7) {
-                const item = fbList[fbIdx % fbList.length];
-                list.push({
-                    ...item,
-                    photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-                    url: null
-                });
-                fbIdx++;
-            }
-            return list;
-        };
-
-        events = mergeWithFallsbacks(events, 'Event');
-        restaurants = mergeWithFallsbacks(restaurants, 'Restaurant');
-        entertainment = mergeWithFallsbacks(entertainment, 'Entertainment');
-        sightseeing = mergeWithFallsbacks(sightseeing, 'Sightseeing');
-        desserts = mergeWithFallsbacks(desserts, 'Dessert');
+        events = await mergeWithFallbacks(events, 'Event', GOOGLE_API_KEY);
+        restaurants = await mergeWithFallbacks(restaurants, 'Restaurant', GOOGLE_API_KEY);
+        entertainment = await mergeWithFallbacks(entertainment, 'Entertainment', GOOGLE_API_KEY);
+        sightseeing = await mergeWithFallbacks(sightseeing, 'Sightseeing', GOOGLE_API_KEY);
+        desserts = await mergeWithFallbacks(desserts, 'Dessert', GOOGLE_API_KEY);
 
         const shuffle = (array) => [...array].sort(() => 0.5 - Math.random());
         const shuffledEvents = shuffle(events);
@@ -1368,9 +1411,11 @@ app.post('/api/generate-date', async (req, res) => {
 // Nearby Alternatives for "Switch Up" feature
 app.post('/api/nearby-alternatives', async (req, res) => {
     const { lat, lng, type, radius, budget, currentPlaceId } = req.body;
+    console.log(`[SwitchUp] Request for ${type} at (${lat}, ${lng}) - Radius: ${radius}, Budget: ${budget}`);
 
-    if (!lat || !lng) {
-        return res.status(400).json({ error: 'Coordinates are required' });
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+        console.warn('[SwitchUp] Rejected - Missing or invalid coordinates:', { lat, lng });
+        return res.status(400).json({ error: 'Valid coordinates are required (lat/lng)' });
     }
 
     try {
@@ -1408,6 +1453,7 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                 }
             });
         } catch (e) {
+            console.warn('[SwitchUp] Restricted search failed (Budget restriction might be too tight):', e.response?.data?.error?.message || e.message);
             // Initial restricted search failed
         }
 
@@ -1426,12 +1472,12 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                 }, {
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Goog-Api-Key': process.env.VITE_GOOGLE_MAPS_API_KEY,
-                        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,rating,userRatingCount,priceLevel,types,photos,location,editorialSummary,googleMapsUri'
+                        'X-Goog-Api-Key': GOOGLE_API_KEY,
+                        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.types,places.photos,places.location,places.editorialSummary,places.googleMapsUri'
                     }
                 });
             } catch (e) {
-                console.error('Fallback search failed');
+                console.error('[SwitchUp] Fallback search totally failed:', e.response?.data?.error?.message || e.message);
             }
         }
 
@@ -1439,7 +1485,7 @@ app.post('/api/nearby-alternatives', async (req, res) => {
             return res.json({ alternatives: [] });
         }
 
-        const filtered = response.data.places
+        let filtered = (response?.data?.places || [])
             .filter(p => p.id !== currentPlaceId)
             .map(p => ({
                 id: p.id,
@@ -1453,10 +1499,128 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                 photo: p.photos?.[0] ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${process.env.VITE_GOOGLE_MAPS_API_KEY}` : null
             }));
 
+        // FINAL FALLBACK: If no live nearby results, return the enriched curated ones
+        if (filtered.length === 0) {
+            console.log(`[SwitchUp] NO nearby results found for ${type}. Triggering enriched curated fallback.`);
+            const fbType = type?.includes('restaurant') || type?.includes('dinner') ? 'Restaurant' : 
+                         (type?.includes('dessert') || type?.includes('bakery') ? 'Dessert' : 
+                         (type?.includes('sightseeing') || type?.includes('landmark') ? 'Sightseeing' : 
+                         (type?.includes('bar') || type?.includes('club') || type?.includes('entertainment') ? 'Entertainment' : 'Sightseeing')));
+            
+            const rawFallbacks = await mergeWithFallbacks([], fbType, process.env.VITE_GOOGLE_MAPS_API_KEY, 3);
+            filtered = rawFallbacks.map(f => ({
+                id: f.placeId || 'fb-' + Math.random(),
+                name: f.name,
+                address: f.address,
+                rating: 4.5,
+                userRatingCount: 500,
+                location: { latitude: f.lat, longitude: f.lng },
+                description: f.description,
+                searchUrl: `https://www.google.com/search?q=${encodeURIComponent(f.name + ' NYC')}`,
+                photo: f.photoUrl
+            }));
+        }
+
         res.json({ alternatives: filtered });
     } catch (error) {
         console.error('Error fetching alternatives:', error.response?.data || error.message);
         res.status(500).json({ error: 'Failed to fetch alternatives' });
+    }
+});
+
+// Secure Proxy for Updating Premium Status
+// Secure Proxy to fetch user premium status
+app.get('/api/user-premium/:userId', async (req, res) => {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('is_premium')
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            console.error('[Proxy] Fetch Premium Status Error:', error);
+            // If user doesn't exist in profiles yet, they are default Free (false)
+            return res.json({ isPremium: false });
+        }
+
+        res.json({ isPremium: data?.is_premium || false });
+    } catch (err) {
+        console.error('[Proxy] GET Premium Server Error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/update-premium-status', async (req, res) => {
+    const { userId, isPremium } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+    console.log(`[Proxy] Syncing Premium DB status (${isPremium}) for user:`, userId);
+
+    try {
+        console.log(`[Proxy] Syncing Premium DB status (${isPremium}) for user:`, userId);
+
+        // Use the Supabase client with Service Role key for robust upserting
+        const { data, error: upsertError } = await supabase
+            .from('profiles')
+            .upsert(
+                { 
+                    id: userId, 
+                    is_premium: isPremium,
+                    updated_at: new Date().toISOString()
+                }, 
+                { onConflict: 'id' }
+            )
+            .select();
+
+        if (upsertError) {
+            console.error('[Proxy] DB Upsert Error:', upsertError);
+            return res.status(500).json({ 
+                error: 'Failed to update premium status', 
+                details: upsertError.message,
+                hint: upsertError.hint
+            });
+        }
+        
+        console.log(`[Proxy] Premium status synced successfully for ${userId}`);
+        res.json({ success: true, message: 'Premium status synced', data: data?.[0] });
+    } catch (err) {
+        console.error('[Proxy] Server Premium Update Exception:', err.message);
+        res.status(500).json({ error: 'Internal server error during sync' });
+    }
+});
+
+// Secure Proxy for Updating Plans (Bypasses Frontend JWT/RLS issues)
+app.patch('/api/update-plan', async (req, res) => {
+    const { planId, updateData, isBatch } = req.body;
+    if (!planId || !updateData) return res.status(400).json({ error: 'Plan ID and update data required' });
+
+    try {
+        console.log(`[Proxy] Updating plan(s): ${planId} (Batch: ${isBatch || false})`);
+        
+        let query = supabase.from('plans').update(updateData);
+        
+        if (isBatch) {
+            const ids = planId.split(',');
+            query = query.in('id', ids);
+        } else {
+            query = query.eq('id', planId);
+        }
+
+        const { data, error } = await query.select();
+
+        if (error) {
+            console.error('[Proxy] Update Error:', error);
+            return res.status(500).json({ error: error.message });
+        }
+        
+        res.json({ success: true, count: data?.length || 0 });
+    } catch (err) {
+        console.error('[Proxy] Server Update Error:', err.message);
+        res.status(500).json({ error: 'Failed to update itinerary' });
     }
 });
 
@@ -1497,7 +1661,6 @@ app.get(/.*/, (req, res, next) => {
     }
     res.sendFile(path.join(distPath, 'index.html'));
 });
-
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

@@ -4,13 +4,19 @@ import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Ca
 import { supabase } from '../lib/supabase';
 import { useJsApiLoader } from '@react-google-maps/api';
 import BottomNav from '../components/BottomNav';
+import axios from 'axios';
+import { loadStripe } from '@stripe/stripe-js';
 
 const LIBRARIES = ['places'];
 
 const GeneratePlan = () => {
     const navigate = useNavigate();
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [isSuggesting, setIsSuggesting] = useState(false);
+    const [user, setUser] = React.useState(null);
+    const [authLoading, setAuthLoading] = React.useState(true);
+    const [isGenerating, setIsGenerating] = React.useState(false);
+    const [loadingStage, setLoadingStage] = React.useState(0);
+    const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+    const [isSuggesting, setIsSuggesting] = React.useState(false);
 
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
@@ -45,6 +51,123 @@ const GeneratePlan = () => {
             }
         }
     }, [isLoaded, autocompleteService, placesService]);
+
+    // Initialize Auth Session
+    React.useEffect(() => {
+        const initAuth = async () => {
+            try {
+                const { data: { user: currentUser } } = await supabase.auth.getUser();
+                setUser(currentUser);
+
+                    // Fetch premium status from secure backend proxy to avoid 400 UUID errors
+                    const response = await fetch(`/api/user-premium/${currentUser.id}`);
+                    if (response.ok) {
+                        const { isPremium: dbStatus } = await response.json();
+                        setIsPremium(dbStatus);
+                        localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                    }
+            } catch (err) {
+                console.error('GeneratePlan initAuth error:', err);
+            } finally {
+                setAuthLoading(false);
+            }
+        };
+
+        initAuth();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            const newUser = session?.user || null;
+            setUser(newUser);
+            if (newUser) {
+                // Fetch premium status from secure backend proxy to avoid 400 UUID errors
+                const response = await fetch(`/api/user-premium/${newUser.id}`);
+                if (response.ok) {
+                    const { isPremium: dbStatus } = await response.json();
+                    setIsPremium(dbStatus);
+                    localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                }
+            }
+            setAuthLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const syncPremiumWithDB = async (isPremiumVal) => {
+        if (!user) return;
+        try {
+            console.log('GeneratePlan - Syncing Premium Status to DB:', isPremiumVal);
+            const response = await fetch('/api/update-premium-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, isPremium: isPremiumVal })
+            });
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Sync failed');
+            }
+            console.log('GeneratePlan - Premium DB Sync Success');
+        } catch (err) {
+            console.error('GeneratePlan - DB Sync Error:', err.message);
+        }
+    };
+
+    const handleBuyPass = async (planType) => {
+        try {
+            const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+            if (!stripe) throw new Error("Stripe Failed to Load");
+
+            const response = await axios.post('/api/create-checkout-session', { 
+                planType,
+                userId: user?.id,
+                email: user?.email
+            });
+            const { id, url } = response.data;
+
+            if (url) {
+                window.location.href = url;
+            } else {
+                await stripe.redirectToCheckout({ sessionId: id });
+            }
+        } catch (err) {
+            console.error('Checkout error:', err);
+            alert(`Payment failed: ${err.response?.data?.error || err.message}`);
+        }
+    };
+
+    // Connectivity Tracking
+    React.useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // Smart Loading Stage Lifecycle
+    React.useEffect(() => {
+        let interval;
+        if (isGenerating || isSuggesting) {
+            interval = setInterval(() => {
+                setLoadingStage((prev) => (prev + 1) % 6);
+            }, 2500);
+        } else {
+            setLoadingStage(0);
+        }
+        return () => clearInterval(interval);
+    }, [isGenerating, isSuggesting]);
+
+    const loadingMessages = [
+        "Scanning for the city's hidden gems...",
+        "Curating the perfect vibe for you...",
+        "Checking the best tables in the house...",
+        "Setting the mood for a perfect evening...",
+        "Calculating the romance factor...",
+        "Almost there! Finalizing your itinerary..."
+    ];
 
     const handleLocationChange = (val) => {
         setFormData({ ...formData, location: val, usePreciseLocation: false });
@@ -293,14 +416,16 @@ const GeneratePlan = () => {
         setError(null);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const currentUser = user || (await supabase.auth.getUser()).data.user;
+            if (!currentUser) throw new Error('You must be logged in.');
+
             const response = await fetch('/api/suggest-date-concepts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     conversationHistory: newHistory,
                     ideaCount: 3,
-                    userId: user?.id,
+                    userId: currentUser.id,
                     budget: aiBudget,
                     location: formData.location,
                     lat: formData.lat,
@@ -347,13 +472,15 @@ const GeneratePlan = () => {
         setError(null);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const currentUser = user || (await supabase.auth.getUser()).data.user;
+            if (!currentUser) throw new Error('You must be logged in.');
+
             const selectedConcept = aiConcepts[selectedConceptIndex];
             const response = await fetch('/api/generate-custom-date', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: user?.id,
+                    userId: currentUser.id,
                     concept: selectedConcept,
                     date: formData.date,
                     radius: customRadius,
@@ -378,6 +505,9 @@ const GeneratePlan = () => {
         } catch (err) {
             setError(err.message);
             setIsGenerating(false);
+            if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('upgrade')) {
+                setShowPremiumModal(true);
+            }
         }
     };
 
@@ -421,40 +551,58 @@ const GeneratePlan = () => {
             return;
         }
 
-        setIsGenerating(true);
-        setError(null);
+        const performGenerate = async (retryCount = 0) => {
+            try {
+                const currentUser = user || (await supabase.auth.getUser()).data.user;
+                if (!currentUser) throw new Error('You must be logged in.');
 
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('You must be logged in.');
+                if (!isOnline) throw new Error('You appear to be offline. Check your connection.');
 
-            const response = await fetch('/api/generate-date', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: user.id,
-                    ideaCount: isPremium ? ideaCount : 2,
-                    ...formData
-                })
-            });
+                const response = await fetch('/api/generate-date', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        ideaCount: isPremium ? ideaCount : 2,
+                        ...formData
+                    })
+                });
 
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Failed to generate plan.');
+                const result = await response.json();
+                if (!response.ok) {
+                    // Silent auto-retry for 500 errors
+                    if (response.status >= 500 && retryCount < 1) {
+                        console.warn('Silent retry for generation failure (5xx)...');
+                        return performGenerate(retryCount + 1);
+                    }
+                    throw new Error(result.error || 'Failed to generate plan.');
+                }
 
-            if (!isPremium) {
-                const newDailyReqs = dailyRequests + 1;
-                setDailyRequests(newDailyReqs);
-                localStorage.setItem('dailyRequests', newDailyReqs.toString());
+                if (!isPremium) {
+                    const newDailyReqs = dailyRequests + 1;
+                    setDailyRequests(newDailyReqs);
+                    localStorage.setItem('dailyRequests', newDailyReqs.toString());
+                }
+                navigate('/dashboard');
+            } catch (err) {
+                setError(err.message === 'Failed to fetch' ? 'Network error. We will save your data so you can retry!' : err.message);
+                setIsGenerating(false);
+                if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('upgrade')) {
+                    setShowPremiumModal(true);
+                }
             }
-            navigate('/dashboard');
-        } catch (err) {
-            setError(err.message);
-            setIsGenerating(false);
-        }
+        };
+
+        performGenerate();
     };
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col relative overflow-hidden">
+            {!isOnline && (
+                <div className="bg-red-600 text-white text-[11px] font-black uppercase tracking-widest py-2 text-center sticky top-0 z-[100] animate-in slide-in-from-top-full duration-300">
+                    ⚠️ Connection Lost. Check your internet.
+                </div>
+            )}
             <div className="absolute top-0 right-0 -z-10 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-coral/10 via-transparent to-transparent opacity-60" />
             <div className="absolute top-[20%] right-[-10%] -z-10 w-[500px] h-[500px] bg-coral/5 rounded-full blur-[120px] animate-pulse" />
             
@@ -474,7 +622,31 @@ const GeneratePlan = () => {
                         </div>
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
                     </div>
-                    <div className="w-16" />
+
+                    {/* Mock Toggle for testing Premium Features in Header */}
+                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const newVal = !isPremium;
+                                console.log('Premium Toggle Triggered:', newVal);
+                                // Set UI instantly
+                                setIsPremium(newVal);
+                                localStorage.setItem('isPremium', newVal.toString());
+                                // Sync behind the scenes
+                                syncPremiumWithDB(newVal);
+                            }}
+                            className={`w-10 h-5 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-navy' : 'bg-gray-300'}`}
+                            title="Toggle Premium Status for Testing"
+                        >
+                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md absolute transition-all duration-200 ${isPremium ? 'left-6' : 'left-0.5'}`} />
+                        </button>
+                        <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
+                    </div>
+
+                    <div className="w-8 flex justify-end" />
                 </div>
             </header>
 
@@ -509,8 +681,26 @@ const GeneratePlan = () => {
                 </div>
 
                 {error && (
-                    <div className="p-4 mb-6 bg-red-50 text-red-600 rounded-xl text-sm font-bold border border-red-100 italic">
-                        {error}
+                    <div className="p-4 mb-6 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100 italic flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-left-4 duration-300">
+                        <div className="flex items-center gap-2">
+                            {error.toLowerCase().includes('limit') ? <Lock className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                            <span>{error}</span>
+                        </div>
+                        {error.toLowerCase().includes('limit') || error.toLowerCase().includes('upgrade') ? (
+                            <button 
+                                onClick={(e) => { e.preventDefault(); setShowPremiumModal(true); }}
+                                className="bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:shadow-lg hover:shadow-fuchsia-500/20 transition-all flex-shrink-0 animate-pulse"
+                            >
+                                Upgrade to Premium
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => handleSubmitClassic({ preventDefault: () => {} })}
+                                className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-700 transition-colors flex-shrink-0"
+                            >
+                                Retry Now
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -953,6 +1143,29 @@ const GeneratePlan = () => {
                                 >
                                     {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" /> Generate Itineraries</>}
                                 </button>
+
+                                {/* Smart Loading Overlay */}
+                                {isGenerating && (
+                                    <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+                                        <div className="relative mb-8">
+                                            <div className="w-24 h-24 border-4 border-coral/20 border-t-coral rounded-full animate-spin"></div>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <Sparkles className="w-8 h-8 text-coral animate-pulse" />
+                                            </div>
+                                        </div>
+                                        <h2 className="text-2xl font-black text-navy mb-3 tracking-tight">Crafting Your Connection...</h2>
+                                        <p className="text-gray-500 font-bold text-lg animate-pulse min-h-[1.5em] duration-1000">
+                                            {loadingMessages[loadingStage]}
+                                        </p>
+                                        <div className="mt-12 max-w-xs w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-coral transition-all duration-1000 ease-out"
+                                                style={{ width: `${((loadingStage + 1) / loadingMessages.length) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Step {loadingStage + 1} of 6</p>
+                                    </div>
+                                )}
                                 
                                 <button
                                     type="button"
@@ -980,28 +1193,76 @@ const GeneratePlan = () => {
 
             {/* Premium Upgrade Modal */}
             {showPremiumModal && (
-                <div className="fixed inset-0 bg-navy/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm px-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all p-8 text-center relative animate-fade-in-up p-6 md:p-8">
                         <button
                             onClick={() => setShowPremiumModal(false)}
-                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-navy transition-colors bg-gray-50 rounded-full z-20"
                         >
-                            ✕
+                            <X className="w-5 h-5" />
                         </button>
-                        <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center mb-6">
-                            <Wand2 className="w-8 h-8 text-white" />
+
+                        <div className="w-16 h-16 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-coral/30 rotate-3">
+                            <Heart className="w-8 h-8 fill-white text-white" />
                         </div>
-                        <h3 className="text-2xl font-black text-navy mb-2">Unlock DateSpark Plus</h3>
-                        <p className="text-gray-500 mb-6 font-medium">Get unlimited AI customizer, 7-day recycle bin and more.</p>
+
+                        <h2 className="text-2xl font-black text-navy mb-2">Upgrade to Premium</h2>
+                        <p className="text-gray-500 mb-6 max-w-md mx-auto font-medium text-xs">
+                            Unlock full AI-driven itineraries, unlimited saving features, and city support.
+                        </p>
+
+                        <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto px-1">
+                            {/* Daily Date Pass */}
+                            <div className="bg-white border-2 border-coral rounded-2xl p-5 text-left relative group hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+                                <div className="absolute top-0 right-0 bg-coral text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
+                                    Most Popular
+                                </div>
+                                <div>
+                                    <h4 className="text-lg font-black text-navy mb-1">24-Hour Pass</h4>
+                                    <p className="text-gray-400 text-[11px] mb-3">Perfect for tonight's date.</p>
+                                    <div className="flex items-end gap-1 mb-4">
+                                        <span className="text-2xl font-black text-navy">$1.99</span>
+                                        <span className="text-gray-400 text-xs mb-1 uppercase">/24hr</span>
+                                    </div>
+                                    <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited 5-stop plans</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Switch Up & Booking</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited favorites</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Instant Directions & Rides</li>
+                                    </ul>
+                                </div>
+                                <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-coral text-white text-xs font-black rounded-xl hover:bg-coral/90 transition-colors shadow-lg mt-auto">
+                                    Get Pass
+                                </button>
+                            </div>
+
+                            {/* DateSpark Plus / Monthly */}
+                            <div className="bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-5 text-white text-left relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-navy-100/20 flex flex-col justify-between">
+                                <div>
+                                    <h4 className="text-lg font-black mb-1">DateSpark Plus</h4>
+                                    <p className="text-white/70 text-[11px] mb-3">Unlimited planning + Premium hacks.</p>
+                                    <div className="flex items-end gap-1 mb-4">
+                                        <span className="text-2xl font-black">$9.99</span>
+                                        <span className="text-white/50 text-xs mb-1">/mo</span>
+                                    </div>
+                                    <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Daily pass + AI Customizer</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> 7-Day Recycle Bin access</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Anniversary & Special Occasions</li>
+                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority New Features</li>
+                                    </ul>
+                                </div>
+                                <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
+                                    Upgrade Now
+                                </button>
+                            </div>
+                        </div>
+
                         <button
-                            onClick={() => {
-                                setIsPremium(true);
-                                setShowPremiumModal(false);
-                                setMode('ai_custom');
-                            }}
-                            className="w-full bg-navy text-white text-lg font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                            onClick={() => setShowPremiumModal(false)}
+                            className="w-full py-3 mt-4 text-gray-400 font-bold hover:text-gray-600 transition-colors text-sm"
                         >
-                            Get Plus for $9.99 <ArrowRight className="w-5 h-5" />
+                            Maybe Later
                         </button>
                     </div>
                 </div>

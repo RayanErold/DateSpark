@@ -1,5 +1,7 @@
-import React from 'react';
 import { Check, ArrowRight, Star, Heart } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import axios from 'axios';
+import { loadStripe } from '@stripe/stripe-js';
 
 const Pricing = () => {
     const plans = [
@@ -113,15 +115,42 @@ const Pricing = () => {
                                 ))}
                             </ul>
 
-                            <button
-                                onClick={() => {
+                             <button
+                                onClick={async () => {
                                     // Map UI names to internal server plan types
                                     const planMap = {
                                         "The Spark": "free",
                                         "24-Hour Pass": "daily",
-                                        "Romantic Elite": "premium"
+                                        "Premium Monthly": "premium"
                                     };
-                                    window.location.href = '#waitlist'; // Fallback for now, could be stripe logic
+                                    
+                                    const type = planMap[sub.name];
+                                    if (type === 'free') {
+                                        window.location.href = '#waitlist';
+                                        return;
+                                    }
+
+                                    try {
+                                        const { data: { user } } = await supabase.auth.getUser();
+                                        if (!user) {
+                                            alert("Please log in to upgrade your plan!");
+                                            return;
+                                        }
+
+                                        const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+                                        const response = await axios.post('/api/create-checkout-session', { 
+                                            planType: type,
+                                            userId: user.id,
+                                            email: user.email
+                                        });
+                                        
+                                        if (response.data.url) {
+                                            window.location.href = response.data.url;
+                                        }
+                                    } catch (err) {
+                                        console.error('Pricing Payment Error:', err);
+                                        alert("Connection error. Please try again later.");
+                                    }
                                 }}
                                 className={`w-full py-5 rounded-2xl font-black text-center flex items-center justify-center gap-2 transition-all group overflow-hidden relative ${
                                     sub.highlight 
