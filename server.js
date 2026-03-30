@@ -1,3 +1,4 @@
+console.log('>>> [PRODUCTION] Server process starting at: ' + new Date().toISOString());
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -1700,6 +1701,6 @@ app.get(/.*/, (req, res, next) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`>>> [PRODUCTION] Server is successfully listening on 0.0.0.0:${PORT}`);
 });
