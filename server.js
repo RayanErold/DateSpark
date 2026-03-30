@@ -1033,12 +1033,29 @@ app.post('/api/generate-date', async (req, res) => {
     }
 
     try {
-        // --- TIER ENFORCEMENT ---
-        const { data: profile } = await supabase
+        // --- TIER ENFORCEMENT: Auto-create profile for new users ---
+        const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('is_premium')
             .eq('id', userId)
             .single();
+
+        // If no profile exists for this user, create one now (new user first plan)
+        if (profileError || !profile) {
+            console.log(`[generate-date] No profile found for user ${userId}. Auto-creating...`);
+            const { error: createError } = await supabase
+                .from('profiles')
+                .upsert(
+                    { id: userId, is_premium: false, updated_at: new Date().toISOString() },
+                    { onConflict: 'id' }
+                );
+            if (createError) {
+                console.error(`[generate-date] Failed to auto-create profile:`, createError.message);
+                // Continue anyway — don't block the user
+            } else {
+                console.log(`[generate-date] Profile auto-created for new user ${userId}`);
+            }
+        }
 
         const isPremium = profile?.is_premium || false;
 
