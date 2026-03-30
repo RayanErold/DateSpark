@@ -1,14 +1,3 @@
-console.log('>>> [PRODUCTION] Server process starting at: ' + new Date().toISOString());
-// --- GLOBAL EXCEPTION HANDLERS (CAPTURE SILENT KILLERS) ---
-process.on('uncaughtException', (err) => {
-    console.error('!!! [CRITICAL] UNCAUGHT EXCEPTION:', err.message);
-    console.error(err.stack);
-    // On Render, we want to stay alive long enough to see the log
-});
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('!!! [CRITICAL] UNHANDLED REJECTION:', reason);
-});
-
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -21,6 +10,18 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Resend } from 'resend'; // Import Resend
 import Stripe from 'stripe';
 import fs from 'fs/promises';
+
+// --- STARTUP LOG (runs after all imports resolve) ---
+console.log('>>> [PRODUCTION] All imports loaded at: ' + new Date().toISOString());
+
+// --- GLOBAL EXCEPTION HANDLERS ---
+process.on('uncaughtException', (err) => {
+    console.error('!!! [CRITICAL] UNCAUGHT EXCEPTION:', err.message);
+    console.error(err.stack);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('!!! [CRITICAL] UNHANDLED REJECTION:', reason);
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
