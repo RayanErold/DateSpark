@@ -374,13 +374,14 @@ const GeneratePlan = () => {
     };
 
     const handleModeSwitch = (newMode) => {
-        if (newMode === 'ai_custom' && !isPremium && aiCustomUses >= 2) {
-            setShowAiAddonModal(true);
+        if (newMode === 'ai_custom' && !isPremium && guidedUsage >= 5) {
+            setShowPremiumModal(true);
             return;
         }
         setMode(newMode);
         setError(null);
     };
+
 
     const handleSuggestConcepts = async (e, isRefinement = false) => {
         if (e) e.preventDefault();
@@ -389,8 +390,8 @@ const GeneratePlan = () => {
             return;
         }
 
-        if (!isPremium && aiCustomUses >= 2) {
-            setShowAiAddonModal(true);
+        if (!isPremium && guidedUsage >= 5) {
+            setShowPremiumModal(true);
             return;
         }
 
@@ -460,12 +461,8 @@ const GeneratePlan = () => {
 
     const handleGenerateCustom = async (e) => {
         e.preventDefault();
-        if (!isPremium && dailyRequests >= 5) {
+        if (!isPremium && guidedUsage >= 5) {
             setShowPremiumModal(true);
-            return;
-        }
-        if (!isPremium && aiCustomUses >= 2) {
-            setShowAiAddonModal(true);
             return;
         }
         if (selectedConceptIndex === null) return;
@@ -492,15 +489,13 @@ const GeneratePlan = () => {
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to build custom itinerary.');
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to build custom itinerary.');
+            }
 
             if (!isPremium) {
-                const newAiUses = aiCustomUses + 1;
-                const newDailyReqs = dailyRequests + 1;
-                setAiCustomUses(newAiUses);
-                setDailyRequests(newDailyReqs);
-                localStorage.setItem('aiCustomUses', newAiUses.toString());
-                localStorage.setItem('dailyRequests', newDailyReqs.toString());
+                setGuidedUsage(prev => prev + 1);
             }
 
             navigate('/dashboard');
@@ -548,7 +543,7 @@ const GeneratePlan = () => {
             return;
         }
 
-        if (!isPremium && dailyRequests >= 5) {
+        if (!isPremium && classicUsage >= 3) {
             setShowPremiumModal(true);
             return;
         }
@@ -581,10 +576,9 @@ const GeneratePlan = () => {
                 }
 
                 if (!isPremium) {
-                    const newDailyReqs = dailyRequests + 1;
-                    setDailyRequests(newDailyReqs);
-                    localStorage.setItem('dailyRequests', newDailyReqs.toString());
+                    setClassicUsage(prev => prev + 1);
                 }
+
                 navigate('/dashboard');
             } catch (err) {
                 setError(err.message === 'Failed to fetch' ? 'Network error. We will save your data so you can retry!' : err.message);

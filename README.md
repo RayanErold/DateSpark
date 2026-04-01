@@ -3,81 +3,78 @@ Website: https://datespark.live
 
 Get a full date night plan in seconds. DateSpark is an AI-powered itinerary generator for busy couples, providing highly curated, location-accurate, and budget-aware date plans anywhere in the world.
 
-## 🌟 Features
+## 🌟 Key Features
 
-- **Instant Generation:** Creates up to 7 distinct chronological date variations instantly based on real Google Places data.
-- **Dynamic Search Radius:** Select exactly how far you want to travel (1 Mile to 15+ Miles) to keep your Uber fares low and timing perfect.
-- **Smart Booking Links:** 
-  - **Restaurants & Desserts:** Automatically generates a pre-filled OpenTable deep-link with absolute guests and timings.
-  - **Events & Entertainment:** Directs users to custom Google Search Query fallbacks dropping you onto ticketing aggregates seamlessly.
-- **Custom AI mode ("Describe your perfect date idea"):** Full conversation flow allowing users to pitch any text prompts and iterate alternatives alongside context suggestions.
-- **The Spark (Free) & DateSpark Plus Tiers:** 
-  - **The Spark:** 1-2 Premium Date Ideas, 2-Stop Previews, and 2 saved favorites.
-  - **DateSpark Plus:** Unlimited 5-Stop Itineraries, AI Customizer, 7-Day Recycle Bin, and priority features.
-- **Smart Filtering:** Filter by budget, start/end times, date vibe, and specific personal interests effortlessly.
-- **Multi-Neighborhood Builder:** Select up to 3 individual neighborhoods from a comprehensive list of **22+ iconic NYC districts** (SoHo, Chelsea, Williamsburg, etc.) for hyper-targeted location accuracy.
-- **One-Tap Venue Access:** New "Search on Google" button integrated into every itinerary card for instant access to reviews, photos, and menus.
+- **Instant Generation:** Creates chronological date plans based on real Google Places data.
+- **Dual Planning Modes**:
+  - **Classic ("Create My Own")**: Quick, location-targeted filters.
+  - **Guided Builder (AI)**: Natural language prompts for a personalized touch.
+- **Subscription & Monetization**:
+  - **The Spark (Free)**: 3 Classic and 5 Guided plans per day.
+  - **24-Hour Pass ($1.99)**: Unlimited access for 24 hours (One-time payment).
+  - **DateSpark Elite ($9.99/mo)**: Unlimited access with a **30-Day Free Trial**.
+- **100% Reliability**: Integrated **Stripe Webhooks** ensure automated upgrades even if the user closes the browser during checkout.
+- **Smart Booking Links**: Auto-generated OpenTable links and event ticketing search fallbacks.
+- **Multi-Neighborhood Selection**: Target specific NYC vibes (SoHo, Chelsea, Williamsburg, etc.).
 
-## Recent Updates 🚀
+## 🚀 Recent Updates (April 2026)
 
-- **Premium Mobile & NYC-First Audit (April 2026)**: Comprehensive site-wide audit restoring and expanding New York City neighborhoods (22+ areas). Optimized typography, navigation, and feedback components for a premium mobile-first experience.
-- **Visual Parity & Fixes**: Achieved 1:1 visual parity between the landing page and dashboard. Fixed critical "Switch Up" persistence errors and synchronized the Demo modal with the high-fidelity UI.
-- **Bulletproof Places Fail-safes**: Bypassed Places caching and incorporated automatic widened searches, removing budget filters or radius locks on Google failures.
+- **Backend Usage Enforcement**: Replaced client-side tracking with secure server-side limits (3 Classic / 5 Guided per day).
+- **Stripe Webhook Integration**: Automated membership syncing via secure Stripe webhook events (`checkout.session.completed`, etc.).
+- **30-Day Free Trial**: Introduced a risk-free trial for the Elite Membership tier.
+- **Metadata Analytics**: Implemented a "Metadata Bridge" between Stripe and Supabase for precise user tracking.
+- **Production URL Sync**: Configured production environment variables for seamless live domain redirects.
 
 ## 🛠️ Tech Stack
 
 - **Frontend:** React, Vite, Tailwind CSS, Lucide React
 - **Backend:** Node.js, Express
 - **Database:** Supabase (PostgreSQL)
-- **Data Integrations:** Google Places API, `@react-google-maps/api`, Gemini AI (for Concept Ideation), Resend (Waitlist Onboarding Emails)
+- **Integrations:** Google Places API, Gemini AI, Stripe (Billing), Resend (Emails)
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 You need the following API keys:
-- Supabase Project URL, Anon Key, and Service Role Key
-- Google Cloud Platform key (Places API & Maps JavaScript API Enabled)
-- Gemini API Key (If testing AI custom generators)
-- Resend API Key (Optional, for onboarding email dispatches layout verify checks)
+- **Supabase**: URL, Anon Key, and Service Role Key (for Webhooks)
+- **Google Cloud**: Places API & Maps JavaScript API
+- **Stripe**: Secret Key, Publishable Key, and **Webhook Secret**
+- **Gemini**: API Key for AI generation
 
 ### Environment Variables
 
-Create a `.env` file in the root directory with your keys:
+Create a `.env` file in the root directory:
 
 ```env
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+# Infrastructure
+PORT=5005
+FRONTEND_URL=https://datespark.live
+VITE_APP_URL=https://datespark.live
 
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-GEMINI_API_KEY=your_gemini_api_key
+# Supabase
+SUPABASE_URL=your_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+VITE_SUPABASE_URL=your_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
 
-# OPTIONAL for waitlist support
-RESEND_API_KEY=your_resend_api_key
-VITE_STRIPE_PUBLISHABLE_KEY=your publishable key
-STRIPE_SECRET_KEY=Your secret key
+# Google & AI
+VITE_GOOGLE_MAPS_API_KEY=your_google_key
+GEMINI_API_KEY=your_gemini_key
 
-PORT=5000
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Email
+RESEND_API_KEY=re_...
 ```
 
 ### Installation & Launch
 
-1. Install dependencies:
-```bash
-npm install
-```
-
-2. Start the backend:
-```bash
-npm run server
-# or run dev to launch concurrently
-```
-
-3. Start the dev layout (concurrent supports automatically):
-```bash
-npm run dev
-```
+1. Install dependencies: `npm install`
+2. Start the app: `npm run dev`
 
 ## 📝 License
 

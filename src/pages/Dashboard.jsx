@@ -108,15 +108,17 @@ const Dashboard = () => {
     const [isPremium, setIsPremium] = useState(() => {
         const premium = localStorage.getItem('isPremium') === 'true';
         const expiry = localStorage.getItem('premiumExpiry');
-        if (premium && expiry) {
-            if (Date.now() > parseInt(expiry, 10)) {
+        if (expiry) {
+            if (Date.now() > new Date(expiry).getTime()) {
                 localStorage.setItem('isPremium', 'false');
                 localStorage.removeItem('premiumExpiry');
                 return false;
             }
+            return true; // Expiry is in the future
         }
         return premium;
-    }); // Bound to localStorage for testing
+    });
+
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
     const [showIdeaModal, setShowIdeaModal] = useState(false);
@@ -173,6 +175,27 @@ const Dashboard = () => {
         } catch (err) {
             console.error('Checkout error:', err);
             alert(`Payment failed: ${err.response?.data?.error || err.message}`);
+        }
+    };
+
+    const handleManageSubscription = async () => {
+        try {
+            setIsLoading(true);
+            const response = await axios.post('/api/create-portal-session', {
+                userId: user?.id,
+                email: user?.email
+            });
+            
+            if (response.data.url) {
+                window.location.href = response.data.url;
+            } else {
+                throw new Error('Portal URL not returned');
+            }
+        } catch (err) {
+            console.error('Portal error:', err);
+            alert('Failed to open subscription management. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -285,13 +308,25 @@ const Dashboard = () => {
                     try {
                         const response = await fetch(`/api/user-premium/${user.id}`);
                         if (response.ok) {
-                            const { isPremium: dbStatus } = await response.json();
-                            setIsPremium(dbStatus);
-                            localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                            const { isPremium: dbStatus, premium_expiry } = await response.json();
+                            
+                            // Check if premium via boolean OR via active expiry
+                            const now = new Date();
+                            const hasActivePass = premium_expiry && new Date(premium_expiry) > now;
+                            const finalStatus = dbStatus || hasActivePass;
+
+                            setIsPremium(finalStatus);
+                            localStorage.setItem('isPremium', finalStatus ? 'true' : 'false');
+                            if (premium_expiry) {
+                                localStorage.setItem('premiumExpiry', premium_expiry);
+                            } else {
+                                localStorage.removeItem('premiumExpiry');
+                            }
                         }
                     } catch (syncErr) {
                         console.error('Dashboard Premium Sync Error:', syncErr);
                     }
+
 
 
                     // Fetch plans with explicit session refresh and advanced error logging
@@ -739,10 +774,11 @@ const Dashboard = () => {
     };
 
     const handleSwitchUp = async (idx, step) => {
-        if (!isPremium && switchUpUses >= 2) {
+        if (!isPremium) {
             setShowUpgradeModal(true);
             return;
         }
+
         setActiveSwitchIndex(idx);
         setIsSwitchingUp(true);
         setAlternatives([]);
@@ -1759,24 +1795,25 @@ const Dashboard = () => {
 
                         {/* DateSpark Plus / Monthly */}
                         <div className="bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-5 text-white text-left relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-navy-100/20 flex flex-col justify-between">
+                            <div className="absolute top-0 right-0 bg-coral text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
+                                30 Days Free
+                            </div>
                             <div>
                                 <h4 className="text-lg font-black mb-1">DateSpark Plus</h4>
                                 <p className="text-white/70 text-[11px] mb-3">Unlimited planning + Premium hacks.</p>
                                 <div className="flex items-end gap-1 mb-4">
                                     <span className="text-2xl font-black">$9.99</span>
-                                    <span className="text-white/50 text-xs mb-1">/mo</span>
+                                    <span className="text-white/50 text-xs mb-1">/mo after trial</span>
                                 </div>
                                 <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
+                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> 30-Day Free Trial Included</li>
                                     <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Theme customization</li>
                                     <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> AI plans customizer</li>
                                     <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Unlimited plans generation</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Access to unlimited swap spots</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Access to best venues</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority access to new features</li>
                                 </ul>
                             </div>
                             <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
-                                Upgrade Now
+                                Start Free Trial
                             </button>
                         </div>
                     </div>
@@ -2079,16 +2116,18 @@ const Dashboard = () => {
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Check className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
                                             <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Unlimited plans generation" : "Up to 5 date plans per day"}
+                                                {isPremium ? "Unlimited plans generation" : "3 Classic / 5 Guided plans per day"}
                                             </span>
+
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
                                                 {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Check className="w-3.5 h-3.5 text-gray-400 font-bold" />}
                                             </div>
                                             <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Access to unlimited swap spots" : "Limited swap spots"}
+                                                {isPremium ? "Access to unlimited swap spots" : "Swap spots gated"}
                                             </span>
+
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
@@ -2127,42 +2166,38 @@ const Dashboard = () => {
                                     {isPremium ? (
                                         <div className="flex flex-col gap-3">
                                             <div className="flex flex-col sm:flex-row gap-3">
-                                                <button className="flex-1 py-3 px-6 bg-navy text-white rounded-xl font-bold hover:bg-navy/90 transition-colors">
-                                                    Manage Billing Info
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        if (window.confirm('Are you sure you want to cancel your DateSpark Plus subscription?')) {
-                                                            setIsPremium(false);
-                                                            localStorage.setItem('isPremium', 'false');
-                                                        }
-                                                    }}
-                                                    className="py-3 px-6 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
+                                                <button 
+                                                    onClick={handleManageSubscription}
+                                                    disabled={isLoading}
+                                                    className="flex-1 py-3.5 px-6 bg-navy text-white rounded-xl font-bold hover:bg-navy/90 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]"
                                                 >
-                                                    Cancel Subscription
+                                                    {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                                                    Manage Subscription & Billing
+                                                    <ExternalLink className="w-4 h-4" />
                                                 </button>
                                             </div>
-                                            <p className="text-[11px] text-gray-400 text-center font-medium">* Cancel anytime. Access remains active until billing period ends.</p>
+                                            <p className="text-[11px] text-gray-400 text-center font-medium">✨ You are a premium member. Manage your payments or cancel via Stripe Portal.</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
                                             <div className="bg-coral/5 border border-coral/20 p-4 rounded-2xl flex items-center justify-between mb-4">
                                                 <div>
-                                                    <h5 className="text-[11px] font-black text-coral uppercase tracking-widest">Developer Mode</h5>
-                                                    <p className="text-[10px] text-gray-500 font-medium">Test Premium logic with DB Sync</p>
+                                                    <h5 className="text-[11px] font-black text-coral uppercase tracking-widest">30-Day Free Trial</h5>
+                                                    <p className="text-[10px] text-gray-500 font-medium">Try DateSpark Plus for 30 days, free!</p>
                                                 </div>
                                                 <button 
-                                                    onClick={() => syncPremiumWithDB(true)}
+                                                    onClick={() => setShowUpgradeModal(true)}
                                                     className="bg-coral text-white px-4 py-1.5 rounded-lg text-[10px] font-black shadow-md hover:bg-coral/90 transition-all active:scale-95"
                                                 >
-                                                    GO PRO (DEV)
+                                                    CLAIM TRIAL
                                                 </button>
                                             </div>
+
                                             <h4 className="text-sm font-black text-navy mt-6 mb-2">Available Plans to Upgrade</h4>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 {[
-                                                    { name: "24-Hour Pass", price: "$1.99", desc: "Unlimited plans, Switch Up & Booking.", period: "24hr", type: 'daily' },
-                                                    { name: "DateSpark Plus", price: "$9.99", desc: "AI Customizer, 7-Day Bin & Priority features.", period: "mo", type: 'premium' }
+                                                    { name: "24-Hour Pass", price: "$1.99", desc: "Unlimited plans, Swap Spot & Directions.", period: "24hr", type: 'daily' },
+                                                    { name: "DateSpark Plus", price: "Free", desc: "30-day trial, then $9.99/mo. Cancel anytime.", period: "30d", type: 'premium' }
                                                 ].map((sub, idx) => (
                                                     <div key={idx} className="bg-white border border-gray-100 p-4 rounded-2xl flex flex-col justify-between hover:border-coral/40 transition-all shadow-sm">
                                                         <div>
@@ -2174,31 +2209,18 @@ const Dashboard = () => {
                                                             onClick={() => handleBuyPass(sub.type)}
                                                             className="w-full mt-3 py-2 bg-navy text-white rounded-xl font-bold text-xs hover:bg-navy/90 transition-colors"
                                                         >
-                                                            Select Plan
+                                                            {sub.type === 'premium' ? 'Start Free Trial' : 'Get 24h Pass'}
                                                         </button>
+
                                                     </div>
                                                 ))}
-                                                {!isPremium && selectedPlan.isPartiallyLocked && idx === 2 && (
-                                                    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center p-6 text-center bg-white/10 backdrop-blur-[2px] rounded-2xl border border-white/20 shadow-xl">
-                                                        <div className="w-12 h-12 bg-coral rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-coral/20">
-                                                            <Lock className="w-6 h-6 text-white" />
-                                                        </div>
-                                                        <h4 className="text-lg font-black text-navy mb-1 tracking-tight">Full Plan Locked</h4>
-                                                        <p className="text-[12px] font-bold text-gray-500 mb-4 max-w-[200px]">Unlock all {selectedPlan.itinerary.steps.length} stops and premium features.</p>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }}
-                                                            className="bg-navy text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg hover:scale-105 transition-all active:scale-95"
-                                                        >
-                                                            Upgrade Now
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         )}
+
 
                         {settingsTab === 'preferences' && (
                             <div className="max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -2237,16 +2259,13 @@ const Dashboard = () => {
                                                 <button
                                                     key={theme.id}
                                                     onClick={() => {
-                                                        if (!isPremium && theme.id !== 'theme_light_id_placeholder') { // Wait, or just theme.id !== 'light'
-                                                            if (!isPremium && theme.id !== 'light') {
-                                                                setShowUpgradeModal(true);
-                                                            } else {
-                                                                setAppTheme(theme.id);
-                                                            }
+                                                        if (!isPremium && theme.id !== 'light') {
+                                                            setShowUpgradeModal(true);
                                                         } else {
                                                             setAppTheme(theme.id);
                                                         }
                                                     }}
+
                                                     className={`p-4 rounded-xl border flex items-center justify-between transition-all ${appTheme === theme.id ? 'border-coral shadow-sm bg-coral/5' : 'border-gray-100 hover:border-gray-200 bg-white'} ${!isPremium && theme.id !== 'light' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
                                                 >
                                                     <div className="flex items-center gap-3">

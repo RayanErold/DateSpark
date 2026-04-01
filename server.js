@@ -52,12 +52,114 @@ const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
 // Middleware
 app.use(cors());
+
+// --- STRIPE WEBHOOK (Raw Body Required) ---
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+
+    try {
+        if (!stripe || !webhookSecret) throw new Error('Stripe or Webhook Secret missing');
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err) {
+        console.error(`[WEBHOOK ERROR] Signature verification failed: ${err.message}`);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    console.log(`[STRIPE WEBHOOK] Received event type: ${event.type}`);
+
+    try {
+        switch (event.type) {
+            case 'checkout.session.completed': {
+                const session = event.data.object;
+                const userId = session.metadata?.userId || session.client_reference_id;
+                const planType = session.metadata?.planType;
+
+                if (!userId) {
+                    console.warn('[WEBHOOK] No user ID found in session metadata');
+                    break;
+                }
+
+                // CASE 1: 24-HOUR PASS (One-time payment)
+                if (session.mode === 'payment') {
+                    const expiryDate = new Date();
+                    expiryDate.setHours(expiryDate.getHours() + 24);
+
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ premium_expiry: expiryDate.toISOString() })
+                        .eq('id', userId);
+
+                    if (error) throw error;
+                    console.log(`[WEBHOOK] 24-Hour Pass activated for user: ${userId}`);
+                }
+
+                // CASE 2: ELITE MEMBERSHIP (Subscription Start)
+                if (session.mode === 'subscription') {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ is_premium: true })
+                        .eq('id', userId);
+
+                    if (error) throw error;
+                    console.log(`[WEBHOOK] Elite Membership activated for user: ${userId}`);
+                }
+                break;
+            }
+
+            case 'customer.subscription.created':
+            case 'customer.subscription.updated': {
+                const subscription = event.data.object;
+                const userId = subscription.metadata?.userId;
+                
+                if (userId && subscription.status === 'active' || subscription.status === 'trialing') {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ is_premium: true })
+                        .eq('id', userId);
+                    if (error) throw error;
+                    console.log(`[WEBHOOK] Profile synced to active/trialling subscription: ${userId}`);
+                }
+                break;
+            }
+
+            case 'customer.subscription.deleted': {
+                const subscription = event.data.object;
+                const userId = subscription.metadata?.userId;
+
+                if (userId) {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ is_premium: false })
+                        .eq('id', userId);
+                    if (error) throw error;
+                    console.log(`[WEBHOOK] Elite Membership cancelled/expired for user: ${userId}`);
+                }
+                break;
+            }
+
+            default:
+                console.log(`[WEBHOOK] Unhandled event type ${event.type}`);
+        }
+
+        res.json({ received: true });
+    } catch (err) {
+        console.error(`[WEBHOOK PROCESSING ERROR] ${err.message}`);
+        res.status(500).send(`Processing Error: ${err.message}`);
+    }
+});
+
+// Regular Body Parser for all other routes
 app.use(express.json());
 
 // --- FAIL-SAFE SUPABASE INITIALIZATION ---
 let supabase = null;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
 
 try {
     if (supabaseUrl && supabaseServiceKey) {
@@ -103,10 +205,48 @@ const runDiagnostics = async () => {
 
 runDiagnostics();
 
+// --- Stripe Customer Helper ---
+const getOrCreateStripeCustomer = async (userId, email) => {
+    try {
+        // 1. Check if user already has a customer ID in profiles
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('stripe_customer_id')
+            .eq('id', userId)
+            .single();
+
+        if (profile?.stripe_customer_id) {
+            return profile.stripe_customer_id;
+        }
+
+        // 2. Search Stripe by email
+        const customers = await stripe.customers.list({ email, limit: 1 });
+        if (customers.data.length > 0) {
+            const customerId = customers.data[0].id;
+            // Sync back to profile
+            await supabase.from('profiles').upsert({ id: userId, stripe_customer_id: customerId }, { onConflict: 'id' });
+            return customerId;
+        }
+
+        // 3. Create new customer
+        const customer = await stripe.customers.create({
+            email,
+            metadata: { supabaseUID: userId }
+        });
+
+        // Store in profiles
+        await supabase.from('profiles').upsert({ id: userId, stripe_customer_id: customer.id }, { onConflict: 'id' });
+        return customer.id;
+    } catch (err) {
+        console.error('Error in getOrCreateStripeCustomer:', err.message);
+        throw err;
+    }
+};
+
 // --- Stripe Checkout Endpoint ---
 app.post('/api/create-checkout-session', async (req, res) => {
     try {
-        const { planType } = req.body;
+        const { planType, userId, email } = req.body;
 
         let unitAmount = 99; // Default $0.99
         let productName = 'One-Night Pass';
@@ -124,15 +264,22 @@ app.post('/api/create-checkout-session', async (req, res) => {
             mode = 'payment';
         }
 
-        const session = await stripe.checkout.sessions.create({
+        // Ensure we have a customer ID for better tracking and portal support
+        let customerId;
+        if (userId && email) {
+            customerId = await getOrCreateStripeCustomer(userId, email);
+        }
+
+        const sessionOptions = {
             payment_method_types: ['card'],
+            customer: customerId,
             line_items: [{
                 price_data: {
                     currency: 'usd',
                     product_data: {
                         name: productName,
                         description: planType === 'premium'
-                            ? 'Unlimited date ideas, full itinerary access, map navigation, and premium switch up features.'
+                            ? 'Unlimited date ideas, full itinerary access, map navigation, and 30-day FREE trial!'
                             : '✅ Full 5-Stop Itinerary Access\n✅ Save Unlimited Favorites (24h)\n✅ Directions & Ride-sharing\n✅ Perfect for Tonight',
                     },
                     unit_amount: unitAmount,
@@ -141,9 +288,22 @@ app.post('/api/create-checkout-session', async (req, res) => {
                 quantity: 1,
             }],
             mode: mode,
+            metadata: { userId, planType }, // CRITICAL: Link payment to user for Webhook
             success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?stripe_payment=success`,
             cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?stripe_payment=canceled`,
-        });
+        };
+
+        // Add 30-day free trial and metadata for premium subscriptions
+        if (planType === 'premium' && mode === 'subscription') {
+            sessionOptions.subscription_data = {
+                trial_period_days: 30,
+                metadata: { userId, planType } // Ensure metadata is on the subscription itself
+            };
+        }
+
+
+        const session = await stripe.checkout.sessions.create(sessionOptions);
+
 
         // Return session id for redirect
         res.json({ id: session.id, url: session.url });
@@ -152,6 +312,27 @@ app.post('/api/create-checkout-session', async (req, res) => {
         res.status(500).json({ error: 'Failed to create checkout session' });
     }
 });
+
+// --- Stripe Customer Portal Endpoint ---
+app.post('/api/create-portal-session', async (req, res) => {
+    try {
+        const { userId, email } = req.body;
+        if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+        const customerId = await getOrCreateStripeCustomer(userId, email);
+
+        const session = await stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`,
+        });
+
+        res.json({ url: session.url });
+    } catch (error) {
+        console.error('Stripe Portal Error:', error);
+        res.status(500).json({ error: 'Failed to create portal session' });
+    }
+});
+
 
 // --- Feedback Endpoint ---
 app.post('/api/feedback', async (req, res) => {
@@ -792,36 +973,46 @@ app.post('/api/generate-custom-date', async (req, res) => {
         if (lng && isNaN(parsedLng)) return res.status(400).json({ error: 'Invalid longitude value.' });
         if (radius && isNaN(parsedRadius)) return res.status(400).json({ error: 'Invalid radius value.' });
 
-        // --- 2. TIER ENFORCEMENT ---
-        let isPremium = false;
+        // --- 2. TIER ENFORCEMENT & LIMITS ---
         try {
             const { data: profile, error: profError } = await supabase
                 .from('profiles')
-                .select('is_premium')
+                .select('is_premium, premium_expiry, guided_usage_today, last_usage_reset')
                 .eq('id', userId)
                 .single();
             
             if (profError && profError.code !== 'PGRST116') throw profError;
-            isPremium = profile?.is_premium || false;
 
-            const startOfToday = new Date();
-            startOfToday.setHours(0, 0, 0, 0);
-
-            const { count: dailyCount, error: countError } = await supabase
-                .from('plans')
-                .select('id', { count: 'exact', head: true })
-                .eq('user_id', userId)
-                .gte('created_at', startOfToday.toISOString());
+            const now = new Date();
+            const startOfToday = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
             
-            if (countError) throw countError;
+            const isPremium = profile?.is_premium || (profile?.premium_expiry && new Date(profile.premium_expiry) > now);
+            const lastReset = profile?.last_usage_reset || startOfToday;
+            let currentGuidedUsage = profile?.guided_usage_today || 0;
 
-            if (!isPremium && dailyCount && dailyCount >= 5) {
-                return res.status(403).json({ error: 'Daily limit reached (5/day). Upgrade to Premium for unlimited!' });
+            // Reset counts if last reset was in the past
+            if (lastReset !== startOfToday) {
+                currentGuidedUsage = 0;
+            }
+
+            if (!isPremium && currentGuidedUsage >= 5) {
+                return res.status(403).json({ error: 'Daily Guided Builder limit reached (5/day). Upgrade to Plus for unlimited access + 30-day Free Trial!' });
+            }
+
+            // Increment Guided Usage
+            if (!isPremium) {
+                await supabase
+                    .from('profiles')
+                    .update({ 
+                        guided_usage_today: currentGuidedUsage + 1,
+                        last_usage_reset: startOfToday
+                    })
+                    .eq('id', userId);
             }
         } catch (tierErr) {
-            console.error('Tier enforcement error - Continuing with cautious defaults:', tierErr.message);
-            // We continue even if tier check fails, but log it for debugging
+            console.error('Guided Tier enforcement error:', tierErr.message);
         }
+
 
         // --- 3. GEOLOCATION / COORDINATES ---
         let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
@@ -1033,46 +1224,49 @@ app.post('/api/generate-date', async (req, res) => {
     }
 
     try {
-        // --- TIER ENFORCEMENT: Auto-create profile for new users ---
+        // --- TIER ENFORCEMENT & LIMITS ---
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('is_premium')
+            .select('is_premium, premium_expiry, classic_usage_today, last_usage_reset')
             .eq('id', userId)
             .single();
 
-        // If no profile exists for this user, create one now (new user first plan)
+        // If no profile exists for this user, create one now
         if (profileError || !profile) {
             console.log(`[generate-date] No profile found for user ${userId}. Auto-creating...`);
-            const { error: createError } = await supabase
+            await supabase
                 .from('profiles')
                 .upsert(
-                    { id: userId, is_premium: false, updated_at: new Date().toISOString() },
+                    { id: userId, is_premium: false, updated_at: new Date().toISOString(), last_usage_reset: new Date().toISOString().split('T')[0] },
                     { onConflict: 'id' }
                 );
-            if (createError) {
-                console.error(`[generate-date] Failed to auto-create profile:`, createError.message);
-                // Continue anyway — don't block the user
-            } else {
-                console.log(`[generate-date] Profile auto-created for new user ${userId}`);
-            }
         }
 
-        const isPremium = profile?.is_premium || false;
+        const now = new Date();
+        const startOfToday = new Date().toISOString().split('T')[0];
+        const isPremium = profile?.is_premium || (profile?.premium_expiry && new Date(profile.premium_expiry) > now);
+        const lastReset = profile?.last_usage_reset || startOfToday;
+        let currentClassicUsage = profile?.classic_usage_today || 0;
 
-        // Daily Limit Check
+        // Reset counts if last reset was in the past
+        if (!isPremium && lastReset !== startOfToday) {
+            currentClassicUsage = 0;
+        }
+
+        // Enforce 3-request limit for Classic (Manual) mode
+        if (!isPremium && currentClassicUsage >= 3) {
+            return res.status(403).json({ error: 'Daily "Create My Own" limit reached (3/day). Get a 24-Hour Pass for unlimited tonight!' });
+        }
+
+        // Increment Classic Usage
         if (!isPremium) {
-            const startOfToday = new Date();
-            startOfToday.setHours(0, 0, 0, 0);
-
-            const { count: dailyCount } = await supabase
-                .from('plans')
-                .select('id', { count: 'exact', head: true })
-                .eq('user_id', userId)
-                .gte('created_at', startOfToday.toISOString());
-
-            if (dailyCount && dailyCount >= 5) {
-                return res.status(403).json({ error: 'Daily limit reached (5/day). Upgrade to Premium for unlimited!' });
-            }
+            await supabase
+                .from('profiles')
+                .update({ 
+                    classic_usage_today: currentClassicUsage + 1,
+                    last_usage_reset: startOfToday
+                })
+                .eq('id', userId);
         }
 
         const effectiveIdeaCount = isPremium ? ideaCount : Math.min(ideaCount, 2);
@@ -1613,22 +1807,46 @@ app.get('/api/user-premium/:userId', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('is_premium')
+            .select('is_premium, premium_expiry, classic_usage_today, guided_usage_today, last_usage_reset')
             .eq('id', userId)
             .single();
 
         if (error) {
             console.error('[Proxy] Fetch Premium Status Error:', error);
-            // If user doesn't exist in profiles yet, they are default Free (false)
-            return res.json({ isPremium: false });
+            return res.json({ 
+                isPremium: false, 
+                classic_usage_today: 0, 
+                guided_usage_today: 0 
+            });
         }
 
-        res.json({ isPremium: data?.is_premium || false });
+        const now = new Date();
+        const startOfToday = new Date().toISOString().split('T')[0];
+        
+        // Effective premium check (Boolean OR Active 24h Pass)
+        const hasActivePass = data?.premium_expiry && new Date(data.premium_expiry) > now;
+        const isPremium = data?.is_premium || hasActivePass;
+
+        // Reset usage display if date has shifted
+        let classicUsage = data?.classic_usage_today || 0;
+        let guidedUsage = data?.guided_usage_today || 0;
+        if (data?.last_usage_reset !== startOfToday) {
+            classicUsage = 0;
+            guidedUsage = 0;
+        }
+
+        res.json({ 
+            isPremium, 
+            premium_expiry: data?.premium_expiry,
+            classic_usage_today: classicUsage,
+            guided_usage_today: guidedUsage
+        });
     } catch (err) {
         console.error('[Proxy] GET Premium Server Error:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 
 app.post('/api/update-premium-status', async (req, res) => {
     const { userId, isPremium } = req.body;
