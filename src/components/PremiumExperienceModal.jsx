@@ -49,7 +49,9 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
 
                     <h2 className="text-2xl sm:text-3xl font-black text-navy mb-2 tracking-tight font-[Outfit]">Upgrade to Premium</h2>
                     <p className="text-gray-500 text-sm font-medium leading-relaxed max-w-[400px] mx-auto mb-10">
-                        Stop planning, start dating. Choose the plan that fits your night.
+                        {limitType 
+                            ? "You've reached your free daily limit. Upgrade for unlimited access, or try again tomorrow when your limits automatically reset." 
+                            : "Stop planning, start dating. Choose the plan that fits your night."}
                     </p>
 
                     {/* Even Split Grid */}

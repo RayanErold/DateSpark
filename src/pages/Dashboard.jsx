@@ -1215,7 +1215,7 @@ const Dashboard = () => {
             </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-32">
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                 <div>
@@ -1594,19 +1594,16 @@ const Dashboard = () => {
                                                         </a>
                                                     )}
 
-                                                    <div className="flex flex-col items-start gap-2">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleSwitchUp(idx, step);
-                                                            }}
-                                                            className="px-3 py-2 bg-violet-600 text-white text-[10px] font-black rounded-xl hover:bg-violet-700 transition-all inline-flex items-center gap-1.5 shadow-lg shadow-violet-500/20 active:scale-95 group/btn"
-                                                        >
-                                                            <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
-                                                            Swap This Spot
-                                                        </button>
-                                                        {!isPremium && <UsageBadge usage={usage.swap} limit={limits.swap} label="Swaps Remaining" isPremium={isPremium} />}
-                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSwitchUp(idx, step);
+                                                        }}
+                                                        className="px-3 py-2 bg-violet-600 text-white text-[10px] font-black rounded-xl hover:bg-violet-700 transition-all inline-flex items-center gap-1.5 shadow-lg shadow-violet-500/20 active:scale-95 group/btn"
+                                                    >
+                                                        <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
+                                                        Swap This Spot
+                                                    </button>
 
                                                     <a
                                                         href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
@@ -2063,33 +2060,61 @@ const Dashboard = () => {
                                     </div>
 
                                     <div className="space-y-3 mb-8">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-amber-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Zap className="w-3.5 h-3.5 text-amber-600 font-bold" />}
-                                            </div>
-                                            <span className="font-bold text-navy text-[13px]">
-                                                {isPremium ? "Unlimited Classic plans" : "3 Classic plans per day"}
-                                            </span>
-                                            {!isPremium && <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">{usage.classic}/{limits.classic} Used</span>}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-violet-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Crown className="w-3.5 h-3.5 text-violet-600 font-bold" />}
-                                            </div>
-                                            <span className="font-bold text-navy text-[13px]">
-                                                {isPremium ? "Unlimited AI Custom plans" : "2 AI Custom plans per day"}
-                                            </span>
-                                            {!isPremium && <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">{usage.guided}/{limits.guided} Used</span>}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-blue-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Zap className="w-3.5 h-3.5 text-blue-600 font-bold" />}
-                                            </div>
-                                            <span className="font-bold text-navy text-[13px]">
-                                                {isPremium ? "Unlimited Swap Spots" : "10 Swap Spots per day"}
-                                            </span>
-                                            {!isPremium && <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">{usage.swap}/{limits.swap} Used</span>}
-                                        </div>
+                                        {isPremium ? (
+                                            [
+                                                "Unlimited plans generation",
+                                                "30-Day Unrestricted Access",
+                                                "Priority AI Generation",
+                                                "Save Unlimited Favorites",
+                                                "Custom Theme Unlock",
+                                                "Early Access to Features"
+                                            ].map((feature, idx) => (
+                                                <div key={idx} className="flex items-center gap-3">
+                                                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-green-100">
+                                                        <Check className="w-3.5 h-3.5 text-green-600 font-bold" />
+                                                    </div>
+                                                    <span className="font-bold text-navy text-[13px]">
+                                                        {feature}
+                                                    </span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-100">
+                                                        <Zap className="w-3.5 h-3.5 text-amber-600 font-bold" />
+                                                    </div>
+                                                    <span className="font-bold text-navy text-[13px]">
+                                                        3 Classic plans per day
+                                                    </span>
+                                                    <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">
+                                                        {usage.classic}/{limits.classic} Used
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-violet-100">
+                                                        <Crown className="w-3.5 h-3.5 text-violet-600 font-bold" />
+                                                    </div>
+                                                    <span className="font-bold text-navy text-[13px]">
+                                                        2 AI Custom plans per day
+                                                    </span>
+                                                    <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">
+                                                        {usage.guided}/{limits.guided} Used
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100">
+                                                        <Zap className="w-3.5 h-3.5 text-blue-600 font-bold" />
+                                                    </div>
+                                                    <span className="font-bold text-navy text-[13px]">
+                                                        10 Swap Spots per day
+                                                    </span>
+                                                    <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">
+                                                        {usage.swap}/{limits.swap} Used
+                                                    </span>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
 
                                     {isPremium ? (

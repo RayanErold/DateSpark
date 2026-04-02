@@ -549,6 +549,15 @@ const GeneratePlan = () => {
     const handleSubmitClassic = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
 
+        // Manual validation override
+        if (!formData.location || !formData.date || !formData.time || !formData.endTime) {
+            setError("Please fill out all required fields under 'Where & When'.");
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        setError(null);
+
         // --- NYC ONLY GATING ---
         if (!isLocationInNYC(formData.location, formData.lat, formData.lng)) {
             setDetectedCity(formData.location);
@@ -684,7 +693,6 @@ const GeneratePlan = () => {
                         <div className="flex items-center gap-2 sm:gap-3">
                             <MapPin className={`w-4 h-4 sm:w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
                         </div>
-                        <UsageBadge usage={usage.classic} limit={limits.classic} label="Daily Limit" isPremium={isPremium} />
                     </button>
                     <button
                         onClick={() => handleModeSwitch('ai_custom')}
@@ -694,7 +702,6 @@ const GeneratePlan = () => {
                             <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
                             Create your own
                         </div>
-                        <UsageBadge usage={usage.guided} limit={limits.guided} label="Daily Limit" isPremium={isPremium} />
                     </button>
                 </div>
 
@@ -1193,7 +1200,8 @@ const GeneratePlan = () => {
                             {/* MAIN SUBMIT BUTTONS */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12 mb-6">
                                 <button
-                                    type="submit"
+                                    type="button"
+                                    onClick={handleSubmitClassic}
                                     disabled={isGenerating}
                                     className="sm:col-span-2 w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group"
                                 >
