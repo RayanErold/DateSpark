@@ -6,6 +6,8 @@ import { useJsApiLoader } from '@react-google-maps/api';
 import BottomNav from '../components/BottomNav';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
+import PremiumExperienceModal from '../components/PremiumExperienceModal';
+import UsageBadge from '../components/UsageBadge';
 
 const LIBRARIES = ['places'];
 
@@ -25,9 +27,22 @@ const GeneratePlan = () => {
     const [mode, setMode] = useState('classic'); // 'classic' or 'ai_custom'
     const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); 
     const [showPremiumModal, setShowPremiumModal] = useState(false);
+    const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
     const [showAiAddonModal, setShowAiAddonModal] = useState(false);
     const [showDietaryOptions, setShowDietaryOptions] = useState(false);
     const [error, setError] = useState(null);
+
+    // Usage state for Free users
+    const [usage, setUsage] = useState({
+        classic: 0,
+        guided: 0,
+        swap: 0
+    });
+    const [limits, setLimits] = useState({
+        classic: 3,
+        guided: 2,
+        swap: 10
+    });
 
     // Google Maps Autocomplete states
     const { isLoaded } = useJsApiLoader({
@@ -59,12 +74,22 @@ const GeneratePlan = () => {
                 const { data: { user: currentUser } } = await supabase.auth.getUser();
                 setUser(currentUser);
 
-                    // Fetch premium status from secure backend proxy to avoid 400 UUID errors
-                    const response = await fetch(`/api/user-premium/${currentUser.id}`);
-                    if (response.ok) {
-                        const { isPremium: dbStatus } = await response.json();
+                    // Fetch premium status and usage from secure backend proxy
+                    const [premRes, usageRes] = await Promise.all([
+                        fetch(`/api/user-premium/${currentUser.id}`),
+                        fetch(`/api/user-usage/${currentUser.id}`)
+                    ]);
+
+                    if (premRes.ok) {
+                        const { isPremium: dbStatus } = await premRes.json();
                         setIsPremium(dbStatus);
                         localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                    }
+
+                    if (usageRes.ok) {
+                        const data = await usageRes.json();
+                        setUsage(data.usage);
+                        setLimits(data.limits);
                     }
             } catch (err) {
                 console.error('GeneratePlan initAuth error:', err);
@@ -223,24 +248,6 @@ const GeneratePlan = () => {
         "Fort Greene", "Park Slope"
     ];
 
-    // AI Custom Uses tracking for Free users
-    const [aiCustomUses, setAiCustomUses] = useState(() => {
-        const saved = localStorage.getItem('aiCustomUses');
-        return saved ? parseInt(saved, 10) : 0;
-    });
-
-    const [dailyRequests, setDailyRequests] = useState(() => {
-        const saved = localStorage.getItem('dailyRequests');
-        const lastDate = localStorage.getItem('lastRequestDate');
-        const todayStr = new Date().toDateString();
-        
-        if (lastDate !== todayStr) {
-            localStorage.setItem('dailyRequests', '0');
-            localStorage.setItem('lastRequestDate', todayStr);
-            return 0;
-        }
-        return saved ? parseInt(saved, 10) : 0;
-    });
 
     // AI Flow states
     const [initialPrompt, setInitialPrompt] = useState('');
@@ -268,7 +275,8 @@ const GeneratePlan = () => {
         neighborhoods: [],
         usePreciseLocation: false,
         lat: null,
-        lng: null
+        lng: null,
+        is_favorite: false
     });
 
     const [locationLoading, setLocationLoading] = useState(false);
@@ -374,7 +382,8 @@ const GeneratePlan = () => {
     };
 
     const handleModeSwitch = (newMode) => {
-        if (newMode === 'ai_custom' && !isPremium && guidedUsage >= 5) {
+        if (newMode === 'ai_custom' && !isPremium && usage.guided >= limits.guided) {
+            setLimitType('guided');
             setShowPremiumModal(true);
             return;
         }
@@ -390,7 +399,8 @@ const GeneratePlan = () => {
             return;
         }
 
-        if (!isPremium && guidedUsage >= 5) {
+        if (!isPremium && usage.guided >= limits.guided) {
+            setLimitType('guided');
             setShowPremiumModal(true);
             return;
         }
@@ -461,7 +471,8 @@ const GeneratePlan = () => {
 
     const handleGenerateCustom = async (e) => {
         e.preventDefault();
-        if (!isPremium && guidedUsage >= 5) {
+        if (!isPremium && usage.guided >= limits.guided) {
+            setLimitType('guided');
             setShowPremiumModal(true);
             return;
         }
@@ -485,7 +496,8 @@ const GeneratePlan = () => {
                     radius: customRadius,
                     location: formData.location,
                     lat: formData.lat,
-                    lng: formData.lng
+                    lng: formData.lng,
+                    is_favorite: formData.is_favorite
                 })
             });
 
@@ -495,14 +507,15 @@ const GeneratePlan = () => {
             }
 
             if (!isPremium) {
-                setGuidedUsage(prev => prev + 1);
+                setUsage(prev => ({ ...prev, guided: prev.guided + 1 }));
             }
 
             navigate('/dashboard');
         } catch (err) {
             setError(err.message);
             setIsGenerating(false);
-            if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('upgrade')) {
+            if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('reached')) {
+                setLimitType('guided');
                 setShowPremiumModal(true);
             }
         }
@@ -543,12 +556,14 @@ const GeneratePlan = () => {
             return;
         }
 
-        if (!isPremium && classicUsage >= 3) {
+        if (!isPremium && usage.classic >= limits.classic) {
+            setLimitType('classic');
             setShowPremiumModal(true);
             return;
         }
 
         const performGenerate = async (retryCount = 0) => {
+            setIsGenerating(true);
             try {
                 const currentUser = user || (await supabase.auth.getUser()).data.user;
                 if (!currentUser) throw new Error('You must be logged in.');
@@ -576,14 +591,15 @@ const GeneratePlan = () => {
                 }
 
                 if (!isPremium) {
-                    setClassicUsage(prev => prev + 1);
+                    setUsage(prev => ({ ...prev, classic: prev.classic + 1 }));
                 }
 
                 navigate('/dashboard');
             } catch (err) {
                 setError(err.message === 'Failed to fetch' ? 'Network error. We will save your data so you can retry!' : err.message);
                 setIsGenerating(false);
-                if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('upgrade')) {
+                if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('reached')) {
+                    setLimitType('classic');
                     setShowPremiumModal(true);
                 }
             }
@@ -663,16 +679,22 @@ const GeneratePlan = () => {
                 <div className="flex bg-gray-200/50 backdrop-blur-sm p-1 sm:p-1.5 rounded-2xl sm:rounded-[1.5rem] mb-8 sm:mb-12 border border-white shadow-xl shadow-navy/5">
                     <button
                         onClick={() => handleModeSwitch('classic')}
-                        className={`flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${mode === 'classic' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
+                        className={`flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'classic' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
                     >
-                        <MapPin className={`w-4 h-4 sm:w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <MapPin className={`w-4 h-4 sm:w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
+                        </div>
+                        <UsageBadge usage={usage.classic} limit={limits.classic} label="Daily Limit" isPremium={isPremium} />
                     </button>
                     <button
                         onClick={() => handleModeSwitch('ai_custom')}
-                        className={`relative flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${mode === 'ai_custom' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
+                        className={`relative flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'ai_custom' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
                     >
-                        <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
-                        Create your own date
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
+                            Create your own
+                        </div>
+                        <UsageBadge usage={usage.guided} limit={limits.guided} label="Daily Limit" isPremium={isPremium} />
                     </button>
                 </div>
 
@@ -852,6 +874,19 @@ const GeneratePlan = () => {
                                         >
                                             {isSuggesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Wand2 className="w-5 h-5" /> Pitch me some ideas</>}
                                         </button>
+                                        <div className="flex items-center gap-3 px-2 py-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
+                                                className={`w-10 h-6 rounded-full transition-all duration-300 relative flex items-center p-1 shadow-inner ${formData.is_favorite ? 'bg-coral' : 'bg-gray-300'}`}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.is_favorite ? 'translate-x-4' : 'translate-x-0'}`} />
+                                            </button>
+                                            <span className="text-[13px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
+                                                <Heart className={`w-3.5 h-3.5 ${formData.is_favorite ? 'fill-coral text-coral' : 'text-gray-400'}`} />
+                                                Save to Favorites Automatically
+                                            </span>
+                                        </div>
                                     </form>
                                 </div>
                             </div>
@@ -1165,6 +1200,20 @@ const GeneratePlan = () => {
                                     {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" /> Generate Itineraries</>}
                                 </button>
 
+                                <div className="sm:col-span-2 flex items-center gap-3 px-4 py-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
+                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative flex items-center p-1 shadow-inner ${formData.is_favorite ? 'bg-coral' : 'bg-gray-300'}`}
+                                    >
+                                        <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.is_favorite ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
+                                    <span className="text-[14px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
+                                        <Heart className={`w-4 h-4 ${formData.is_favorite ? 'fill-coral text-coral' : 'text-gray-400'}`} />
+                                        Save to Favorites Automatically
+                                    </span>
+                                </div>
+
                                 {/* Smart Loading Overlay */}
                                 {isGenerating && (
                                     <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
@@ -1212,85 +1261,6 @@ const GeneratePlan = () => {
                 )}
             </main>
 
-            {/* Premium Upgrade Modal */}
-            {showPremiumModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm px-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all p-8 text-center relative animate-fade-in-up p-6 md:p-8">
-                        <button
-                            onClick={() => setShowPremiumModal(false)}
-                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-navy transition-colors bg-gray-50 rounded-full z-20"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div className="w-16 h-16 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-coral/30 rotate-3">
-                            <Heart className="w-8 h-8 fill-white text-white" />
-                        </div>
-
-                        <h2 className="text-2xl font-black text-navy mb-2">Upgrade to Premium</h2>
-                        <p className="text-gray-500 mb-6 max-w-md mx-auto font-medium text-xs">
-                            Unlock full AI-driven itineraries, unlimited saving features, and city support.
-                        </p>
-
-                        <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto px-1">
-                            {/* Daily Date Pass */}
-                            <div className="bg-white border-2 border-coral rounded-2xl p-5 text-left relative group hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-                                <div className="absolute top-0 right-0 bg-coral text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
-                                    Most Popular
-                                </div>
-                                <div>
-                                    <h4 className="text-lg font-black text-navy mb-1">24-Hour Pass</h4>
-                                    <p className="text-gray-400 text-[11px] mb-3">Perfect for tonight's date.</p>
-                                    <div className="flex items-end gap-1 mb-4">
-                                        <span className="text-2xl font-black text-navy">$1.99</span>
-                                        <span className="text-gray-400 text-xs mb-1 uppercase">/24hr</span>
-                                    </div>
-                                    <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited plans generation</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Access to unlimited swap spots</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Access to best venues</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlock all stops instantly</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Get directions & rides</li>
-                                    </ul>
-                                </div>
-                                <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-coral text-white text-xs font-black rounded-xl hover:bg-coral/90 transition-colors shadow-lg mt-auto">
-                                    Get Pass
-                                </button>
-                            </div>
-
-                            {/* DateSpark Plus / Monthly */}
-                            <div className="bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-5 text-white text-left relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-navy-100/20 flex flex-col justify-between">
-                                <div>
-                                    <h4 className="text-lg font-black mb-1">DateSpark Plus</h4>
-                                    <p className="text-white/70 text-[11px] mb-3">Unlimited planning + Premium hacks.</p>
-                                    <div className="flex items-end gap-1 mb-4">
-                                        <span className="text-2xl font-black">$9.99</span>
-                                        <span className="text-white/50 text-xs mb-1">/mo</span>
-                                    </div>
-                                    <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Theme customization</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> AI plans customizer</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Unlimited plans generation</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Access to unlimited swap spots</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Access to best venues</li>
-                                        <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Priority access to new features</li>
-                                    </ul>
-                                </div>
-                                <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
-                                    Upgrade Now
-                                </button>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => setShowPremiumModal(false)}
-                            className="w-full py-3 mt-4 text-gray-400 font-bold hover:text-gray-600 transition-colors text-sm"
-                        >
-                            Maybe Later
-                        </button>
-                    </div>
-                </div>
-            )}
 
             {/* AI Add-On Modal */}
             {showAiAddonModal && (
@@ -1404,6 +1374,12 @@ const GeneratePlan = () => {
                     </div>
                 </div>
             )}
+            <PremiumExperienceModal 
+                isOpen={showPremiumModal} 
+                onClose={() => { setShowPremiumModal(false); setLimitType(null); }}
+                onUpgrade={(type) => handleBuyPass(type || 'ELITE')}
+                limitType={limitType}
+            />
         </div>
     );
 };

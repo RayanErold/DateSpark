@@ -33,6 +33,12 @@ const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null; // Initialize Resend conditionally
 const SERVER_VERSION = '1.0.1-ROBUST';
 
+const LIMITS = {
+    classic: 3,
+    guided: 2,
+    swap: 10
+};
+
 // --- FAIL-SAFE STRIPE INITIALIZATION ---
 let stripe = null;
 try {
@@ -49,6 +55,22 @@ try {
 const app = express();
 const PORT = process.env.PORT || 5005;
 const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
+
+// --- FAIL-SAFE SUPABASE INITIALIZATION ---
+let supabase = null;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+try {
+    if (supabaseUrl && supabaseServiceKey) {
+        supabase = createClient(supabaseUrl, supabaseServiceKey);
+        console.log(`[${SERVER_VERSION}] Supabase Client - INITIALIZED`);
+    } else {
+        console.error(`[${SERVER_VERSION}] Supabase Client - CRITICAL: Missing URL or Service Key!`);
+    }
+} catch (err) {
+    console.error(`[${SERVER_VERSION}] Supabase Initialization FAILED:`, err.message);
+}
 
 // Middleware
 app.use(cors());
@@ -105,7 +127,7 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
                         .eq('id', userId);
 
                     if (error) throw error;
-                    console.log(`[WEBHOOK] Elite Membership activated for user: ${userId}`);
+                    console.log(`[WEBHOOK] DateSpark Plus activated for user: ${userId}`);
                 }
                 break;
             }
@@ -136,7 +158,7 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
                         .update({ is_premium: false })
                         .eq('id', userId);
                     if (error) throw error;
-                    console.log(`[WEBHOOK] Elite Membership cancelled/expired for user: ${userId}`);
+                    console.log(`[WEBHOOK] DateSpark Plus cancelled/expired for user: ${userId}`);
                 }
                 break;
             }
@@ -155,22 +177,6 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 // Regular Body Parser for all other routes
 app.use(express.json());
 
-// --- FAIL-SAFE SUPABASE INITIALIZATION ---
-let supabase = null;
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-
-try {
-    if (supabaseUrl && supabaseServiceKey) {
-        supabase = createClient(supabaseUrl, supabaseServiceKey);
-        console.log(`[${SERVER_VERSION}] Supabase Client - INITIALIZED`);
-    } else {
-        console.error(`[${SERVER_VERSION}] Supabase Client - CRITICAL: Missing URL or Service Key!`);
-    }
-} catch (err) {
-    console.error(`[${SERVER_VERSION}] Supabase Initialization FAILED:`, err.message);
-}
 
 // --- BOOT SUMMARY ---
 console.log(`[${SERVER_VERSION}] --- SYSTEM DIAGNOSTICS ---`);
@@ -255,12 +261,12 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
         if (planType === 'premium') {
             unitAmount = 999; // $9.99
-            productName = 'Romantic Elite Membership';
+            productName = 'DateSpark Plus';
             mode = 'subscription';
             recurring = { interval: 'month' };
         } else if (planType === 'daily') {
             unitAmount = 199; // $1.99
-            productName = '24-Hour Date Pass';
+            productName = '24-Hour Pass';
             mode = 'payment';
         }
 
@@ -279,8 +285,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
                     product_data: {
                         name: productName,
                         description: planType === 'premium'
-                            ? 'Unlimited date ideas, full itinerary access, map navigation, and 30-day FREE trial!'
-                            : '✅ Full 5-Stop Itinerary Access\n✅ Save Unlimited Favorites (24h)\n✅ Directions & Ride-sharing\n✅ Perfect for Tonight',
+                            ? 'Unlimited date plans, unlimited swap spots, elite venues, custom themes, AI plan customizer, and 30-day FREE trial!'
+                            : 'Unlimited date plans, unlimited swap spots, best venues, AI plan customizer (24h), and instant itinerary access!',
                     },
                     unit_amount: unitAmount,
                     ...(recurring && { recurring })
@@ -974,43 +980,13 @@ app.post('/api/generate-custom-date', async (req, res) => {
         if (radius && isNaN(parsedRadius)) return res.status(400).json({ error: 'Invalid radius value.' });
 
         // --- 2. TIER ENFORCEMENT & LIMITS ---
-        try {
-            const { data: profile, error: profError } = await supabase
-                .from('profiles')
-                .select('is_premium, premium_expiry, guided_usage_today, last_usage_reset')
-                .eq('id', userId)
-                .single();
-            
-            if (profError && profError.code !== 'PGRST116') throw profError;
-
-            const now = new Date();
-            const startOfToday = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            
-            const isPremium = profile?.is_premium || (profile?.premium_expiry && new Date(profile.premium_expiry) > now);
-            const lastReset = profile?.last_usage_reset || startOfToday;
-            let currentGuidedUsage = profile?.guided_usage_today || 0;
-
-            // Reset counts if last reset was in the past
-            if (lastReset !== startOfToday) {
-                currentGuidedUsage = 0;
-            }
-
-            if (!isPremium && currentGuidedUsage >= 5) {
-                return res.status(403).json({ error: 'Daily Guided Builder limit reached (5/day). Upgrade to Plus for unlimited access + 30-day Free Trial!' });
-            }
-
-            // Increment Guided Usage
-            if (!isPremium) {
-                await supabase
-                    .from('profiles')
-                    .update({ 
-                        guided_usage_today: currentGuidedUsage + 1,
-                        last_usage_reset: startOfToday
-                    })
-                    .eq('id', userId);
-            }
-        } catch (tierErr) {
-            console.error('Guided Tier enforcement error:', tierErr.message);
+        const usageCheck = await checkAndIncrementUsage(userId, 'guided');
+        if (!usageCheck.allowed) {
+            return res.status(403).json({ 
+                error: `Daily ${LIMITS.guided}/${LIMITS.guided} Guided Builder limit reached.`,
+                type: 'LIMIT_REACHED',
+                limitType: 'guided'
+            });
         }
 
 
@@ -1156,7 +1132,8 @@ app.post('/api/generate-custom-date', async (req, res) => {
             itinerary: {
                 metadata: { planDate: date || new Date().toISOString().split('T')[0], isCustomAI: true },
                 steps: liveItinerary
-            }
+            },
+            is_favorite: req.body.is_favorite || false
         };
 
         const { data, error: insError } = await supabase.from('plans').insert([finalPlan]).select();
@@ -1209,7 +1186,140 @@ app.get('/api/plans/:id', async (req, res) => {
         res.status(200).json(publicPlan);
     } catch (error) {
         console.error('Error fetching plan:', error);
-        res.status(500).json({ error: 'Failed to fetch plan. Please try again later.' });
+        res.status(500).json({ error: 'Failed to fetch plan' });
+    }
+});
+
+const checkAndIncrementUsage = async (userId, type) => {
+    if (!supabase) return { allowed: true };
+
+    try {
+        const { data: profile, error: fetchErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
+
+        // If no profile, auto-create
+        if (!profile) {
+            const startOfToday = new Date().toISOString().split('T')[0];
+            const { error: upsertErr } = await supabase.from('profiles').upsert({
+                id: userId,
+                is_premium: false,
+                last_usage_reset: startOfToday,
+                classic_usage_today: 0,
+                guided_usage_today: 0,
+                swap_usage_today: 0
+            });
+            if (upsertErr) throw upsertErr;
+            return { allowed: true, usage: 0, limit: LIMITS[type] };
+        }
+
+        const now = new Date();
+        const startOfToday = new Date().toISOString().split('T')[0];
+        const isPremium = profile.is_premium || (profile.premium_expiry && new Date(profile.premium_expiry) > now);
+
+        if (isPremium) return { allowed: true, isPremium: true };
+
+        const lastReset = profile.last_usage_reset || startOfToday;
+        const colName = `${type}_usage_today`;
+        let currentUsage = profile[colName] || 0;
+
+        // Reset if new day
+        if (lastReset !== startOfToday) {
+            currentUsage = 0;
+            // Background reset for other columns too if needed, but we'll just handle this one for now
+            await supabase.from('profiles').update({
+                [colName]: 0,
+                last_usage_reset: startOfToday
+            }).eq('id', userId);
+        }
+
+        const limit = LIMITS[type];
+        if (currentUsage >= limit) {
+            return { allowed: false, usage: currentUsage, limit };
+        }
+
+        // Increment
+        const { error: updErr } = await supabase.from('profiles').update({
+            [colName]: currentUsage + 1,
+            last_usage_reset: startOfToday
+        }).eq('id', userId);
+
+        if (updErr) throw updErr;
+
+        return { allowed: true, usage: currentUsage + 1, limit };
+    } catch (err) {
+        console.error(`[USAGE CHECK ERROR] Type: ${type}, User: ${userId}`, err.message);
+        return { allowed: true, error: err.message }; // Fail open but log
+    }
+};
+
+// Endpoint to fetch usage
+app.get('/api/user-usage/:userId', async (req, res) => {
+    const { userId } = req.params;
+    console.log(`[API] Fetching usage for: ${userId}`);
+    if (!supabase) return res.status(500).json({ error: 'DB not initialized' });
+
+    try {
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('[USAGE FETCH DB ERROR]', error);
+            throw error;
+        }
+
+        const startOfToday = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const isPremium = profile?.is_premium || (profile?.premium_expiry && new Date(profile.premium_expiry) > now) || false;
+
+        const lastReset = profile?.last_usage_reset || startOfToday;
+        const isNewDay = lastReset !== startOfToday;
+
+        const responseData = {
+            isPremium,
+            usage: {
+                classic: isNewDay ? 0 : (profile?.classic_usage_today || 0),
+                guided: isNewDay ? 0 : (profile?.guided_usage_today || 0),
+                swap: isNewDay ? 0 : (profile?.swap_usage_today || 0)
+            },
+            limits: { classic: 3, guided: 2, swap: 10 }
+        };
+        console.log(`[API] Usage fetched successfully for: ${userId}`);
+        res.json(responseData);
+    } catch (err) {
+        console.error(`[API ERROR] /api/user-usage/${userId}:`, err.message);
+        res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+});
+
+// Endpoint to fetch premium status specifically
+app.get('/api/user-premium/:userId', async (req, res) => {
+    const { userId } = req.params;
+    if (!supabase) return res.status(500).json({ error: 'DB not initialized' });
+
+    try {
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        const now = new Date();
+        const isPremium = profile?.is_premium || (profile?.premium_expiry && new Date(profile.premium_expiry) > now) || false;
+
+        res.json({ isPremium });
+    } catch (err) {
+        console.error(`[API ERROR] /api/user-premium/${userId}:`, err.message);
+        res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
 });
 
@@ -1225,51 +1335,16 @@ app.post('/api/generate-date', async (req, res) => {
 
     try {
         // --- TIER ENFORCEMENT & LIMITS ---
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('is_premium, premium_expiry, classic_usage_today, last_usage_reset')
-            .eq('id', userId)
-            .single();
-
-        // If no profile exists for this user, create one now
-        if (profileError || !profile) {
-            console.log(`[generate-date] No profile found for user ${userId}. Auto-creating...`);
-            await supabase
-                .from('profiles')
-                .upsert(
-                    { id: userId, is_premium: false, updated_at: new Date().toISOString(), last_usage_reset: new Date().toISOString().split('T')[0] },
-                    { onConflict: 'id' }
-                );
+        const usageCheck = await checkAndIncrementUsage(userId, 'classic');
+        if (!usageCheck.allowed) {
+            return res.status(403).json({ 
+                error: `Daily ${LIMITS.classic}/${LIMITS.classic} generation limit reached.`,
+                type: 'LIMIT_REACHED',
+                limitType: 'classic'
+            });
         }
 
-        const now = new Date();
-        const startOfToday = new Date().toISOString().split('T')[0];
-        const isPremium = profile?.is_premium || (profile?.premium_expiry && new Date(profile.premium_expiry) > now);
-        const lastReset = profile?.last_usage_reset || startOfToday;
-        let currentClassicUsage = profile?.classic_usage_today || 0;
-
-        // Reset counts if last reset was in the past
-        if (!isPremium && lastReset !== startOfToday) {
-            currentClassicUsage = 0;
-        }
-
-        // Enforce 3-request limit for Classic (Manual) mode
-        if (!isPremium && currentClassicUsage >= 3) {
-            return res.status(403).json({ error: 'Daily "Create My Own" limit reached (3/day). Get a 24-Hour Pass for unlimited tonight!' });
-        }
-
-        // Increment Classic Usage
-        if (!isPremium) {
-            await supabase
-                .from('profiles')
-                .update({ 
-                    classic_usage_today: currentClassicUsage + 1,
-                    last_usage_reset: startOfToday
-                })
-                .eq('id', userId);
-        }
-
-        const effectiveIdeaCount = isPremium ? ideaCount : Math.min(ideaCount, 2);
+        const effectiveIdeaCount = usageCheck.isPremium ? ideaCount : Math.min(ideaCount, 2);
         
         const nycNeighborhoods = [
             "West Village", "Soho", "Lower East Side", "Greenwich Village", "East Village",
@@ -1641,7 +1716,8 @@ app.post('/api/generate-date', async (req, res) => {
                 vibe: planFormat.vibeLabel,
                 budget: budget || 'moderate',
                 location: guidedDisplayLocation,
-                itinerary: planPayload
+                itinerary: planPayload,
+                is_favorite: req.body.is_favorite || false
             });
         }
 
@@ -1673,17 +1749,28 @@ app.post('/api/generate-date', async (req, res) => {
 });
 
 
-// Nearby Alternatives for "Switch Up" feature
 app.post('/api/nearby-alternatives', async (req, res) => {
-    const { lat, lng, type, radius, budget, currentPlaceId } = req.body;
-    console.log(`[SwitchUp] Request for ${type} at (${lat}, ${lng}) - Radius: ${radius}, Budget: ${budget}`);
+    const { lat, lng, type, radius, budget, currentPlaceId, userId } = req.body;
+    console.log(`[SwitchUp] Request for ${type} at (${lat}, ${lng}) - User: ${userId}`);
+
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required for checking swap limits' });
+    }
 
     if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-        console.warn('[SwitchUp] Rejected - Missing or invalid coordinates:', { lat, lng });
         return res.status(400).json({ error: 'Valid coordinates are required (lat/lng)' });
     }
 
     try {
+        // --- USAGE ENFORCEMENT ---
+        const usageCheck = await checkAndIncrementUsage(userId, 'swap');
+        if (!usageCheck.allowed) {
+            return res.status(403).json({ 
+                error: `Daily Swap Spot limit reached (${LIMITS.swap}/${LIMITS.swap}).`,
+                type: 'LIMIT_REACHED',
+                limitType: 'swap'
+            });
+        }
         let priceLevels = [];
         if (budget) {
             const b = budget.toString();
@@ -2000,3 +2087,8 @@ app.get(/.*/, (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`>>> [PRODUCTION] Server is successfully listening on 0.0.0.0:${PORT}`);
 });
+
+// Explicitly keep the event loop alive to prevent premature exit
+setInterval(() => {
+    // Keep-alive heartbeat
+}, 1000 * 60 * 60); // 1 hour intervals

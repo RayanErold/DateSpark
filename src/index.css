@@ -165,4 +165,13 @@ body.theme-lavender .text-navy {
 body.theme-lavender .border-gray-100 {
   border-color: #ddd6fe !important;
 }
+
+/* Scrollbar Overrides */
+.disable-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.disable-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
 

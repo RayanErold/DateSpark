@@ -82,8 +82,8 @@ export const WELCOME_EMAIL_TEMPLATE = (firstName) => `
                 <div class="feature">
                     <div class="feature-icon">2</div>
                     <div>
-                        <strong style="color: #0f172a;">Exclusive "Elite" access</strong>
-                        <p style="font-size: 14px; margin-top: 4px;">As a new member, you've unlocked a special 24-hour preview of our Elite venues.</p>
+                        <strong style="color: #0f172a;">DateSpark Plus Preview</strong>
+                        <p style="font-size: 14px; margin-top: 4px;">As a new member, you've unlocked a special 24-hour preview of our premium DateSpark Plus venues.</p>
                     </div>
                 </div>
             </div>

@@ -11,10 +11,10 @@ const Pricing = () => {
             price: "$0",
             period: "/forever",
             features: [
-                { text: "Up to 5 date plans per day", icon: Star },
+                { text: "3 Classic date plans daily", icon: Star },
+                { text: "2 AI Custom date plans daily", icon: Star },
+                { text: "10 Swap Spots daily", icon: Check },
                 { text: "Save up to 4 plans in a month", icon: Check },
-                { text: "Limited swap spots", icon: Check },
-                { text: "See 1 full plan at a time", icon: Check },
                 { text: "Basic venue access", icon: Check },
                 { text: "No custom themes", icon: Check }
             ],

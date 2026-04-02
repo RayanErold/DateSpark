@@ -29,25 +29,25 @@ import {
     Monitor,
     Smartphone,
     CreditCard,
-    Zap,
-    Check,
-    LogOut,
-    Map as MapIcon,
-    Wallet,
-    Car,
-    LayoutGrid,
-    Bookmark,
-    User,
-    Settings,
-    Bell,
     ChevronDown,
     Circle,
     Globe,
-    Loader2
+    Loader2,
+    Zap,
+    Crown,
+    Check,
+    Map as MapIcon,
+    Bell,
+    Car,
+    LogOut,
+    User,
+    Settings
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { loadStripe } from '@stripe/stripe-js';
 import BottomNav from '../components/BottomNav';
+import PremiumExperienceModal from '../components/PremiumExperienceModal';
+import UsageBadge from '../components/UsageBadge';
 
 const darkMapStyle = [
     { elementType: 'geometry', stylers: [{ color: '#111827' }] },
@@ -120,7 +120,9 @@ const Dashboard = () => {
     });
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, plan: null, type: 'trash', isBatch: false });
     const [showIdeaModal, setShowIdeaModal] = useState(false);
     const [feedbackMessage, setFeedbackMessage] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
@@ -132,9 +134,16 @@ const Dashboard = () => {
     const [activeSwitchIndex, setActiveSwitchIndex] = useState(null);
     const [selectedPlanIds, setSelectedPlanIds] = useState([]);
     const [isSelectMode, setIsSelectMode] = useState(false);
-    const [switchUpUses, setSwitchUpUses] = useState(() => {
-        const saved = localStorage.getItem('switchUpUses');
-        return saved ? parseInt(saved, 10) : 0;
+    // Usage state for Free users
+    const [usage, setUsage] = useState({
+        classic: 0,
+        guided: 0,
+        swap: 0
+    });
+    const [limits, setLimits] = useState({
+        classic: 3,
+        guided: 2,
+        swap: 10
     });
 
     useEffect(() => {
@@ -297,6 +306,24 @@ const Dashboard = () => {
                 console.log('Dashboard - Current User:', user?.id);
                 setUser(user);
 
+                // Fetch premium status and usage from secure backend proxy
+                const [premRes, usageRes] = await Promise.all([
+                    fetch(`/api/user-premium/${user.id}`),
+                    fetch(`/api/user-usage/${user.id}`)
+                ]);
+
+                if (premRes.ok) {
+                    const { isPremium: dbStatus } = await premRes.json();
+                    setIsPremium(dbStatus);
+                    localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                }
+
+                if (usageRes.ok) {
+                    const data = await usageRes.json();
+                    setUsage(data.usage);
+                    setLimits(data.limits);
+                }
+
                 if (user) {
                     setProfileData({
                         first_name: user.user_metadata?.first_name || '',
@@ -422,129 +449,93 @@ const Dashboard = () => {
         if (count === 0) return;
 
         const isFromTrash = settingsTab === 'trash' && showSettingsModal;
-        const isFromFavorites = activeTab === 'favorites';
+        const mode = isFromTrash ? 'delete' : 'trash';
         
-        // New Hybrid Logic:
-        // - Trash Tab: Permanent delete
-        // - All Plans Tab: Permanent delete (User: "whenever user select them in batch or delete them, the will be erase forever")
-        // - Favorites Tab: Soft delete (User: "only when user delete from favorites, they will be tranfer to trash bin")
-        
-        let confirmMsg = `Are you sure you want to permanently delete these ${count} plans?`;
-        let isSoftDelete = false;
+        setConfirmModal({ 
+            isOpen: true, 
+            plan: { count, id: selectedPlanIds.join(',') }, 
+            type: mode, 
+            isBatch: true 
+        });
+    };
 
-        if (isFromFavorites && !isFromTrash) {
-            confirmMsg = `Move these ${count} plans to Trash? (Stored for 7 days)`;
-            isSoftDelete = true;
-        }
-
-        if (!window.confirm(confirmMsg)) return;
+    const performDelete = async () => {
+        const { plan, type, isBatch } = confirmModal;
+        if (!plan) return;
 
         try {
-            const idsParam = selectedPlanIds.map(id => `"${id}"`).join(',');
-            
-            if (isSoftDelete) {
-                // Soft Batch Delete
-                const now = new Date().toISOString();
-                await fetch('/api/update-plan', {
+            if (isBatch) {
+                const ids = plan.id.split(',');
+                if (type === 'trash') {
+                    const now = new Date().toISOString();
+                     const response = await fetch('/api/update-plan', {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
-                            planId: selectedPlanIds.join(','), // Assuming proxy handles comma-split IDs or list
+                            planId: plan.id, 
                             isBatch: true,
                             updateData: { deleted_at: now } 
                         })
                     });
-                setPlans(plans.map(p => selectedPlanIds.includes(p.id) ? { ...p, deleted_at: now } : p));
-                alert(`${count} plans moved to Trash.`);
-            } else {
-                // Permanent Batch Delete via Proxy to bypass JWT/400 Errors
-                const response = await fetch('/api/delete-plan', {
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        planId: selectedPlanIds.join(','), 
-                        isBatch: true 
-                    })
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || `Proxy error: ${response.status}`);
+                    if (!response.ok) throw new Error('Proxy batch trash failed');
+                    setPlans(plans.map(p => ids.includes(p.id) ? { ...p, deleted_at: now } : p));
+                } else {
+                    const response = await fetch('/api/delete-plan', {
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ planId: plan.id, isBatch: true })
+                    });
+                    if (!response.ok) throw new Error('Proxy delete failed');
+                    setPlans(plans.filter(p => !ids.includes(p.id)));
                 }
-
-                setPlans(plans.filter(p => !selectedPlanIds.includes(p.id)));
-                alert(`${count} plans deleted forever.`);
+                setSelectedPlanIds([]);
+                setIsSelectMode(false);
+            } else {
+                if (type === 'trash') {
+                    const now = new Date().toISOString();
+                    const response = await fetch('/api/update-plan', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            planId: plan.id, 
+                            updateData: { deleted_at: now } 
+                        })
+                    });
+                    if (!response.ok) throw new Error('Proxy trash failed');
+                    setPlans(plans.map(p => p.id === plan.id ? { ...p, deleted_at: now } : p));
+                } else {
+                    const response = await fetch('/api/delete-plan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ planId: plan.id, isBatch: false })
+                    });
+                    if (!response.ok) throw new Error('Proxy delete failed');
+                    setPlans(plans.filter(p => p.id !== plan.id));
+                }
             }
-            setSelectedPlanIds([]);
-            setIsSelectMode(false);
+            setConfirmModal({ isOpen: false, plan: null, type: 'trash', isBatch: false });
         } catch (err) {
-            console.error('Batch Delete Error:', err);
-            alert(`Batch operation failed: ${err.message}`);
+            console.error('Delete error:', err.message);
+            alert(`Operation failed: ${err.message}`);
         }
     };
 
     const handleDelete = async (planId, e) => {
-        e.stopPropagation();
-
-        const isFromFavorites = activeTab === 'favorites';
-        const isFromTrash = settingsTab === 'trash' && showSettingsModal;
-
-        // New Hybrid Logic:
-        // - Trash Tab: Permanent delete
-        // - All Plans Tab: Permanent delete
-        // - Favorites Tab: Soft delete
+        if (e && e.stopPropagation) e.stopPropagation();
         
-        let confirmMsg = 'Are you sure you want to permanently delete this plan?';
-        let isSoftDelete = false;
+        const planObj = typeof planId === 'string' ? plans.find(p => p.id === planId) : planId;
+        if (!planObj) return;
 
-        if (isFromFavorites && !isFromTrash) {
-            confirmMsg = 'Move this favorited plan to Trash? (Stored for 7 days)';
-            isSoftDelete = true;
-        }
-
-        if (!window.confirm(confirmMsg)) return;
-
-        try {
-            if (isSoftDelete) {
-                // Soft delete
-                const now = new Date().toISOString();
-                await fetch('/api/update-plan', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        planId: planId, 
-                        updateData: { deleted_at: now } 
-                    })
-                });
-                setPlans(plans.map(p => p.id === planId ? { ...p, deleted_at: now } : p));
-                alert('Plan moved to Trash! (Recoverable for 7 days)');
-            } else {
-                // Permanent Delete via Proxy to bypass JWT/400 Errors
-                const response = await fetch('/api/delete-plan', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ planId, isBatch: false })
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || `Proxy error: ${response.status}`);
-                }
-
-                setPlans(plans.filter(p => p.id !== planId));
-                if (!isFromTrash) alert('Plan deleted forever.');
-            }
-            if (selectedPlan && selectedPlan.id === planId) setSelectedPlan(null);
-        } catch (err) {
-            console.error('Error deleting plan:', err.message);
-            alert(`Failed to delete plan: ${err.message}`);
-        }
+        const isFromTrash = (settingsTab === 'trash' && showSettingsModal) || planObj.deleted_at;
+        const mode = isFromTrash ? 'delete' : 'trash';
+        
+        setConfirmModal({ isOpen: true, plan: planObj, type: mode, isBatch: false });
     };
 
     const handleRestorePlan = async (planId, e) => {
         e.stopPropagation();
         try {
-            await fetch('/api/update-plan', {
+            const response = await fetch('/api/update-plan', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -552,6 +543,7 @@ const Dashboard = () => {
                     updateData: { deleted_at: null } 
                 })
             });
+            if (!response.ok) throw new Error('Proxy restore failed');
             setPlans(plans.map(p => p.id === planId ? { ...p, deleted_at: null } : p));
             alert('Plan restored to your dashboard!');
         } catch (err) {
@@ -575,7 +567,7 @@ const Dashboard = () => {
         const newStatus = !plan.is_favorite;
 
         try {
-            await fetch('/api/update-plan', {
+            const response = await fetch('/api/update-plan', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -583,7 +575,11 @@ const Dashboard = () => {
                     updateData: { is_favorite: newStatus } 
                 })
             });
-            setPlans(plans.map(p => p.id === plan.id ? { ...p, is_favorite: newStatus } : p));
+            if (!response.ok) throw new Error('Proxy favorite update failed');
+            setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, is_favorite: newStatus } : p));
+            if (selectedPlan?.id === plan.id) {
+                setSelectedPlan(prev => ({ ...prev, is_favorite: newStatus }));
+            }
         } catch (err) {
             console.error('Error toggling favorite:', err.message);
             alert(`Failed to update favorite status: ${err.message}`);
@@ -669,29 +665,47 @@ const Dashboard = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Ensure file is an image and not too large (limit to 1MB for base64 storage)
+        // Ensure file is an image
         if (!file.type.startsWith('image/')) {
             alert('Please upload an image file.');
             return;
         }
+        
+        // Robust 1MB limit check (Base64 grows by ~33%)
         if (file.size > 1024 * 1024) {
-            alert('Image is too large. Please select a photo under 1MB.');
+            alert('Image is too large. Please select a photo under 1MB for your profile.');
             return;
         }
 
+        setIsUploading(true);
         const reader = new FileReader();
         reader.onloadend = async () => {
-            const base64String = reader.result;
-            const { error } = await supabase.auth.updateUser({
-                data: { avatar_url: base64String }
-            });
+            try {
+                const base64String = reader.result;
+                const { error } = await supabase.auth.updateUser({
+                    data: { avatar_url: base64String }
+                });
 
-            if (!error) {
-                const { data: { user: updatedUser } } = await supabase.auth.getUser();
-                setUser(updatedUser);
-            } else {
-                alert('Failed to update profile picture.');
+                if (!error) {
+                    const { data: { user: updatedUser } } = await supabase.auth.getUser();
+                    setUser(updatedUser);
+                    // Force re-fetch user state locally to sync header avatar
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.user) setUser(session.user);
+                } else {
+                    console.error('Avatar Update Error:', error);
+                    alert('Failed to update profile picture: ' + error.message);
+                }
+            } catch (err) {
+                console.error('File Read Error:', err);
+                alert('Error processing image. Please try another one.');
+            } finally {
+                setIsUploading(false);
             }
+        };
+        reader.onerror = () => {
+            alert('Error reading file. Please try again.');
+            setIsUploading(false);
         };
         reader.readAsDataURL(file);
     };
@@ -774,7 +788,8 @@ const Dashboard = () => {
     };
 
     const handleSwitchUp = async (idx, step) => {
-        if (!isPremium) {
+        if (!isPremium && usage.swap >= limits.swap) {
+            setLimitType('swap');
             setShowUpgradeModal(true);
             return;
         }
@@ -836,7 +851,8 @@ const Dashboard = () => {
                 type: searchQuery,
                 radius: 5000, 
                 budget: selectedPlan?.budget || 'moderate',
-                currentPlaceId: step.placeId || step.id
+                currentPlaceId: step.placeId || step.id,
+                userId: user?.id
             });
 
             setAlternatives(response.data.alternatives || []);
@@ -904,17 +920,19 @@ const Dashboard = () => {
             setActiveSwitchIndex(null);
             setAlternatives([]);
 
-            // Increment uses for free users
+            // Increment locally for instant UI feedback
             if (!isPremium) {
-                const newUses = switchUpUses + 1;
-                setSwitchUpUses(newUses);
-                localStorage.setItem('switchUpUses', newUses.toString());
-                localStorage.setItem('switchUpLastUseTime', Date.now().toString());
+                setUsage(prev => ({ ...prev, swap: prev.swap + 1 }));
             }
 
         } catch (error) {
             console.error('Error confirming switch:', error);
-            alert(`Failed to update the plan: ${error.message}. Please try again.`);
+            if (error.response?.status === 403 || error.message.toLowerCase().includes('limit')) {
+                setLimitType('swap');
+                setShowUpgradeModal(true);
+            } else {
+                alert(`Failed to update the plan: ${error.message}. Please try again.`);
+            }
         }
     };
 
@@ -1221,7 +1239,7 @@ const Dashboard = () => {
                         onClick={() => setActiveTab('all')}
                         className={`flex-1 py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'all' ? 'bg-white text-navy shadow-sm' : 'text-gray-500 hover:text-navy'}`}
                     >
-                        <LayoutGrid className="w-4 h-4" /> All
+                        <Layout className="w-4 h-4" /> All
                     </button>
                     <button
                         onClick={() => setActiveTab('favorites')}
@@ -1383,7 +1401,7 @@ const Dashboard = () => {
                                 onClick={handleBatchDelete}
                                 className="px-4 py-2 bg-coral text-white text-xs font-bold rounded-xl hover:bg-coral/90 shadow-lg shadow-coral/20 transition-all flex items-center gap-2"
                             >
-                                <Trash2 className="w-4 h-4" /> Move to Trash
+                                <Trash2 className="w-4 h-4" /> {settingsTab === 'trash' ? 'Delete Permanently' : 'Move to Trash'}
                             </button>
                         </div>
                     </div>
@@ -1412,9 +1430,13 @@ const Dashboard = () => {
                         {/* Extra Compact Header Section */}
                         <div className="bg-[#0f172a]/95 backdrop-blur-xl text-white p-4 border-b border-white/10 sticky top-0 z-20 rounded-b-2xl md:rounded-b-none flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/10">
-                                    <Heart className="w-5 h-5 fill-coral text-coral" />
-                                </div>
+                                <button
+                                    onClick={(e) => handleToggleFavorite(selectedPlan, e)}
+                                    className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 ${selectedPlan.is_favorite ? 'bg-coral/20 border-coral/30' : 'bg-white/10 border-white/10 hover:bg-white/20'}`}
+                                    title={selectedPlan.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                                >
+                                    <Heart className={`w-5 h-5 transition-all duration-300 ${selectedPlan.is_favorite ? 'fill-coral text-coral scale-110' : 'text-white/70'}`} />
+                                </button>
                                 <div className="min-w-0">
                                     <h2 className="text-base font-black font-outfit tracking-tight truncate">{selectedPlan.vibe} Date</h2>
                                     <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70">
@@ -1572,16 +1594,19 @@ const Dashboard = () => {
                                                         </a>
                                                     )}
 
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSwitchUp(idx, step);
-                                                        }}
-                                                        className="px-2.5 py-1.5 bg-violet-50 text-violet-600 outline outline-1 outline-violet-200 text-[10px] font-black rounded-lg hover:bg-violet-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-[0_1px_8px_rgba(139,92,246,0.1)] hover:shadow-violet-200/50 group/btn"
-                                                    >
-                                                        <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
-                                                        Swap This Spot
-                                                    </button>
+                                                    <div className="flex flex-col items-start gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleSwitchUp(idx, step);
+                                                            }}
+                                                            className="px-3 py-2 bg-violet-600 text-white text-[10px] font-black rounded-xl hover:bg-violet-700 transition-all inline-flex items-center gap-1.5 shadow-lg shadow-violet-500/20 active:scale-95 group/btn"
+                                                        >
+                                                            <Sparkles className="w-3 h-3 group-hover/btn:rotate-12 transition-transform" />
+                                                            Swap This Spot
+                                                        </button>
+                                                        {!isPremium && <UsageBadge usage={usage.swap} limit={limits.swap} label="Swaps Remaining" isPremium={isPremium} />}
+                                                    </div>
 
                                                     <a
                                                         href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
@@ -1747,86 +1772,13 @@ const Dashboard = () => {
             </div>
         )}
 
-        {/* UPGRADE MODAL */}
-        {showUpgradeModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm px-4">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all p-8 text-center relative animate-fade-in-up p-6 md:p-8">
-                    <button
-                        onClick={() => setShowUpgradeModal(false)}
-                        className="absolute top-4 right-4 p-2 text-gray-400 hover:text-navy transition-colors bg-gray-50 rounded-full z-20"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-
-                    <div className="w-16 h-16 bg-gradient-to-br from-coral to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-coral/30 rotate-3">
-                        <Heart className="w-8 h-8 fill-white text-white" />
-                    </div>
-
-                    <h2 className="text-2xl font-black text-navy mb-2">Upgrade to Premium</h2>
-                    <p className="text-gray-500 mb-6 max-w-md mx-auto font-medium text-xs">
-                        Unlock full AI-driven itineraries, unlimited saving features, and city support.
-                    </p>
-
-                    <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto px-1">
-                        {/* Daily Date Pass - THE HOOK */}
-                        <div className="bg-white border-2 border-coral rounded-2xl p-5 text-left relative group hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-                            <div className="absolute top-0 right-0 bg-coral text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
-                                Most Popular
-                            </div>
-                            <div>
-                                <h4 className="text-lg font-black text-navy mb-1">24-Hour Pass</h4>
-                                <p className="text-gray-400 text-[11px] mb-3">Perfect for tonight's date.</p>
-                                <div className="flex items-end gap-1 mb-4">
-                                    <span className="text-2xl font-black text-navy">$1.99</span>
-                                    <span className="text-gray-400 text-xs mb-1 uppercase">/24hr</span>
-                                </div>
-                                <ul className="space-y-1.5 text-[11px] text-gray-500 font-bold mb-5 border-t border-gray-100 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlimited plans generation</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Access to unlimited swap spots</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Access to best venues</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Unlock all stops instantly</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-coral flex-shrink-0" /> Get directions & rides</li>
-                                </ul>
-                            </div>
-                            <button onClick={() => handleBuyPass('daily')} className="w-full py-2.5 bg-coral text-white text-xs font-black rounded-xl hover:bg-coral/90 transition-colors shadow-lg mt-auto">
-                                Get Pass
-                            </button>
-                        </div>
-
-                        {/* DateSpark Plus / Monthly */}
-                        <div className="bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-5 text-white text-left relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-navy-100/20 flex flex-col justify-between">
-                            <div className="absolute top-0 right-0 bg-coral text-white px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-wider z-10">
-                                30 Days Free
-                            </div>
-                            <div>
-                                <h4 className="text-lg font-black mb-1">DateSpark Plus</h4>
-                                <p className="text-white/70 text-[11px] mb-3">Unlimited planning + Premium hacks.</p>
-                                <div className="flex items-end gap-1 mb-4">
-                                    <span className="text-2xl font-black">$9.99</span>
-                                    <span className="text-white/50 text-xs mb-1">/mo after trial</span>
-                                </div>
-                                <ul className="space-y-1.5 text-[11px] text-white/80 font-bold mb-5 border-t border-white/10 pt-3">
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> 30-Day Free Trial Included</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Theme customization</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> AI plans customizer</li>
-                                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-gold flex-shrink-0" /> Unlimited plans generation</li>
-                                </ul>
-                            </div>
-                            <button onClick={() => handleBuyPass('premium')} className="w-full py-2.5 bg-white text-navy text-xs font-black rounded-xl hover:bg-gray-50 transition-colors shadow-lg mt-auto">
-                                Start Free Trial
-                            </button>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={() => setShowUpgradeModal(false)}
-                        className="w-full py-3 mt-4 text-gray-400 font-bold hover:text-gray-600 transition-colors text-sm"
-                    >
-                        Maybe Later
-                    </button>
-                </div>
-            </div>
-        )}
+        {/* UPGRADE MODAL - Premium Experience */}
+        <PremiumExperienceModal 
+            isOpen={showUpgradeModal} 
+            onClose={() => { setShowUpgradeModal(false); setLimitType(null); }}
+            onUpgrade={(type) => handleBuyPass(type || 'ELITE')}
+            limitType={limitType}
+        />
 
         {/* OUR VISION MODAL */}
         {showVisionModal && (
@@ -2112,54 +2064,31 @@ const Dashboard = () => {
 
                                     <div className="space-y-3 mb-8">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Check className="w-3.5 h-3.5 text-gray-400 font-bold" />}
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-amber-100'}`}>
+                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Zap className="w-3.5 h-3.5 text-amber-600 font-bold" />}
                                             </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Unlimited plans generation" : "3 Classic / 5 Guided plans per day"}
+                                            <span className="font-bold text-navy text-[13px]">
+                                                {isPremium ? "Unlimited Classic plans" : "3 Classic plans per day"}
                                             </span>
-
+                                            {!isPremium && <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">{usage.classic}/{limits.classic} Used</span>}
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Check className="w-3.5 h-3.5 text-gray-400 font-bold" />}
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-violet-100'}`}>
+                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Crown className="w-3.5 h-3.5 text-violet-600 font-bold" />}
                                             </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Access to unlimited swap spots" : "Swap spots gated"}
+                                            <span className="font-bold text-navy text-[13px]">
+                                                {isPremium ? "Unlimited AI Custom plans" : "2 AI Custom plans per day"}
                                             </span>
-
+                                            {!isPremium && <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">{usage.guided}/{limits.guided} Used</span>}
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Check className="w-3.5 h-3.5 text-gray-400 font-bold" />}
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-blue-100'}`}>
+                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <Zap className="w-3.5 h-3.5 text-blue-600 font-bold" />}
                                             </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Access to best venues" : "Save up to 4 plans in a month"}
+                                            <span className="font-bold text-navy text-[13px]">
+                                                {isPremium ? "Unlimited Swap Spots" : "10 Swap Spots per day"}
                                             </span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
-                                            </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Theme customization" : "Standard theme only"}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
-                                            </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "AI plans customizer" : "No AI customizer"}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                {isPremium ? <Check className="w-3.5 h-3.5 text-green-600 font-bold" /> : <X className="w-3.5 h-3.5 text-gray-400 font-bold" />}
-                                            </div>
-                                            <span className={`font-medium ${isPremium ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {isPremium ? "Priority access to new features" : "Regular access"}
-                                            </span>
+                                            {!isPremium && <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-500 ml-auto">{usage.swap}/{limits.swap} Used</span>}
                                         </div>
                                     </div>
 
@@ -2334,6 +2263,42 @@ const Dashboard = () => {
                         </div>
                     </div>
                 )}
+
+                {/* --- CUSTOM CONFIRMATION MODAL --- */}
+                {confirmModal.isOpen && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+                            <div className={`p-8 text-center ${confirmModal.type === 'delete' ? 'bg-red-50' : 'bg-coral/5'}`}>
+                                <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg transform -rotate-3 ${confirmModal.type === 'delete' ? 'bg-red-500 text-white' : 'bg-coral text-white'}`}>
+                                    <Trash2 className="w-10 h-10" />
+                                </div>
+                                <h3 className="text-2xl font-black text-navy mb-2 tracking-tight">
+                                    {confirmModal.type === 'delete' ? 'Permanently Delete?' : 'Move to Trash?'}
+                                </h3>
+                                <p className="text-gray-500 font-medium text-[15px] leading-relaxed px-4">
+                                    {confirmModal.type === 'delete' 
+                                        ? "This action is final and cannot be undone. Say goodbye to this date forever?"
+                                        : "Don't worry, you can recover this date plan from your settings for up to 7 days."}
+                                </p>
+                            </div>
+                            <div className="p-6 grid grid-cols-2 gap-4">
+                                <button 
+                                    onClick={() => setConfirmModal({ isOpen: false, plan: null, type: 'trash' })}
+                                    className="py-4 rounded-2xl text-[14px] font-black text-gray-400 hover:bg-gray-50 transition-all uppercase tracking-widest"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={performDelete}
+                                    className={`py-4 rounded-2xl text-[14px] font-black text-white shadow-lg transition-all active:scale-95 uppercase tracking-widest ${confirmModal.type === 'delete' ? 'bg-red-600 shadow-red-500/30' : 'bg-navy shadow-navy/30'}`}
+                                >
+                                    {confirmModal.type === 'delete' ? 'Delete' : 'Confirm'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <BottomNav
                     onProfileClick={() => {
                         setShowSettingsModal(true);
