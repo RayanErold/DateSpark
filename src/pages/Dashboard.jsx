@@ -67,7 +67,7 @@ const darkMapStyle = [
     { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
     { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#030712' }] },
     { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4b5563' }] },
-    { featureType: 'water', elementType: 'water.text.stroke', stylers: [{ color: '#030712' }] }
+    { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
 ];
 
 const GOOGLE_MAPS_LIBRARIES = ['places'];
