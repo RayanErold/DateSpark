@@ -2133,41 +2133,20 @@ const Dashboard = () => {
                                             <p className="text-[11px] text-gray-400 text-center font-medium">✨ You are a premium member. Manage your payments or cancel via Stripe Portal.</p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-4">
-                                            <div className="bg-coral/5 border border-coral/20 p-4 rounded-2xl flex items-center justify-between mb-4">
-                                                <div>
-                                                    <h5 className="text-[11px] font-black text-coral uppercase tracking-widest">30-Day Free Trial</h5>
-                                                    <p className="text-[10px] text-gray-500 font-medium">Try DateSpark Plus for 30 days, free!</p>
+                                        <div className="pt-2 border-t border-gray-100 mt-6">
+                                            <div className="bg-gradient-to-r from-navy to-[#0f172a] p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-xl shadow-navy/10">
+                                                <div className="absolute -right-10 -top-10 w-40 h-40 bg-coral/20 rounded-full blur-3xl pointer-events-none"></div>
+                                                <div className="relative z-10 text-center sm:text-left">
+                                                    <span className="text-coral text-[10px] font-black uppercase tracking-widest mb-1 block">Unlock Everything</span>
+                                                    <h4 className="text-white font-black text-lg">Upgrade to Premium</h4>
+                                                    <p className="text-white/60 text-xs mt-1 font-medium max-w-[250px]">Get unlimited plans, custom themes, and exclusive AI perks.</p>
                                                 </div>
-                                                <button 
+                                                <button
                                                     onClick={() => setShowUpgradeModal(true)}
-                                                    className="bg-coral text-white px-4 py-1.5 rounded-lg text-[10px] font-black shadow-md hover:bg-coral/90 transition-all active:scale-95"
+                                                    className="relative z-10 w-full sm:w-auto px-6 py-3 bg-coral hover:bg-coral/90 text-white font-black text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-coral/20 whitespace-nowrap"
                                                 >
-                                                    CLAIM TRIAL
+                                                    View Plans & Pricing
                                                 </button>
-                                            </div>
-
-                                            <h4 className="text-sm font-black text-navy mt-6 mb-2">Available Plans to Upgrade</h4>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                {[
-                                                    { name: "24-Hour Pass", price: "$1.99", desc: "Unlimited plans, Swap Spot & Directions.", period: "24hr", type: 'daily' },
-                                                    { name: "DateSpark Plus", price: "Free", desc: "30-day trial, then $9.99/mo. Cancel anytime.", period: "30d", type: 'premium' }
-                                                ].map((sub, idx) => (
-                                                    <div key={idx} className="bg-white border border-gray-100 p-4 rounded-2xl flex flex-col justify-between hover:border-coral/40 transition-all shadow-sm">
-                                                        <div>
-                                                            <h5 className="font-bold text-navy text-sm">{sub.name}</h5>
-                                                            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight font-medium">{sub.desc}</p>
-                                                            <p className="text-base font-black text-navy mt-2">{sub.price}<span className="text-xs font-normal text-gray-400">/{sub.period}</span></p>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => handleBuyPass(sub.type)}
-                                                            className="w-full mt-3 py-2 bg-navy text-white rounded-xl font-bold text-xs hover:bg-navy/90 transition-colors"
-                                                        >
-                                                            {sub.type === 'premium' ? 'Start Free Trial' : 'Get 24h Pass'}
-                                                        </button>
-
-                                                    </div>
-                                                ))}
                                             </div>
                                         </div>
                                     )}

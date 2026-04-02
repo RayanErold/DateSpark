@@ -23,7 +23,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
     ];
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-navy/80 backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 md:p-6 bg-navy/80 backdrop-blur-xl animate-in fade-in duration-300">
             {/* Modal Container - Wider for side-by-side */}
             <div className="relative w-full max-w-[850px] max-h-[95vh] overflow-y-auto overflow-x-hidden bg-[#fdfdfd] rounded-[2.5rem] shadow-2xl flex flex-col animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 border border-white/20 disable-scrollbar">
                 
