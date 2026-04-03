@@ -23,7 +23,8 @@ const Dashboard = () => {
     const [isPremium, setIsPremium] = useState(() => {
         // Admin Override Initialization for Persistence
         const adminEmail = 'rayanerold@gmail.com';
-        const isCurrentlyAdmin = localStorage.getItem('userEmail') === adminEmail;
+        const userEmail = localStorage.getItem('userEmail')?.toLowerCase();
+        const isCurrentlyAdmin = userEmail === adminEmail;
         if (isCurrentlyAdmin) {
             return localStorage.getItem('isPremium') === 'true';
         }
@@ -403,7 +404,7 @@ const Dashboard = () => {
 
                     <div className="flex items-center gap-4 relative">
                         {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
-                        {user?.email === 'rayanerold@gmail.com' && (
+                        {(user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com') && (
                             <div className="hidden md:flex items-center gap-2 bg-rose-50/50 px-3 py-1.5 rounded-lg border border-rose-100 mr-2">
                                 <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                                 <button

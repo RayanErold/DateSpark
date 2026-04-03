@@ -284,7 +284,8 @@ const Dashboard = () => {
     const [isPremium, setIsPremium] = useState(() => {
         // Allow Admin to persist their manual toggle for testing
         const adminEmail = 'rayanerold@gmail.com';
-        const isCurrentlyAdmin = localStorage.getItem('userEmail') === adminEmail;
+        const userEmail = localStorage.getItem('userEmail')?.toLowerCase();
+        const isCurrentlyAdmin = userEmail === adminEmail;
         if (isCurrentlyAdmin) {
             return localStorage.getItem('isPremium') === 'true';
         }
@@ -513,6 +514,9 @@ const Dashboard = () => {
 
                 console.log('Dashboard - Current User:', user?.id);
                 setUser(user);
+                if (user?.email) {
+                    localStorage.setItem('userEmail', user.email);
+                }
 
                 // Fetch premium status and usage from secure backend proxy
                 const [premRes, usageRes] = await Promise.all([
@@ -521,13 +525,25 @@ const Dashboard = () => {
                 ]);
 
                 if (premRes.ok) {
-                    const data = await premRes.json();
-                    setIsPremium(data.isPremium);
+                    const data = await premRes.ok ? await premRes.json() : { isPremium: false };
+                    
+                    // Admin Special Logic: Sync with DB but respect manual toggle for testing
+                    if (user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
+                        const manualChoice = localStorage.getItem('isPremium');
+                        if (manualChoice !== null) {
+                            setIsPremium(manualChoice === 'true');
+                        } else {
+                            setIsPremium(data.isPremium);
+                        }
+                    } else {
+                        setIsPremium(data.isPremium);
+                        localStorage.setItem('isPremium', data.isPremium ? 'true' : 'false');
+                    }
+
                     setReferralDetails({ 
                         code: data.referral_code || '', 
                         count: data.referral_count || 0 
                     });
-                    localStorage.setItem('isPremium', data.isPremium ? 'true' : 'false');
                 }
 
                 if (usageRes.ok) {
@@ -555,12 +571,18 @@ const Dashboard = () => {
                             const hasActivePass = premium_expiry && new Date(premium_expiry) > now;
                             const finalStatus = dbStatus || hasActivePass;
 
-                            setIsPremium(finalStatus);
-                            setReferralDetails({ 
-                                code: referral_code || '', 
-                                count: referral_count || 0 
-                            });
-                            localStorage.setItem('isPremium', finalStatus ? 'true' : 'false');
+                            // Admin Special Logic: Sync with DB but respect manual toggle for testing
+                            if (user?.email === 'rayanerold@gmail.com') {
+                                const manualChoice = localStorage.getItem('isPremium');
+                                if (manualChoice !== null) {
+                                    setIsPremium(manualChoice === 'true');
+                                } else {
+                                    setIsPremium(finalStatus);
+                                }
+                            } else {
+                                setIsPremium(finalStatus);
+                                localStorage.setItem('isPremium', finalStatus ? 'true' : 'false');
+                            }
                             if (premium_expiry) {
                                 localStorage.setItem('premiumExpiry', premium_expiry);
                             } else {
@@ -1472,7 +1494,7 @@ const Dashboard = () => {
 
                 <div className="flex items-center gap-4 relative">
                     {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
-                    {user?.email === 'rayanerold@gmail.com' && (
+                    {(user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com') && (
                         <div className="hidden md:flex items-center gap-2 bg-rose-50/50 px-3 py-1.5 rounded-lg border border-rose-100 mr-2">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button
@@ -1629,10 +1651,11 @@ const Dashboard = () => {
                         </div>
                     </div>
                     
-                    <div className="flex-shrink-0 w-full sm:w-auto">
+                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col gap-2">
+                        {/* Referral Code Row */}
                         <div className="bg-white/5 backdrop-blur-md rounded-xl p-2.5 border border-white/10">
                             <div className="flex items-center gap-3 bg-navy/40 px-3 py-1.5 rounded-lg border border-white/5">
-                                <span className="font-mono font-black text-base text-coral tracking-wider">{referralDetails.code || 'SPARK-REF'}</span>
+                                <span className="font-mono font-black text-base text-coral tracking-wider flex-1">{referralDetails.code || 'SPARK-REF'}</span>
                                 <button 
                                     onClick={() => {
                                         const link = `${window.location.origin}/signup?ref=${referralDetails.code}`;
@@ -1640,13 +1663,35 @@ const Dashboard = () => {
                                         setCopied(true);
                                         setTimeout(() => setCopied(false), 2000);
                                     }}
-                                    className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white"
+                                    className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white"
                                     title="Copy Link"
                                 >
                                     {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                                 </button>
                             </div>
                         </div>
+                        {/* Share Button — triggers native iOS share sheet on iPhone */}
+                        <button
+                            onClick={async () => {
+                                const link = `${window.location.origin}/signup?ref=${referralDetails.code}`;
+                                const shareData = {
+                                    title: '✨ Join me on DateSpark!',
+                                    text: `Use my code ${referralDetails.code || 'SPARK-REF'} to sign up and we both get a free month of DateSpark Plus! 💖`,
+                                    url: link,
+                                };
+                                if (navigator.share) {
+                                    try { await navigator.share(shareData); } catch (_) {}
+                                } else {
+                                    navigator.clipboard.writeText(`${shareData.text}\n${link}`);
+                                    setCopied(true);
+                                    setTimeout(() => setCopied(false), 2000);
+                                }
+                            }}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-coral to-pink-500 hover:from-coral/90 hover:to-pink-500/90 text-white font-black text-xs rounded-xl transition-all active:scale-95 shadow-lg shadow-coral/25"
+                        >
+                            <Share2 className="w-3.5 h-3.5" />
+                            Share My Link
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1861,13 +1906,15 @@ const Dashboard = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className={`fixed inset-0 z-[100] backdrop-blur-xl flex flex-col p-6 overflow-hidden transition-colors duration-500 ${
+                        className={`fixed inset-0 z-[100] backdrop-blur-xl flex flex-col overflow-hidden transition-colors duration-500 ${
                             appTheme === 'dark' ? 'bg-navy/95' : 
                             appTheme === 'sunset' ? 'bg-[#ff6b6b]/10 contrast-125' : 
                             'bg-gray-50/95'
                         }`}
+                        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
                     >
-                        <div className="flex justify-between items-center mb-8">
+                        {/* Header — always visible, sticky at top */}
+                        <div className="flex justify-between items-center px-5 pt-4 pb-3 flex-shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${appTheme === 'dark' ? 'bg-white/10' : 'bg-navy/5'}`}>
                                     <Sparkles className={`w-6 h-6 ${appTheme === 'dark' ? 'text-white' : 'text-coral'}`} />
@@ -1877,17 +1924,22 @@ const Dashboard = () => {
                                     <p className={`text-[10px] font-bold uppercase tracking-widest ${appTheme === 'dark' ? 'text-white/40' : 'text-gray-400'}`}>Swipe right to save</p>
                                 </div>
                             </div>
+                            {/* Close button — large tap target, always accessible */}
                             <button 
                                 onClick={() => setShowDiscovery(false)}
-                                className={`p-3 rounded-full transition-colors ${appTheme === 'dark' ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-navy/5 hover:bg-navy/10 text-navy'}`}
+                                className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center transition-colors shadow-sm ${
+                                    appTheme === 'dark' ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-navy/5 hover:bg-navy/10 text-navy'
+                                }`}
+                                aria-label="Close Discovery Mode"
                             >
-                                <X className="w-6 h-6" />
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="flex-1 relative flex items-center justify-center perspective-[2000px] w-full px-4">
+                        {/* Card Area */}
+                        <div className="flex-1 relative flex items-center justify-center px-4 min-h-0">
                             {globalTrendingPlans.length > 0 ? (
-                                <div className="relative w-full max-w-[520px] h-full max-h-[70vh] md:max-h-[75vh] lg:max-h-[80vh]">
+                                <div className="relative w-full max-w-[440px] h-full" style={{ maxHeight: 'min(70vh, 520px)' }}>
                                     {globalTrendingPlans.slice(swipeIndex, swipeIndex + 3).reverse().map((plan, i) => {
                                         const isTop = i === 2 || (globalTrendingPlans.length - swipeIndex < 3 && i === (globalTrendingPlans.length - swipeIndex - 1));
                                         return (
@@ -1902,15 +1954,15 @@ const Dashboard = () => {
                                                     plan={plan}
                                                     isTop={isTop}
                                                     theme={appTheme}
-                                                onSwipe={(dir) => {
-                                                    if (dir === 'right') handleToggleFavorite(plan);
-                                                    setSwipeIndex(prev => prev + 1);
-                                                }}
-                                                onView={() => {
-                                                    setSelectedPlan(plan);
-                                                    setShowDiscovery(false);
-                                                }}
-                                            />
+                                                    onSwipe={(dir) => {
+                                                        if (dir === 'right') handleToggleFavorite(plan);
+                                                        setSwipeIndex(prev => prev + 1);
+                                                    }}
+                                                    onView={() => {
+                                                        setSelectedPlan(plan);
+                                                        setShowDiscovery(false);
+                                                    }}
+                                                />
                                             </motion.div>
                                         );
                                     })}
@@ -1936,16 +1988,17 @@ const Dashboard = () => {
                             )}
                         </div>
 
-                        <div className="flex justify-center gap-10 mt-12 mb-8">
+                        {/* Pagination Buttons — above iPhone home indicator, large tap targets */}
+                        <div className="flex justify-center items-center gap-12 flex-shrink-0 pt-6 pb-8 px-6">
                             <button 
                                 onClick={() => setSwipeIndex(prev => prev + 1)}
                                 disabled={swipeIndex >= globalTrendingPlans.length}
-                                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all active:scale-95 border-2 shadow-2xl relative group/btn ${
-                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/50 shadow-black/40' : 'bg-white border-gray-200 text-red-500 hover:border-red-500/30 hover:bg-red-50 shadow-gray-200/50'
+                                className={`w-[64px] h-[64px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 shadow-xl relative group/btn disabled:opacity-40 ${
+                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-400/50 shadow-black/40' : 'bg-white border-gray-200 text-red-500 hover:border-red-400/40 hover:bg-red-50 shadow-gray-300/60'
                                 }`}
-                                title="Pass (Swipe Left)"
+                                aria-label="Pass"
                             >
-                                <X className="w-10 h-10 transition-transform group-hover/btn:scale-110 active:scale-90" />
+                                <X className="w-8 h-8 sm:w-9 sm:h-9 transition-transform group-hover/btn:scale-110 active:scale-90" />
                             </button>
                             <button 
                                 onClick={() => {
@@ -1954,12 +2007,12 @@ const Dashboard = () => {
                                     setSwipeIndex(prev => prev + 1);
                                 }}
                                 disabled={swipeIndex >= globalTrendingPlans.length}
-                                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all active:scale-95 border-2 shadow-2xl relative group/btn ${
-                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 hover:bg-green-500/20 hover:text-green-500 hover:border-green-500/50 shadow-black/40' : 'bg-white border-gray-200 text-coral hover:border-coral/30 hover:bg-coral/5 shadow-gray-200/50'
+                                className={`w-[64px] h-[64px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 shadow-xl relative group/btn disabled:opacity-40 ${
+                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white/60 hover:bg-green-500/20 hover:text-green-400 hover:border-green-400/50 shadow-black/40' : 'bg-white border-gray-200 text-coral hover:border-coral/30 hover:bg-coral/5 shadow-gray-300/60'
                                 }`}
-                                title="Like (Swipe Right)"
+                                aria-label="Save (Like)"
                             >
-                                <Heart className={`w-10 h-10 transition-all duration-300 group-hover/btn:scale-110 active:scale-90 ${globalTrendingPlans[swipeIndex]?.is_favorite ? 'fill-coral text-coral' : ''}`} />
+                                <Heart className={`w-8 h-8 sm:w-9 sm:h-9 transition-all duration-300 group-hover/btn:scale-110 active:scale-90 ${globalTrendingPlans[swipeIndex]?.is_favorite ? 'fill-coral text-coral' : ''}`} />
                             </button>
                         </div>
                     </motion.div>
@@ -1995,8 +2048,11 @@ const Dashboard = () => {
 
         {/* View Plan Modal (Sleek Timeline UI) */}
         {selectedPlan && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/50 backdrop-blur-sm">
-                <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
+            <div
+                className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center sm:p-4 bg-navy/50 backdrop-blur-sm"
+                style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
+                <div className="bg-[#f8f9fa] rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl w-full max-w-5xl h-[95svh] sm:max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
                     {/* Desktop Close Button */}
                     <button
                         onClick={() => {
@@ -2011,25 +2067,26 @@ const Dashboard = () => {
                     {/* Left Column: Timeline UI */}
                     <div className={`flex-1 overflow-y-auto bg-transparent md:bg-white flex-col z-10 ${showMapMobile ? 'hidden md:flex' : 'flex'}`}>
 
-                        {/* Extra Compact Header Section */}
-                        <div className="bg-[#0f172a]/95 backdrop-blur-xl text-white p-4 border-b border-white/10 sticky top-0 z-20 rounded-b-2xl md:rounded-b-none flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
+                        {/* Sticky Header — fully mobile/iPhone safe */}
+                        <div className="bg-[#0f172a]/95 backdrop-blur-xl text-white px-3 py-3 border-b border-white/10 sticky top-0 z-20 flex items-center justify-between gap-2">
+                            {/* Left: Favorite + Title */}
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <button
                                     onClick={(e) => handleToggleFavorite(selectedPlan, e)}
-                                    className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 ${selectedPlan.is_favorite ? 'bg-coral/20 border-coral/30' : 'bg-white/10 border-white/10 hover:bg-white/20'}`}
+                                    className={`min-w-[40px] w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 flex-shrink-0 ${selectedPlan.is_favorite ? 'bg-coral/20 border-coral/30' : 'bg-white/10 border-white/10 hover:bg-white/20'}`}
                                     title={selectedPlan.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}
                                 >
-                                    <Heart className={`w-5 h-5 transition-all duration-300 ${selectedPlan.is_favorite ? 'fill-coral text-coral scale-110' : 'text-white/70'}`} />
+                                    <Heart className={`w-4 h-4 transition-all duration-300 ${selectedPlan.is_favorite ? 'fill-coral text-coral scale-110' : 'text-white/70'}`} />
                                 </button>
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h2 className="text-base font-black font-outfit tracking-tight truncate">{selectedPlan.vibe} Date</h2>
-                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white/10 rounded-md border border-white/10">
+                                    <div className="flex items-center gap-1.5">
+                                        <h2 className="text-sm font-black font-outfit tracking-tight truncate">{selectedPlan.vibe} Date</h2>
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white/10 rounded-md border border-white/10 flex-shrink-0">
                                             <History className="w-2.5 h-2.5 text-gray-400" />
-                                            <span className="text-[9px] font-black text-white/70">{selectedPlan.total_tries || 0} Tries</span>
+                                            <span className="text-[9px] font-black text-white/70">{selectedPlan.total_tries || 0}</span>
                                         </div>
                                     </div>
-                                    <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70">
+                                    <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70 truncate">
                                         {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
                                             `${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
                                             : 'Available in New York City'}
@@ -2037,40 +2094,49 @@ const Dashboard = () => {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            {/* Right: Actions + Close */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <button
                                     onClick={() => handleForkPlan(selectedPlan)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-[10px] font-black group shadow-lg shadow-violet-500/20"
+                                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-[10px] font-black group shadow-lg shadow-violet-500/20"
                                 >
                                     <Sparkles className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
                                     <span>Steal & Customize</span>
                                 </button>
+                                {/* Mobile compact Steal button */}
+                                <button
+                                    onClick={() => handleForkPlan(selectedPlan)}
+                                    className="sm:hidden flex items-center gap-1 px-2.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-[9px] font-black"
+                                >
+                                    <Sparkles className="w-3 h-3" />
+                                    <span>Steal</span>
+                                </button>
                                 <button
                                     onClick={handleShare}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all text-[10px] font-black group"
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all text-[9px] sm:text-[10px] font-black group"
                                 >
-                                    <Share2 className="w-3.5 h-3.5 text-coral group-hover:scale-110 transition-transform" />
-                                    <span>Share Plan</span>
+                                    <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-coral group-hover:scale-110 transition-transform" />
+                                    <span className="hidden sm:inline">Share Plan</span>
                                 </button>
+                                {/* Close / Back — always visible, min 44px tap target */}
                                 <button
                                     onClick={() => {
                                         setSelectedPlan(null);
                                         setShowMapMobile(false);
                                     }}
-                                    className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-all"
+                                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                                    aria-label="Close plan"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
 
-
-                        {/* Spacer for Background Map Visualization on Mobile */}
-                        <div className="h-[200px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
-                            {/* Mobile Map Toggle Button */}
+                        {/* Mobile Map Spacer */}
+                        <div className="h-[180px] sm:h-[200px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
                             <button
                                 onClick={() => setShowMapMobile(true)}
-                                className="bg-navy/95 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 border border-white/20 transform transition-all active:scale-95 mt-auto"
+                                className="bg-navy/95 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 border border-white/20 transform transition-all active:scale-95 mt-auto min-h-[40px]"
                             >
                                 <MapIcon className="w-3.5 h-3.5" />
                                 Expand Map

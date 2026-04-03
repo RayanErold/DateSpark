@@ -29,7 +29,8 @@ const GeneratePlan = () => {
     const [isPremium, setIsPremium] = useState(() => {
         // Admin Override Initialization
         const adminEmail = 'rayanerold@gmail.com';
-        const isCurrentlyAdmin = localStorage.getItem('userEmail') === adminEmail;
+        const userEmail = localStorage.getItem('userEmail')?.toLowerCase();
+        const isCurrentlyAdmin = userEmail === adminEmail;
         if (isCurrentlyAdmin) {
             return localStorage.getItem('isPremium') === 'true';
         }
@@ -94,8 +95,19 @@ const GeneratePlan = () => {
 
                     if (premRes.ok) {
                         const { isPremium: dbStatus } = await premRes.json();
-                        setIsPremium(dbStatus);
-                        localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                        
+                        // Admin Special Logic: Sync with DB but respect manual toggle for testing
+                        if (currentUser?.email?.toLowerCase() === 'rayanerold@gmail.com') {
+                            const manualChoice = localStorage.getItem('isPremium');
+                            if (manualChoice !== null) {
+                                setIsPremium(manualChoice === 'true');
+                            } else {
+                                setIsPremium(dbStatus);
+                            }
+                        } else {
+                            setIsPremium(dbStatus);
+                            localStorage.setItem('isPremium', dbStatus ? 'true' : 'false' || 'false');
+                        }
                     }
 
                     if (usageRes.ok) {
@@ -123,8 +135,19 @@ const GeneratePlan = () => {
                 const response = await fetch(`/api/user-premium/${newUser.id}`);
                 if (response.ok) {
                     const { isPremium: dbStatus } = await response.json();
-                    setIsPremium(dbStatus);
-                    localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                    
+                    // Admin Special Logic: Sync with DB but respect manual toggle for testing
+                    if (newUser?.email?.toLowerCase() === 'rayanerold@gmail.com') {
+                        const manualChoice = localStorage.getItem('isPremium');
+                        if (manualChoice !== null) {
+                            setIsPremium(manualChoice === 'true');
+                        } else {
+                            setIsPremium(dbStatus);
+                        }
+                    } else {
+                        setIsPremium(dbStatus);
+                        localStorage.setItem('isPremium', dbStatus ? 'true' : 'false' || 'false');
+                    }
                 }
             }
             setAuthLoading(false);
@@ -662,7 +685,7 @@ const GeneratePlan = () => {
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
                     </div>
                     {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
-                    {user?.email === 'rayanerold@gmail.com' && (
+                    {(user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com') && (
                         <div className="hidden md:flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button
