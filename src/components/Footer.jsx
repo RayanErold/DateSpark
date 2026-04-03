@@ -1,12 +1,12 @@
-import React from 'react';
 import { Heart, Instagram, Twitter, Facebook } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
     return (
         <footer className="bg-white border-t border-gray-100 pt-20 pb-10">
             <div className="container-custom">
-                <div className="grid md:grid-cols-4 gap-12 mb-16">
-                    <div className="col-span-2 space-y-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16">
+                    <div className="md:col-span-2 lg:col-span-2 space-y-6">
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-coral rounded-lg flex items-center justify-center shadow-lg shadow-coral/20">
                                 <Heart className="text-white w-5 h-5 fill-current" />
@@ -30,22 +30,32 @@ const Footer = () => {
                     </div>
 
                     <div className="space-y-6">
-                        <h4 className="font-bold text-navy">Product</h4>
+                        <h4 className="font-bold text-navy text-sm uppercase tracking-wider">Product</h4>
                         <ul className="space-y-4 text-gray-500">
                             <li><a href="#how-it-works" className="hover:text-coral transition-colors">How it works</a></li>
                             <li><a href="#benefits" className="hover:text-coral transition-colors">Why us</a></li>
                             <li><a href="#pricing" className="hover:text-coral transition-colors">Pricing</a></li>
-                            <li><a href="#" className="hover:text-coral transition-colors">Example Plans</a></li>
+                            <li><a href="#demo" className="hover:text-coral transition-colors">Example Plans</a></li>
+                        </ul>
+                    </div>
+ 
+                    <div className="space-y-6">
+                        <h4 className="font-bold text-navy text-sm uppercase tracking-wider">Support</h4>
+                        <ul className="space-y-4 text-gray-500">
+                            <li><a href="#faq" className="hover:text-coral transition-colors">Help Center</a></li>
+                            <li><a href="mailto:support@datespark.live" className="hover:text-coral transition-colors">Contact Support</a></li>
+                            <li><a href="#faq" className="hover:text-coral transition-colors">Safety Tips</a></li>
+                            <li><a href="#feedback" className="hover:text-coral transition-colors">Give Feedback</a></li>
                         </ul>
                     </div>
 
                     <div className="space-y-6">
-                        <h4 className="font-bold text-navy">Legal</h4>
+                        <h4 className="font-bold text-navy text-sm uppercase tracking-wider">Legal</h4>
                         <ul className="space-y-4 text-gray-500">
-                            <li><a href="#" className="hover:text-coral transition-colors">Privacy Policy</a></li>
-                            <li><a href="#" className="hover:text-coral transition-colors">Terms of Service</a></li>
-                            <li><a href="#" className="hover:text-coral transition-colors">Refund Policy</a></li>
-                            <li><a href="#" className="hover:text-coral transition-colors">Cookie Policy</a></li>
+                            <li><Link to="/privacy" className="hover:text-coral transition-colors">Privacy Policy</Link></li>
+                            <li><Link to="/terms" className="hover:text-coral transition-colors">Terms of Service</Link></li>
+                            <li><Link to="/refund" className="hover:text-coral transition-colors">Refund Policy</Link></li>
+                            <li><Link to="/cookies" className="hover:text-coral transition-colors">Cookie Policy</Link></li>
                         </ul>
                     </div>
                 </div>

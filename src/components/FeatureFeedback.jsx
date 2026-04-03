@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Lightbulb, Send, CheckCircle2, MessageSquareHeart } from 'lucide-react';
+import { Lightbulb, Send, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import axios from 'axios';
 
 const FeatureFeedback = () => {
     const [feedback, setFeedback] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [selectedOption, setSelectedOption] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const options = [
         "Better restaurant picks",
@@ -14,20 +16,35 @@ const FeatureFeedback = () => {
         "Something else..."
     ];
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!feedback && !selectedOption) return;
+        if (!feedback.trim() && !selectedOption) return;
 
-        // Simulate sending feedback
-        setSubmitted(true);
-        setTimeout(() => {
+        setIsSubmitting(true);
+        try {
+            const combinedText = selectedOption 
+                ? `[${selectedOption}] ${feedback.trim()}`.trim()
+                : feedback.trim();
+
+            await axios.post('/api/feedback', {
+                text: combinedText,
+                userId: null, // Anonymous from landing
+                email: null   // Anonymous from landing
+            });
+
+            setSubmitted(true);
             setFeedback('');
             setSelectedOption('');
-        }, 3000);
+        } catch (err) {
+            console.error("Feedback error:", err);
+            alert("Failed to send feedback. Please try again later.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
-        <section className="section-padding bg-soft-pink/20">
+        <section id="feedback" className="section-padding bg-soft-pink/20">
             <div className="container-custom">
                 <div className="max-w-4xl mx-auto bg-white rounded-[40px] p-8 md:p-12 shadow-xl border border-coral/10">
                     <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -71,9 +88,14 @@ const FeatureFeedback = () => {
                                     </div>
                                     <button
                                         type="submit"
-                                        className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-2 group"
+                                        disabled={isSubmitting || (!feedback.trim() && !selectedOption)}
+                                        className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-2 group disabled:opacity-50"
                                     >
-                                        Send Feedback <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                                        {isSubmitting ? (
+                                            <><Loader2 className="w-5 h-5 animate-spin" /> Sending...</>
+                                        ) : (
+                                            <>Send Feedback <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
+                                        )}
                                     </button>
                                 </form>
                             ) : (

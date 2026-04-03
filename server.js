@@ -10,6 +10,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Resend } from 'resend'; // Import Resend
 import Stripe from 'stripe';
 import fs from 'fs/promises';
+import cron from 'node-cron';
 
 // --- STARTUP LOG (runs after all imports resolve) ---
 console.log('>>> [PRODUCTION] All imports loaded at: ' + new Date().toISOString());
@@ -254,17 +255,17 @@ app.post('/api/create-checkout-session', async (req, res) => {
     try {
         const { planType, userId, email } = req.body;
 
-        let unitAmount = 99; // Default $0.99
-        let productName = 'One-Night Pass';
+        let unitAmount = 199; // Default $1.99
+        let productName = '24-Hour Pass';
         let mode = 'payment';
         let recurring = undefined;
 
-        if (planType === 'premium') {
+        if (planType === 'premium' || planType === 'ELITE') {
             unitAmount = 999; // $9.99
             productName = 'DateSpark Plus';
             mode = 'subscription';
             recurring = { interval: 'month' };
-        } else if (planType === 'daily') {
+        } else if (planType === 'daily' || planType === '24H') {
             unitAmount = 199; // $1.99
             productName = '24-Hour Pass';
             mode = 'payment';
@@ -356,7 +357,7 @@ app.post('/api/feedback', async (req, res) => {
     try {
         if (resend) {
             await resend.emails.send({
-                from: 'Feedback <hello@datespark.live>',
+                from: 'Feedback <support@datespark.live>',
                 to: process.env.ADMIN_EMAIL || 'rayanerold@gmail.com',
                 reply_to: email || undefined,
                 subject: 'New DateSpark Feedback 💡',
@@ -404,7 +405,7 @@ app.post('/api/send-welcome', async (req, res) => {
     try {
         if (resend) {
             await resend.emails.send({
-                from: 'DateSpark <hello@datespark.live>',
+                from: 'DateSpark <support@datespark.live>',
                 to: [email],
                 subject: `Welcome to the family, ${firstName || 'Friend'}! 🥂`,
                 html: `
@@ -496,7 +497,7 @@ app.post('/api/forgot-username', async (req, res) => {
             // but we can provide a friendly message.
             
             await resend.emails.send({
-                from: 'DateSpark Security <hello@datespark.live>',
+                from: 'DateSpark Security <support@datespark.live>',
                 to: [email],
                 subject: 'Your DateSpark Account Information 🔐',
                 html: `
@@ -717,7 +718,7 @@ app.post('/api/waitlist', async (req, res) => {
                 await fs.appendFile(logPath, logEntry(attemptMsg));
 
                 const { data: emailData, error: emailError } = await resend.emails.send({
-                    from: 'DateSpark <hello@datespark.live>', // Branded sender from verified domain
+                    from: 'DateSpark <support@datespark.live>', // Branded sender from verified domain
                     to: [email],
                     subject: 'Welcome to DateSpark – Let the Date Planning Begin! 💖',
                     html: `
@@ -1173,13 +1174,17 @@ app.get('/api/plans/:id', async (req, res) => {
             throw error;
         }
 
-        // Only return non-sensitive fields to the public
+        // Return public plan fields + community metrics
         const publicPlan = {
             id: plan.id,
             vibe: plan.vibe,
             budget: plan.budget,
             location: plan.location,
             itinerary: plan.itinerary,
+            avg_rating: plan.avg_rating || 0,
+            total_tries: plan.total_tries || 0,
+            reviews: plan.reviews || [],
+            vibe_tags: plan.vibe_tags || [],
             created_at: plan.created_at
         };
 
@@ -1299,13 +1304,13 @@ app.get('/api/user-usage/:userId', async (req, res) => {
     }
 });
 
-// Endpoint to fetch premium status specifically
+// Endpoint to fetch premium status specifically and referral info
 app.get('/api/user-premium/:userId', async (req, res) => {
     const { userId } = req.params;
     if (!supabase) return res.status(500).json({ error: 'DB not initialized' });
 
     try {
-        const { data: profile, error } = await supabase
+        let { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', userId)
@@ -1313,10 +1318,28 @@ app.get('/api/user-premium/:userId', async (req, res) => {
 
         if (error && error.code !== 'PGRST116') throw error;
 
+        // Auto-generate referral code if missing
+        if (profile && !profile.referral_code) {
+            const newCode = `SPARK-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            const { data: updatedProfile, error: updateError } = await supabase
+                .from('profiles')
+                .update({ referral_code: newCode })
+                .eq('id', userId)
+                .select()
+                .single();
+            
+            if (!updateError) profile = updatedProfile;
+        }
+
         const now = new Date();
         const isPremium = profile?.is_premium || (profile?.premium_expiry && new Date(profile.premium_expiry) > now) || false;
 
-        res.json({ isPremium });
+        res.json({ 
+            isPremium, 
+            premium_expiry: profile?.premium_expiry,
+            referral_code: profile?.referral_code,
+            referral_count: profile?.referral_count || 0
+        });
     } catch (err) {
         console.error(`[API ERROR] /api/user-premium/${userId}:`, err.message);
         res.status(500).json({ error: err.message || 'Internal Server Error' });
@@ -1324,6 +1347,74 @@ app.get('/api/user-premium/:userId', async (req, res) => {
 });
 
 // Classical Generation Flow
+
+// Endpoint to link a referral during signup
+app.post('/api/redeem-referral', async (req, res) => {
+    const { userId, referralCode } = req.body;
+    if (!userId || !referralCode) return res.status(400).json({ error: 'User ID and Referral Code are required' });
+    if (!supabase) return res.status(500).json({ error: 'DB not initialized' });
+
+    try {
+        console.log(`[REFERRAL] Attempting to redeem code: ${referralCode} for user: ${userId}`);
+
+        // 1. Find the referrer
+        const { data: referrer, error: findError } = await supabase
+            .from('profiles')
+            .select('id, referral_count')
+            .eq('referral_code', referralCode.trim().toUpperCase())
+            .single();
+
+        if (findError || !referrer) {
+            console.warn(`[REFERRAL] Invalid or missing code: ${referralCode}`);
+            return res.status(404).json({ error: 'Invalid referral code' });
+        }
+
+        if (referrer.id === userId) {
+            return res.status(400).json({ error: 'Cannot refer yourself' });
+        }
+
+        // 2. Link the new user
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ referred_by: referrer.id })
+            .eq('id', userId);
+
+        if (updateError) throw updateError;
+
+        // 3. Increment referrer count
+        const newCount = (referrer.referral_count || 0) + 1;
+        const rewardGranted = newCount > 0 && newCount % 3 === 0;
+
+        let updateData = { referral_count: newCount };
+        
+        // Reward Logic: 30 days of premium for every 3 referrals
+        if (rewardGranted) {
+            const now = new Date();
+            const currentExpiry = referrer.premium_expiry ? new Date(referrer.premium_expiry) : now;
+            const startPoint = currentExpiry > now ? currentExpiry : now;
+            const newExpiry = new Date(startPoint.getTime() + (30 * 24 * 60 * 60 * 1000));
+            
+            updateData.premium_expiry = newExpiry.toISOString();
+            updateData.is_premium = true;
+            console.log(`[REFERRAL REWARD] User ${referrer.id} reached ${newCount} referrals! Granting 30 days of Premium.`);
+        }
+
+        await supabase
+            .from('profiles')
+            .update(updateData)
+            .eq('id', referrer.id);
+
+        res.json({ 
+            success: true, 
+            rewardGranted,
+            newCount 
+        });
+    } catch (err) {
+        console.error(`[API ERROR] /api/redeem-referral:`, err.message);
+        res.status(500).json({ error: 'Failed to redeem referral' });
+    }
+});
+
 app.post('/api/generate-date', async (req, res) => {
     const { userId, location, vibe, startTime, endTime, budget, activities, interests, date, radius, lat, lng, dietary, usePreciseLocation, ideaCount = 3 } = req.body;
     console.log('API - /api/generate-date - Body Extract:', { userId, location, vibe, date });
@@ -1353,10 +1444,11 @@ app.post('/api/generate-date', async (req, res) => {
             "Financial District", "Battery Park City", "Murray Hill", "Hell's Kitchen"
         ];
         const { neighborhoods } = req.body;
-        const pool = neighborhoods && Array.isArray(neighborhoods) && neighborhoods.length > 0 ? neighborhoods : nycNeighborhoods;
+        // Use the specified location as the fallback if no neighborhoods are picked
+        const pool = neighborhoods && Array.isArray(neighborhoods) && neighborhoods.length > 0 ? neighborhoods : [location];
         const chosenNeighborhood = pool[Math.floor(Math.random() * pool.length)];
 
-        let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC
+        let centerCoords = { latitude: 34.0522, longitude: -118.2437 }; // Default to LA center for broad fallback if geocoding fails
         let customDisplayLocation = location;
 
         if (lat && lng) {
@@ -1379,15 +1471,15 @@ app.post('/api/generate-date', async (req, res) => {
             }
         } else if (GOOGLE_API_KEY) {
             try {
-                // Geocode the specific neighborhood for exact location bias Node triggers
-                const geocodeAddress = `${chosenNeighborhood}, New York City`;
+                // Geocode the user-provided location name directly
+                const geocodeAddress = location;
                 const geoRes = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
                     params: { address: geocodeAddress, key: GOOGLE_API_KEY }
                 });
                 if (geoRes.data?.results?.[0]) {
                     const locData = geoRes.data.results[0].geometry.location;
                     centerCoords = { latitude: locData.lat, longitude: locData.lng };
-                    customDisplayLocation = chosenNeighborhood;
+                    customDisplayLocation = location;
                 }
             } catch (err) {
                 console.error('Geocoding failed inside classic:', err.message);
@@ -1469,10 +1561,10 @@ app.post('/api/generate-date', async (req, res) => {
                         });
                     }
 
-                    // Final safety retry: Unbind all radius and budget locks for broad lookup Node triggers layout fixes
+                    // Final safety retry: Unbind all radius and budget locks for broad lookup
                     if (!res.data || !res.data.places) {
                         res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
-                            textQuery: `${queryType} in New York City`
+                            textQuery: `${queryType} in ${location}`
                         }, {
                             headers: {
                                 'X-Goog-Api-Key': GOOGLE_API_KEY,
@@ -1500,7 +1592,7 @@ app.post('/api/generate-date', async (req, res) => {
                                 description: `Rating: ${place.rating || 'N/A'} ⭐ (${place.userRatingCount || 0} reviews). Price: ${getPriceStr(place.priceLevel)}. A top-rated spot.`,
                                 lat: place.location?.latitude,
                                 lng: place.location?.longitude,
-                                address: place.formattedAddress || 'New York City, NY',
+                                address: place.formattedAddress || location || 'Nearby',
                                 photoUrl: photoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
                                 url: place.websiteUri || null
                             };
@@ -2062,6 +2154,61 @@ app.post('/api/delete-plan', async (req, res) => {
     }
 });
 
+// Secure Proxy to fetch Trending Plans for new users
+app.get('/api/trending-plans', async (req, res) => {
+    const { location } = req.query;
+    console.log(`[Trending] Fetching community favorites${location ? ' near ' + location : ' globally'}`);
+
+    try {
+        let query = supabase
+            .from('plans')
+            .select('id, vibe, location, budget, avg_rating, total_tries, itinerary, vibe_tags, is_favorite, reviews')
+            .is('deleted_at', null)
+            .order('total_tries', { ascending: false });
+
+        if (location && location !== 'undefined' && location !== 'null') {
+            // Fuzzy search for location if provided
+            query = query.ilike('location', `%${location}%`);
+        }
+
+        const { data: allPlans, error } = await query.limit(50);
+
+        if (error) {
+            console.error('[Trending] DB Error:', error);
+            return res.status(500).json({ error: error.message });
+        }
+
+        if (!allPlans || allPlans.length === 0) {
+            // Fallback: If no location-specific trending found, fetch global top plans
+            const { data: globalPlans, error: globalErr } = await supabase
+                .from('plans')
+                .select('id, vibe, location, budget, avg_rating, total_tries, itinerary, vibe_tags, is_favorite, reviews')
+                .is('deleted_at', null)
+                .order('avg_rating', { ascending: false })
+                .limit(10);
+            
+            if (globalErr) throw globalErr;
+            return res.json(globalPlans || []);
+        }
+
+        // Apply scoring algorithm: (Rating * 0.7) + (Popularity * 0.3)
+        const scoredPlans = allPlans
+            .map(plan => {
+                const rating = parseFloat(plan.avg_rating || 0);
+                const popularity = Math.log10((plan.total_tries || 0) + 1);
+                const score = (rating * 0.7) + (popularity * 0.3);
+                return { ...plan, communityScore: score };
+            })
+            .sort((a, b) => b.communityScore - a.communityScore)
+            .slice(0, 9); // Return top 9 trending plans
+
+        res.json(scoredPlans);
+    } catch (err) {
+        console.error('[Trending] Server Error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch global favorites' });
+    }
+});
+
 // Serve frontend static files in production
 const distPath = path.resolve(process.cwd(), 'dist');
 app.use(express.static(distPath));
@@ -2087,6 +2234,115 @@ app.get(/.*/, (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`>>> [PRODUCTION] Server is successfully listening on 0.0.0.0:${PORT}`);
 });
+
+// --- AUTOMATED WEEKEND SPARK EMAILS ---
+
+const sendWeekendSpark = async () => {
+    console.log("[CRON] Initiating Weekend Spark Sequence...");
+    if (!resend) {
+        console.error("[CRON] Aborted: Resend not configured.");
+        return;
+    }
+
+    try {
+        // 1. Fetch Top 3 Trending Plans overall globally
+        const { data: allPlans, error: plansError } = await supabaseAdmin
+            .from('plans')
+            .select('id, vibe, location, avg_rating, total_tries, itinerary')
+            .gte('total_tries', 1);
+
+        if (plansError) throw plansError;
+
+        if (!allPlans || allPlans.length === 0) {
+            console.log("[CRON] Not enough interactive plans to send.");
+            return;
+        }
+
+        const topPlans = allPlans
+            .sort((a, b) => {
+                const scoreA = ((a.avg_rating || 0) * 0.7) + (Math.log10((a.total_tries || 0) + 1) * 0.3);
+                const scoreB = ((b.avg_rating || 0) * 0.7) + (Math.log10((b.total_tries || 0) + 1) * 0.3);
+                return scoreB - scoreA;
+            })
+            .slice(0, 3);
+
+        // 2. Format beautiful HTML
+        let placesHtml = topPlans.map((plan, idx) => {
+            const steps = Array.isArray(plan.itinerary) ? plan.itinerary : (plan.itinerary?.steps || []);
+            const mainVenue = steps.find(s => s.venue)?.venue || "Mystery Location";
+            return `
+                <div style="background-color: #f9fafb; padding: 20px; border-radius: 16px; margin-bottom: 16px; border: 1px solid #f3f4f6;">
+                    <h3 style="margin-top: 0; margin-bottom: 8px; color: #0f172a; font-family: sans-serif;">Top Spotlight #${idx + 1}: ${plan.vibe || 'Romantic'} Date in ${plan.location || 'the area'}</h3>
+                    <p style="margin: 0; color: #475569; font-size: 14px; font-family: sans-serif;">⭐ ${plan.avg_rating ? parseFloat(plan.avg_rating).toFixed(1) : 'New'} (${plan.total_tries} Community Tries)</p>
+                    <p style="margin: 8px 0 0 0; color: #0f172a; font-size: 14px; font-weight: bold; font-family: sans-serif;">Highlights: ${mainVenue}</p>
+                </div>
+            `;
+        }).join('');
+
+        const htmlTemplate = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #0f172a;">
+                <h2 style="color: #f43f5e; text-align: center;">🔥 Your Weekend Spark is Here</h2>
+                <p style="text-align: center; color: #64748b; font-size: 16px; line-height: 1.5;">The DateSpark community has spoken! Here are the absolute best, highly-rated date plans trending right now. Steal these for your weekend!</p>
+                <div style="margin-top: 32px;">
+                    ${placesHtml}
+                </div>
+                <div style="text-align: center; margin-top: 32px;">
+                    <a href="https://datespark.live/dashboard" style="background-color: #f43f5e; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; display: inline-block;">Open DateSpark</a>
+                </div>
+            </div>
+        `;
+
+        // 3. Fetch all active users from Supabase Auth mapping
+        const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+        if (usersError) throw usersError;
+        
+        const subscribers = usersData.users.filter(u => {
+            const isEnabled = u.user_metadata?.weekend_spark_enabled !== false; // Default true
+            return isEnabled && u.email;
+        });
+
+        console.log(`[CRON] Dispatching to ${subscribers.length} / ${usersData.users.length} total users.`);
+
+        // 4. Dispatch Bulk Emails
+        for (const user of subscribers) {
+            const email = user.email;
+            try {
+                await resend.emails.send({
+                    from: 'DateSpark <support@datespark.live>',
+                    to: email,
+                    subject: '🔥 The top 3 date ideas for your weekend',
+                    html: htmlTemplate
+                });
+                console.log(`[CRON] Sent Weekend Spark to ${email}`);
+            } catch (err) {
+                console.error(`[CRON] Failed to send to ${email}:`, err);
+            }
+            // Small delay to prevent API rate limits on Resend
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        console.log("[CRON] Weekend Spark sequence completed.");
+
+    } catch (err) {
+        console.error("[CRON] Sequence failed:", err);
+    }
+};
+
+// Map Cron (Every Thursday at 10 AM)
+// cron.schedule('0 10 * * 4', () => {
+//     sendWeekendSpark();
+// });
+
+// Debug Enpoint
+// app.get('/api/debug/trigger-weekend-spark', async (req, res) => {
+//     try {
+//         console.log("Triggering manual weekend spark sequence...");
+//         sendWeekendSpark(); // Fire asynchronously
+//         res.json({ message: 'Sequence ignited asynchronously. Check server logs.' });
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// });
 
 // Explicitly keep the event loop alive to prevent premature exit
 setInterval(() => {

@@ -287,20 +287,20 @@ const GeneratePlan = () => {
     const [waitlistSuccess, setWaitlistSuccess] = useState(false);
     const [waitlistError, setWaitlistError] = useState(null);
 
-    const isLocationInNYC = (locationStr, lat, lng) => {
+    const isLocationInServiceArea = (locationStr, lat, lng) => {
         if (!locationStr && !lat) return false;
         
-        // String check for common NYC identifiers and neighborhoods
-        const nycKeywords = [
+        // String check for common service area identifiers (NYC + NJ Waterfront)
+        const serviceKeywords = [
             'new york', 'brooklyn', 'queens', 'bronx', 'staten island', 'manhattan', 'ny', 
-            '100', '112', '111', '104', '103', 'soho', 'chelsea', 'astoria', 'williamsburg', 
-            'dumbo', 'harlem', 'village', 'heights', 'park slope', 'long island city'
+            'nj', 'new jersey', 'jersey city', 'hoboken', 'newark', 'weehawken', 'union city',
+            '100', '112', '111', '104', '103', '070', '071', '073'
         ];
         const lowerLoc = (locationStr || '').toLowerCase().trim();
-        const hasKeyword = nycKeywords.some(kw => lowerLoc.includes(kw));
+        const hasKeyword = serviceKeywords.some(kw => lowerLoc.includes(kw));
 
-        // Bounding box for NYC roughly: 40.477, -74.259 to 40.917, -73.700
-        const isWithinCoords = lat >= 40.477 && lat <= 40.917 && lng >= -74.259 && lng <= -73.700;
+        // Bounding box for NYC + Nearby Jersey (Roughly 40.5 to 41.0 Lat, -74.3 to -73.7 Lng)
+        const isWithinCoords = lat >= 40.40 && lat <= 41.10 && lng >= -74.30 && lng <= -73.60;
 
         return hasKeyword || isWithinCoords;
     };
@@ -412,11 +412,14 @@ const GeneratePlan = () => {
                 setError("Please select a location first.");
                 return;
             }
-            if (!isLocationInNYC(formData.location, formData.lat, formData.lng)) {
-                setDetectedCity(formData.location);
+
+            // GATING: Ensure we are in NYC or Jersey
+            if (!isLocationInServiceArea(formData.location, formData.lat, formData.lng)) {
+                setDetectedCity(formData.location.split(',')[0]);
                 setShowWaitlistModal(true);
                 return;
             }
+
             newHistory = [{ role: 'user', text: initialPrompt }];
         } else {
             if (!refinePrompt.trim()) return;
@@ -558,9 +561,9 @@ const GeneratePlan = () => {
 
         setError(null);
 
-        // --- NYC ONLY GATING ---
-        if (!isLocationInNYC(formData.location, formData.lat, formData.lng)) {
-            setDetectedCity(formData.location);
+        // --- SERVICE AREA GATING (NYC & NJ ONLY) ---
+        if (!isLocationInServiceArea(formData.location, formData.lat, formData.lng)) {
+            setDetectedCity(formData.location.split(',')[0]);
             setShowWaitlistModal(true);
             return;
         }
@@ -1069,6 +1072,11 @@ const GeneratePlan = () => {
                                             <option value="active">Active & Adventurous 🍦</option>
                                             <option value="fancy">Fancy & Upscale ✨</option>
                                             <option value="hidden">Hidden Gems & Unique 💎</option>
+                                            <option value="artistic">Artistic & Cultural 🎨</option>
+                                            <option value="playful">Playful & Competitive 🎮</option>
+                                            <option value="nature">Nature & Serenity 🌿</option>
+                                            <option value="party">Night Owl & Party 🌙</option>
+                                            <option value="educational">Educational & Curious 🧠</option>
                                         </select>
                                         <Sliders className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 w-5 h-5" />
                                     </div>
@@ -1083,7 +1091,7 @@ const GeneratePlan = () => {
                                         type="range"
                                         min="0"
                                         max="1000"
-                                        step="50"
+                                        step="1"
                                         value={parseInt((formData.budget || '$0').replace('$', '') || 0)}
                                         onChange={(e) => setFormData({ ...formData, budget: `$${e.target.value}` })}
                                         className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-coral"
@@ -1103,6 +1111,12 @@ const GeneratePlan = () => {
                                             <option value="Entertainment & Culture">Shows & Culture 🏛️</option>
                                             <option value="Outdoor Activities">Parks & Outdoor 🌳</option>
                                             <option value="Fun & Adventure">Games & Trivia 🕹️</option>
+                                            <option value="Art & Museums">Art & Museums 🖼️</option>
+                                            <option value="Live Music">Live Music & Gigs 🎸</option>
+                                            <option value="Health & Wellness">Health & Wellness 🧘</option>
+                                            <option value="Shopping & Fashion">Shopping & Fashion 🛍️</option>
+                                            <option value="Sports & Fitness">Sports & Fitness 🏀</option>
+                                            <option value="Tech & Innovation">Tech & Innovation 💻</option>
                                         </select>
                                         <Target className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 w-5 h-5" />
                                     </div>
@@ -1321,7 +1335,7 @@ const GeneratePlan = () => {
                                 Coming to <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-500">Your City</span> Soon!
                             </h3>
                             <p className="text-gray-500 font-bold leading-relaxed px-2">
-                                DateSpark is currently exclusive to <span className="text-navy font-black italic underline decoration-coral decoration-2">New York City</span>. 
+                                DateSpark is currently being focus in <span className="text-navy font-black italic underline decoration-coral decoration-2">New York City and Jersey</span>. 
                                 We detected you're in <span className="text-violet-600 font-black">"{detectedCity || 'a new territory'}"</span>.
                             </p>
                         </div>

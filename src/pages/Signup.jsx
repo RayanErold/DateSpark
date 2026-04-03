@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Heart, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const Signup = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const referralCode = searchParams.get('ref');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [formData, setFormData] = useState({
@@ -131,6 +133,18 @@ const Signup = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(welcomeData)
             }).catch(e => console.error('Welcome email trigger failed:', e));
+
+            // NEW: Redeem referral if code exists
+            if (referralCode && data?.user?.id) {
+                console.log('Detected referral code, redeeming:', referralCode);
+                fetch('/api/redeem-referral', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: data.user.id, referralCode })
+                }).then(res => res.json())
+                  .then(refData => console.log('Referral redemption result:', refData))
+                  .catch(e => console.error('Referral redemption failed:', e));
+            }
 
             navigate('/dashboard');
         } catch (err) {

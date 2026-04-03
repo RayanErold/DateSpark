@@ -8,12 +8,16 @@ const FAQ = () => {
             answer: "You get the full, unlocked itinerary for your night. This include exact addresses of all 3-4 spots, reservation links, real-time ticket availability for events, and a custom Google Maps route to navigate between them."
         },
         {
-            question: "Which cities are supported right now?",
-            answer: "We support major cities worldwide! From London to Tokyo, New York to Sydney, we're adding new locations every day to help you find the perfect date spot."
+            question: "How do you ensure my safety during dates?",
+            answer: "Safety is our priority. We only recommend highly-rated, vetted venues in well-lit, populated areas in New York and Jersey. We also include 'Safety Check' tips in every premium itinerary."
         },
         {
-            question: "Can I regenerate a plan if I don't like it?",
-            answer: "Yes! Your One-time Pass allows you to regenerate up to 3 alternative plans for that same night if the first one doesn't quite fit your vibe."
+            question: "Who can I contact if I have an issue with a booking?",
+            answer: "While we don't handle the bookings directly, our support team at support@datespark.live is available to help you navigate any issues with partner venues or generated plans."
+        },
+        {
+            question: "Can I use DateSpark outside of NYC and NJ?",
+            answer: "We are currently hyper-focused on providing the best experience in New York City and Northern New Jersey. We are expanding soon—join our waitlist to be notified when we launch in your city!"
         },
         {
             question: "Do I need to download an app?",
@@ -24,7 +28,7 @@ const FAQ = () => {
     const [openIndex, setOpenIndex] = useState(0);
 
     return (
-        <section className="section-padding">
+        <section id="faq" className="section-padding">
             <div className="container-custom">
                 <div className="max-w-3xl mx-auto">
                     <h2 className="text-3xl font-bold text-navy mb-12 text-center">Frequently Asked Questions</h2>

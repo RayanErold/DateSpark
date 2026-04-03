@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
     Heart, 
     MessageCircle, 
+    MessageSquare,
     Share2, 
     Trash2, 
     Search, 
@@ -41,13 +42,17 @@ import {
     Car,
     LogOut,
     User,
-    Settings
+    Settings,
+    Gift,
+    Copy
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { loadStripe } from '@stripe/stripe-js';
 import BottomNav from '../components/BottomNav';
 import PremiumExperienceModal from '../components/PremiumExperienceModal';
 import UsageBadge from '../components/UsageBadge';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import CommunityFeedbackModal from '../components/CommunityFeedbackModal';
 
 const darkMapStyle = [
     { elementType: 'geometry', stylers: [{ color: '#111827' }] },
@@ -72,13 +77,183 @@ const darkMapStyle = [
 
 const GOOGLE_MAPS_LIBRARIES = ['places'];
 
+const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
+    const [photoIndex, setPhotoIndex] = useState(0);
+    const x = useMotionValue(0);
+    const rotate = useTransform(x, [-200, 200], [-25, 25]);
+    const opacity = useTransform(x, [-250, -200, 0, 200, 250], [0, 1, 1, 1, 0]);
+    const likeOpacity = useTransform(x, [50, 150], [0, 1]);
+    const passOpacity = useTransform(x, [-150, -50], [1, 0]);
+
+    if (!isTop) {
+        return (
+            <div className="absolute inset-0 bg-white/5 rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl scale-[0.96] translate-y-4 opacity-50 transition-all duration-500">
+                <div className="h-full w-full bg-navy/40 backdrop-blur-3xl" />
+            </div>
+        );
+    }
+
+    // Data Mapping
+    const cardTitle = plan.vibe ? `${plan.vibe} Date` : 'Trending Date';
+    const cardLocation = plan.location || 'New Rochelle, NY';
+    const cardRating = plan.avg_rating ? parseFloat(plan.avg_rating).toFixed(1) : '4.9';
+    const triesCount = plan.total_tries || Math.floor(Math.random() * 150) + 50;
+    const steps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
+    const photos = steps.map(s => s.photoUrl).filter(Boolean);
+    const hasPhotos = photos.length > 0;
+    const currentPhoto = hasPhotos ? photos[photoIndex] : null;
+
+    const handlePhotoTap = (e) => {
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        if (clickX < rect.width / 2) {
+            setPhotoIndex(prev => Math.max(0, prev - 1));
+        } else {
+            setPhotoIndex(prev => (prev + 1) % photos.length);
+        }
+    };
+
+    return (
+        <motion.div
+            style={{ x, rotate, opacity }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.9}
+            onDragEnd={(_, info) => {
+                if (info.offset.x > 120) onSwipe('right');
+                else if (info.offset.x < -120) onSwipe('left');
+            }}
+            whileDrag={{ scale: 1.02 }}
+            className={`absolute inset-0 rounded-[2.5rem] shadow-xl overflow-hidden cursor-grab active:cursor-grabbing border flex flex-col transition-colors duration-300 ${
+                theme === 'dark' ? 'bg-navy border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' :
+                theme === 'sunset' ? 'bg-white border-coral/20' :
+                'bg-white border-gray-100 shadow-xl'
+            }`}
+        >
+            {/* Visual Feedback Overlays */}
+            <motion.div style={{ opacity: likeOpacity }} className="absolute inset-0 bg-green-500/10 pointer-events-none z-50 flex items-center justify-center">
+                <div className="scale-[2] bg-green-500 p-4 rounded-full shadow-2xl">
+                    <Heart className="w-12 h-12 text-white fill-white" />
+                </div>
+            </motion.div>
+            <motion.div style={{ opacity: passOpacity }} className="absolute inset-0 bg-red-500/10 pointer-events-none z-50 flex items-center justify-center">
+                <div className="scale-[2] bg-red-500 p-4 rounded-full shadow-2xl">
+                    <X className="w-12 h-12 text-white" />
+                </div>
+            </motion.div>
+
+            {/* HEADER SECTION */}
+            <div className={`p-10 pb-6 z-20 ${theme === 'dark' ? 'bg-gradient-to-b from-navy to-navy/50' : 'bg-transparent'}`}>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <div className="bg-gradient-to-r from-coral to-pink-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-xl">TRENDING</div>
+                    <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-full border ${
+                        theme === 'dark' ? 'text-white/50 bg-white/5 border-white/5' : 'text-gray-400 bg-gray-50 border-gray-100'
+                    }`}>
+                        <MapPin className="w-3 h-3 text-coral" /> {cardLocation}
+                    </div>
+                </div>
+                <h3 className={`text-3xl font-black leading-tight font-outfit drop-shadow-sm ${
+                    theme === 'dark' ? 'text-white' : 'text-navy'
+                }`}>{cardTitle}</h3>
+            </div>
+
+            {/* IMAGE GALLERY SECTION */}
+            <div 
+                className={`relative flex-1 mx-6 rounded-[2.5rem] overflow-hidden border pointer-events-auto cursor-pointer mb-6 transition-colors ${
+                    theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'
+                }`}
+                onClick={handlePhotoTap}
+            >
+                {hasPhotos ? (
+                    <>
+                        <img 
+                            key={currentPhoto}
+                            src={currentPhoto} 
+                            alt={`Venue ${photoIndex + 1}`} 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" 
+                        />
+                        {/* Progress Bars (Tinder Style) */}
+                        <div className="absolute top-3 inset-x-3 flex gap-1.5 z-30">
+                            {photos.map((_, idx) => (
+                                <div 
+                                    key={idx} 
+                                    className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${idx === photoIndex ? 'bg-white shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'bg-white/30'}`}
+                                />
+                            ))}
+                        </div>
+                        {/* Tap Indicators (Hidden visually but functional) */}
+                        <div className="absolute inset-y-0 left-0 w-1/3 z-20" />
+                        <div className="absolute inset-y-0 right-0 w-1/3 z-20" />
+                    </>
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-navy via-navy/90 to-coral opacity-40 p-8 text-center gap-3">
+                         <MapPin className="w-12 h-12 text-white/20" />
+                         <span className="text-white/40 text-xs font-bold font-outfit">Visualizing venue details...</span>
+                    </div>
+                )}
+                {/* Image Label Overlay */}
+                <div className="absolute bottom-4 left-4 right-4 z-20">
+                    <div className="bg-navy/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 inline-flex items-center gap-2">
+                        <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">{steps[photoIndex]?.venue || 'Discovery Stop'}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* FOOTER SECTION */}
+            <div className="px-8 pb-8 pt-2 z-20">
+                <p className={`text-sm font-medium line-clamp-2 leading-snug mb-4 ${
+                    theme === 'dark' ? 'text-white/60' : 'text-gray-500'
+                }`}>{steps[photoIndex]?.activity || plan.vibe} Date</p>
+                
+                <div className={`flex items-center justify-between border-t pt-5 ${
+                    theme === 'dark' ? 'border-white/10' : 'border-gray-100'
+                }`}>
+                    <div className="flex items-center gap-4">
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5">
+                                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                                <span className={`font-black text-base ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{cardRating}</span>
+                            </div>
+                            <span className="text-[9px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Rating</span>
+                        </div>
+                        <div className={`w-px h-6 ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`} />
+                        <div className="flex flex-col">
+                            <span className={`font-black text-base ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{triesCount}</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Tries</span>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            e.preventDefault();
+                            onView(); 
+                        }} 
+                        className={`px-6 py-3 font-black rounded-xl transition-all text-xs shadow-lg active:scale-95 flex items-center gap-2 group/btn ${
+                            theme === 'dark' ? 'bg-white text-navy hover:bg-coral hover:text-white' : 'bg-navy text-white hover:bg-coral hover:translate-y-[-2px]'
+                        }`}
+                    >
+                        View Plan
+                        <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                    </button>
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
+    const hasFetchedRef = React.useRef(false);
     const [plans, setPlans] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
+    const [showDiscovery, setShowDiscovery] = useState(false);
+    const [swipeIndex, setSwipeIndex] = useState(0);
+    const [swipeDirection, setSwipeDirection] = useState(null);
     const [showMapMobile, setShowMapMobile] = useState(false);
 
     // --- SETTINGS STATE ---
@@ -91,7 +266,8 @@ const Dashboard = () => {
     const [profileData, setProfileData] = useState({
         first_name: '',
         last_name: '',
-        email: ''
+        email: '',
+        weekend_spark_enabled: true
     });
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [showVisionBanner, setShowVisionBanner] = useState(() => {
@@ -134,6 +310,14 @@ const Dashboard = () => {
     const [activeSwitchIndex, setActiveSwitchIndex] = useState(null);
     const [selectedPlanIds, setSelectedPlanIds] = useState([]);
     const [isSelectMode, setIsSelectMode] = useState(false);
+    
+    // --- SOCIAL & FEEDBACK STATE ---
+    const [ratingPlan, setRatingPlan] = useState(null);
+    const [globalTrendingPlans, setGlobalTrendingPlans] = useState([]);
+    const [isTrendingLoading, setIsTrendingLoading] = useState(false);
+    const [referralDetails, setReferralDetails] = useState({ code: '', count: 0 });
+    const [copied, setCopied] = useState(false);
+
     // Usage state for Free users
     const [usage, setUsage] = useState({
         classic: 0,
@@ -145,6 +329,31 @@ const Dashboard = () => {
         guided: 2,
         swap: 10
     });
+
+    // Helper: Get most popular vibe tag
+    const getPopularTag = (vibe_tags) => {
+        if (!Array.isArray(vibe_tags) || vibe_tags.length === 0) return null;
+        const counts = vibe_tags.reduce((acc, tag) => {
+            acc[tag] = (acc[tag] || 0) + 1;
+            return acc;
+        }, {});
+        const mostFrequent = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+        
+        const tags = {
+            'anniversary': { label: 'Anniversary', icon: '💍' },
+            'icebreaker': { label: 'Icebreaker', icon: '🧊' },
+            'budget': { label: 'Budget-Friendly', icon: '💸' },
+            'rainy': { label: 'Rainy Day', icon: '🌧️' }
+        };
+        return tags[mostFrequent] || null;
+    };
+
+    // Calculate User Level / Badges
+    const userReviewCount = plans.reduce((acc, p) => {
+        const myReviews = Array.isArray(p.reviews) ? p.reviews.filter(r => r.user_id === user?.id) : [];
+        return acc + myReviews.length;
+    }, 0);
+    const isDateMaster = userReviewCount >= 3;
 
     useEffect(() => {
         if (selectedPlan && selectedPlan.id) {
@@ -299,6 +508,9 @@ const Dashboard = () => {
 
     useEffect(() => {
         const fetchUserData = async () => {
+            if (hasFetchedRef.current) return;
+            hasFetchedRef.current = true;
+            
             try {
                 const { data: { user }, error: userError } = await supabase.auth.getUser();
                 if (userError) throw userError;
@@ -313,9 +525,13 @@ const Dashboard = () => {
                 ]);
 
                 if (premRes.ok) {
-                    const { isPremium: dbStatus } = await premRes.json();
-                    setIsPremium(dbStatus);
-                    localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
+                    const data = await premRes.json();
+                    setIsPremium(data.isPremium);
+                    setReferralDetails({ 
+                        code: data.referral_code || '', 
+                        count: data.referral_count || 0 
+                    });
+                    localStorage.setItem('isPremium', data.isPremium ? 'true' : 'false');
                 }
 
                 if (usageRes.ok) {
@@ -335,7 +551,8 @@ const Dashboard = () => {
                     try {
                         const response = await fetch(`/api/user-premium/${user.id}`);
                         if (response.ok) {
-                            const { isPremium: dbStatus, premium_expiry } = await response.json();
+                            const data = await response.json();
+                            const { isPremium: dbStatus, premium_expiry, referral_code, referral_count } = data;
                             
                             // Check if premium via boolean OR via active expiry
                             const now = new Date();
@@ -343,6 +560,10 @@ const Dashboard = () => {
                             const finalStatus = dbStatus || hasActivePass;
 
                             setIsPremium(finalStatus);
+                            setReferralDetails({ 
+                                code: referral_code || '', 
+                                count: referral_count || 0 
+                            });
                             localStorage.setItem('isPremium', finalStatus ? 'true' : 'false');
                             if (premium_expiry) {
                                 localStorage.setItem('premiumExpiry', premium_expiry);
@@ -354,34 +575,20 @@ const Dashboard = () => {
                         console.error('Dashboard Premium Sync Error:', syncErr);
                     }
 
-
-
-                    // Fetch plans with explicit session refresh and advanced error logging
-                    // Fetch plans via the backend proxy to bypass potential frontend JWT/400 errors
+                    // Fetch plans via the backend proxy
                     const fetchPlans = async () => {
                         try {
                             console.log('Dashboard - Fetching plans via server proxy for user:', user.id);
-                            
                             const response = await fetch(`/api/user-plans?userId=${user.id}`);
-                            if (!response.ok) {
-                                const errData = await response.json();
-                                throw new Error(errData.error || `Proxy error: ${response.status}`);
-                            }
-
+                            if (!response.ok) throw new Error(`Proxy error: ${response.status}`);
                             const data = await response.json();
-                            console.log('Dashboard - Successfully fetched plans via proxy:', data.length);
-                            
-                            // Process plans
-                            let processedPlans = data || [];
-                            setPlans(processedPlans);
+                            setPlans(data || []);
                         } catch (err) {
                             console.error('Final Plan Fetch Error (via Proxy):', err.message);
                         }
                     };
 
                     await fetchPlans();
-                } else {
-                    console.warn('Dashboard - No authenticated user found');
                 }
             } catch (err) {
                 console.error('Dashboard - fetchUserData error:', err.message);
@@ -391,17 +598,32 @@ const Dashboard = () => {
         };
 
         fetchUserData();
-        
-        // Safety timeout to prevent infinite "Loading..." hang
-        const timeout = setTimeout(() => {
-            if (isLoading) {
-                console.warn('Dashboard - Fetch timed out, forcing load completion');
-                setIsLoading(false);
-            }
-        }, 8000); // 8 second safety net for slow connections
-
-        return () => clearTimeout(timeout);
+        return () => { hasFetchedRef.current = false; };
     }, []);
+
+    // NEW: Fetch trending plans if user has no plans
+    useEffect(() => {
+        const fetchTrending = async () => {
+            // Only fetch trending if user is loaded and they have no plans of their own yet
+            // Ensure globalTrendingPlans is not already set and trendingPlans is not already set
+            if (user && plans.length === 0 && globalTrendingPlans.length === 0) {
+                setIsTrendingLoading(true);
+                try {
+                    console.log('[Trending] Fetching community favorites for new user experience...');
+                    const response = await fetch('/api/trending-plans');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setGlobalTrendingPlans(data || []);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch trending plans:', err);
+                } finally {
+                    setIsTrendingLoading(false);
+                }
+            }
+        };
+        fetchTrending();
+    }, [user, plans.length, globalTrendingPlans.length]);
 
     const handleForceReload = async () => {
         setIsLoading(true);
@@ -490,7 +712,31 @@ const Dashboard = () => {
                 }
                 setSelectedPlanIds([]);
                 setIsSelectMode(false);
+            } else if (type === 'favorite') {
+                const newStatus = !plan.is_favorite;
+                try {
+                    const response = await fetch('/api/update-plan', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            planId: plan.id,
+                            updateData: { is_favorite: newStatus }
+                        })
+                    });
+                    if (!response.ok) throw new Error('Proxy favorite update failed');
+                    
+                    setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, is_favorite: newStatus } : p));
+                    if (selectedPlan?.id === plan.id) {
+                        setSelectedPlan(prev => ({ ...prev, is_favorite: newStatus }));
+                    }
+                    setFeedbackMessage(newStatus ? 'Plan moved to Favorites! 💖' : 'Plan removed from Favorites.');
+                    setTimeout(() => setFeedbackMessage(''), 3000);
+                } catch (err) {
+                    console.error('Error toggling favorite:', err.message);
+                    alert(`Failed to update favorite status: ${err.message}`);
+                }
             } else {
+                // Single plan trash/delete
                 if (type === 'trash') {
                     const now = new Date().toISOString();
                     const response = await fetch('/api/update-plan', {
@@ -515,7 +761,7 @@ const Dashboard = () => {
             }
             setConfirmModal({ isOpen: false, plan: null, type: 'trash', isBatch: false });
         } catch (err) {
-            console.error('Delete error:', err.message);
+            console.error('Operation execution error:', err.message);
             alert(`Operation failed: ${err.message}`);
         }
     };
@@ -552,8 +798,45 @@ const Dashboard = () => {
         }
     };
 
+    const handleForkPlan = async (originalPlan) => {
+        if (!originalPlan) return;
+        setIsLoading(true);
+        try {
+            // Clone the plan but reset stats/reviews
+            const { data: { user } } = await supabase.auth.getUser();
+            const newPlan = {
+                user_id: user.id,
+                vibe: originalPlan.vibe,
+                location: originalPlan.location,
+                itinerary: originalPlan.itinerary,
+                is_favorite: false,
+                avg_rating: 0,
+                total_tries: 0,
+                reviews: [],
+                vibe_tags: []
+            };
+
+            const { data, error } = await supabase
+                .from('plans')
+                .insert([newPlan])
+                .select();
+
+            if (error) throw error;
+
+            setPlans(prev => [data[0], ...prev]);
+            setSelectedPlan(null);
+            setFeedbackMessage('Plan cloned! You can now customize it.');
+            setTimeout(() => setFeedbackMessage(''), 3000);
+        } catch (err) {
+            console.error('Error forking plan:', err);
+            setDebugError('Failed to clone plan: ' + err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleToggleFavorite = async (plan, e) => {
-        e.stopPropagation();
+        if (e && e.stopPropagation) e.stopPropagation();
 
         // --- FREEMIUM FAVORITE LIMIT LOGIC ---
         if (!plan.is_favorite && !isPremium) {
@@ -565,6 +848,17 @@ const Dashboard = () => {
         }
 
         const newStatus = !plan.is_favorite;
+
+        // --- NEW: CONFIRMATION PROMPT FOR MIGRATION ---
+        if (newStatus && activeTab === 'all') {
+            setConfirmModal({
+                isOpen: true,
+                plan,
+                type: 'favorite',
+                isBatch: false
+            });
+            return;
+        }
 
         try {
             const response = await fetch('/api/update-plan', {
@@ -725,6 +1019,17 @@ const Dashboard = () => {
         }
     };
 
+    useEffect(() => {
+        if (user) {
+            setProfileData({
+                first_name: user.user_metadata?.first_name || '',
+                last_name: user.user_metadata?.last_name || '',
+                email: user.email || '',
+                weekend_spark_enabled: user.user_metadata?.weekend_spark_enabled !== false // Default true
+            });
+        }
+    }, [user]);
+
     const handleUpdateProfile = async () => {
         setIsSavingProfile(true);
         try {
@@ -732,7 +1037,8 @@ const Dashboard = () => {
                 email: profileData.email !== user.email ? profileData.email : undefined,
                 data: {
                     first_name: profileData.first_name,
-                    last_name: profileData.last_name
+                    last_name: profileData.last_name,
+                    weekend_spark_enabled: profileData.weekend_spark_enabled
                 }
             });
 
@@ -967,6 +1273,16 @@ const Dashboard = () => {
     const groupedFavorites = getGroupedFavorites();
     const hasFavorites = plans.some(p => p.is_favorite);
 
+    // Calculate Local Trending Plans 
+    const localTrendingPlans = [...plans]
+        .filter(p => !p.deleted_at && p.total_tries > 0)
+        .sort((a, b) => {
+            const scoreA = ((a.avg_rating || 0) * 0.7) + (Math.log10((a.total_tries || 0) + 1) * 0.3);
+            const scoreB = ((b.avg_rating || 0) * 0.7) + (Math.log10((b.total_tries || 0) + 1) * 0.3);
+            return scoreB - scoreA;
+        })
+        .slice(0, 3);
+
     const renderPlanCard = (plan, planIdx, enforceLocked = false, isCompact = false) => {
         const isLockedPlan = enforceLocked || (!isPremium && activeTab === 'all' && planIdx >= 2);
         const isPartiallyLocked = !isPremium && activeTab === 'all' && planIdx === 1;
@@ -1011,6 +1327,17 @@ const Dashboard = () => {
                         <p className="text-sm font-bold text-coral mt-1">Click to Unlock</p>
                     </div>
                 )}
+                
+                {/* Popular Vibe Tag Badge */}
+                {!isLockedPlan && getPopularTag(plan.vibe_tags) && (
+                    <div className="absolute top-4 left-4 z-30 animate-in fade-in zoom-in duration-500">
+                        <div className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-coral/20 rounded-full shadow-sm flex items-center gap-1.5 ring-1 ring-coral/5">
+                            <span className="text-xs">{getPopularTag(plan.vibe_tags).icon}</span>
+                            <span className="text-[10px] font-black text-coral uppercase tracking-tighter">{getPopularTag(plan.vibe_tags).label}</span>
+                        </div>
+                    </div>
+                )}
+
                 <div className="absolute top-4 right-4 flex gap-2 z-30">
                     <button
                         onClick={(e) => {
@@ -1079,6 +1406,29 @@ const Dashboard = () => {
                         )}
                     </div>
                 )}
+
+                {/* Social Analytics Row */}
+                <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100 mb-4">
+                    <div className="flex items-center gap-1.5 px-2 py-1 -ml-2 rounded-lg transition-colors">
+                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                        <span className="text-sm font-black text-navy">{plan.avg_rating ? parseFloat(plan.avg_rating).toFixed(1) : 'New'}</span>
+                        <span className="text-xs font-medium text-gray-400">({plan.total_tries || 0} tries)</span>
+                    </div>
+                    <button
+                         onClick={(e) => {
+                             e.stopPropagation();
+                             if (isLockedPlan) {
+                                setShowUpgradeModal(true);
+                             } else {
+                                setRatingPlan(plan);
+                             }
+                         }}
+                         className="flex items-center gap-1.5 px-3 py-1.5 bg-coral/10 hover:bg-coral/20 text-coral rounded-lg text-xs font-bold transition-colors"
+                    >
+                        <Heart className="w-3.5 h-3.5" /> Tried it
+                    </button>
+                </div>
+                
                 <button
                     onClick={(e) => {
                         if (isLockedPlan) {
@@ -1171,6 +1521,11 @@ const Dashboard = () => {
                         <span className="text-sm font-bold text-navy hidden sm:block">
                             {user?.user_metadata?.first_name || 'Kade. D'}
                         </span>
+                        {isDateMaster && (
+                            <div className="bg-coral/10 p-1 rounded-md" title="Date Master Status">
+                                <Sparkles className="w-3.5 h-3.5 text-coral fill-coral/20" />
+                            </div>
+                        )}
                         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
 
@@ -1222,13 +1577,81 @@ const Dashboard = () => {
                     <h1 className="text-3xl font-black text-navy">Your Date Plans</h1>
                     <p className="text-gray-500 mt-1">Manage and view your generated itineraries.</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                     <Link
                         to="/generate"
                         className="btn-primary py-3 px-6 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-coral/20 hover:-translate-y-0.5 transition-all"
                     >
                         <Plus className="w-5 h-5" /> New Plan
                     </Link>
+
+                    {/* NEW: Repositioned Discover Button next to New Plan (Primary Action) */}
+                    <button
+                        onClick={() => setShowDiscovery(true)}
+                        className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white py-3 px-6 rounded-xl flex items-center justify-center gap-2 font-black shadow-lg shadow-indigo-500/20 hover:-translate-y-0.5 transition-all group relative overflow-hidden"
+                        title="Discovery Mode"
+                    >
+                        <Sparkles className="w-5 h-5 animate-pulse group-hover:scale-110 transition-transform" />
+                        <span className="tracking-tight">Discover Dates</span>
+                        
+                        {/* Noticeable Pop Badge */}
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-white text-[8px] font-bold text-indigo-600 items-center justify-center shadow-sm">NEW</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            {/* NEW: Referral Loop Section (Ultra-Compact) */}
+            <div className="mb-6 bg-gradient-to-br from-navy to-navy/90 rounded-2xl p-4 relative overflow-hidden shadow-lg border border-navy-100/10 group">
+                {/* Ambient logic decoration */}
+                <div className="absolute -right-8 -top-8 w-24 h-24 bg-coral/15 rounded-full blur-2xl animate-pulse" />
+                
+                <div className="relative z-10 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                    <div className="w-12 h-12 bg-gradient-to-br from-coral to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-coral/20 flex-shrink-0 group-hover:scale-105 transition-transform">
+                        <Gift className="w-6 h-6 text-white" />
+                    </div>
+                    
+                    <div className="flex-1 text-center sm:text-left">
+                        <h2 className="text-lg font-black text-white tracking-tight">Give 30 Days, Get 30 Days 💖</h2>
+                        <p className="text-white/60 text-[11px] font-medium leading-relaxed max-w-sm">
+                            Invite 3 friends to join and unlock a **Full Month of Plus** for free!
+                        </p>
+                        
+                        {/* Progress Bar (Ultra-Compact) */}
+                        <div className="mt-3 max-w-[200px] mx-auto sm:mx-0">
+                            <div className="flex justify-between text-[9px] font-black text-white/30 mb-1 uppercase tracking-widest">
+                                <span>{referralDetails.count} / 3 friends</span>
+                            </div>
+                            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-coral to-pink-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_6px_rgba(255,107,107,0.3)]"
+                                    style={{ width: `${Math.min((referralDetails.count / 3) * 100, 100)}%` }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-shrink-0 w-full sm:w-auto">
+                        <div className="bg-white/5 backdrop-blur-md rounded-xl p-2.5 border border-white/10">
+                            <div className="flex items-center gap-3 bg-navy/40 px-3 py-1.5 rounded-lg border border-white/5">
+                                <span className="font-mono font-black text-base text-coral tracking-wider">{referralDetails.code || 'SPARK-REF'}</span>
+                                <button 
+                                    onClick={() => {
+                                        const link = `${window.location.origin}/signup?ref=${referralDetails.code}`;
+                                        navigator.clipboard.writeText(link);
+                                        setCopied(true);
+                                        setTimeout(() => setCopied(false), 2000);
+                                    }}
+                                    className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white"
+                                    title="Copy Link"
+                                >
+                                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1237,23 +1660,26 @@ const Dashboard = () => {
                 <div className="flex bg-gray-200/50 p-1.5 rounded-2xl mb-8 border border-gray-100 max-w-sm">
                     <button
                         onClick={() => setActiveTab('all')}
-                        className={`flex-1 py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'all' ? 'bg-white text-navy shadow-sm' : 'text-gray-500 hover:text-navy'}`}
+                        className={`flex-1 py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'all' ? 'bg-white text-navy shadow-sm' : 'text-gray-500 hover:text-navy'}`}
                     >
                         <Layout className="w-4 h-4" /> All
                     </button>
                     <button
                         onClick={() => setActiveTab('favorites')}
-                        className={`flex-1 py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'favorites' ? 'bg-white text-coral shadow-sm' : 'text-gray-500 hover:text-navy'}`}
+                        className={`flex-1 py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'favorites' ? 'bg-white text-coral shadow-sm' : 'text-gray-500 hover:text-navy'}`}
                     >
                         <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-coral text-coral' : ''}`} /> Favorites
                     </button>
+
+                    {/* Tab Navigation cleaned up (Discover moved to primary actions) */}
+
                     <div className="w-px h-6 bg-gray-200 mx-1 self-center" />
                     <button
                         onClick={() => {
                             setIsSelectMode(!isSelectMode);
                             setSelectedPlanIds([]);
                         }}
-                        className={`flex-1 py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${isSelectMode ? 'bg-navy text-white shadow-sm' : 'text-gray-500 hover:text-navy'}`}
+                        className={`flex-1 py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${isSelectMode ? 'bg-navy text-white shadow-sm' : 'text-gray-500 hover:text-navy'}`}
                     >
                         <Check className="w-4 h-4" /> {isSelectMode ? 'Cancel' : 'Select'}
                     </button>
@@ -1306,31 +1732,55 @@ const Dashboard = () => {
             )}
 
             {plans.length === 0 ? (
-                <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-xl border border-navy-100/20 max-w-2xl mx-auto my-8 animate-in fade-in zoom-in-95 duration-500">
-                    {/* Ambient decorative gradient bubbles */}
-                    <div className="absolute -right-16 -top-16 w-64 h-64 bg-coral/20 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-violet-500/20 rounded-full blur-3xl" />
+                <>
+                    <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-xl border border-navy-100/20 max-w-2xl mx-auto my-8 animate-in fade-in zoom-in-95 duration-500">
+                        {/* Ambient decorative gradient bubbles */}
+                        <div className="absolute -right-16 -top-16 w-64 h-64 bg-coral/20 rounded-full blur-3xl animate-pulse" />
+                        <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-violet-500/20 rounded-full blur-3xl" />
 
-                    <div className="relative z-10 space-y-4">
-                        <div className="w-20 h-20 bg-gradient-to-br from-coral to-pink-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-coral/30 rotate-6 hover:rotate-0 transition-transform duration-300">
-                            <Heart className="w-10 h-10 fill-white text-white" />
-                        </div>
+                        <div className="relative z-10 space-y-4">
+                            <div className="w-20 h-20 bg-gradient-to-br from-coral to-pink-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-coral/30 rotate-6 hover:rotate-0 transition-transform duration-300">
+                                <Heart className="w-10 h-10 fill-white text-white" />
+                            </div>
 
-                        <h2 className="text-4xl font-black text-white tracking-tight">Let’s plan your next date 💖</h2>
-                        <p className="text-white/80 max-w-md mx-auto font-medium text-lg">
-                            Stop deciding, start dating. Generate custom timelines and interactive maps in seconds.
-                        </p>
+                            <h2 className="text-4xl font-black text-white tracking-tight">Let’s plan your next date 💖</h2>
+                            <p className="text-white/80 max-w-md mx-auto font-medium text-lg">
+                                Stop deciding, start dating. Generate custom timelines and interactive maps in seconds.
+                            </p>
 
-                        <div className="pt-4">
-                            <Link
-                                to="/generate"
-                                className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-navy font-black rounded-2xl hover:bg-coral hover:text-white transition-all shadow-xl hover:-translate-y-1 active:scale-[0.98] group"
-                            >
-                                Start your first plan <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                            </Link>
+                            <div className="pt-4">
+                                <Link
+                                    to="/generate"
+                                    className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-navy font-black rounded-2xl hover:bg-coral hover:text-white transition-all shadow-xl hover:-translate-y-1 active:scale-[0.98] group"
+                                >
+                                    Start your first plan <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                                </Link>
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    {/* NEW: Trending Discovery for New Users */}
+                    {globalTrendingPlans.length > 0 && (
+                        <div className="mt-16 mb-24 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
+                            <div className="flex items-center justify-between mb-8 px-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
+                                        <Compass className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-black text-navy tracking-tight">Explore Community Favorites</h3>
+                                        <p className="text-gray-500 text-sm font-medium">Hand-picked itineraries loved by the DateSpark community.</p>
+                                    </div>
+                                </div>
+                                <Sparkles className="w-6 h-6 text-coral animate-pulse" />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {globalTrendingPlans.slice(0, 6).map((plan, idx) => renderPlanCard(plan, idx, false, true))}
+                            </div>
+                        </div>
+                    )}
+                </>
             ) : activeTab === 'favorites' && !hasFavorites ? (
                 <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm animate-in fade-in duration-300">
                     <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-coral">
@@ -1347,40 +1797,178 @@ const Dashboard = () => {
                         View All Plans
                     </button>
                 </div>
+            ) : activeTab === 'favorites' ? (
+                <div className="animate-in fade-in duration-300">
+                    <h3 className="text-xl font-black text-navy mb-6 flex items-center gap-2">
+                        Favorite Plans
+                        <span className="bg-coral/10 text-coral text-[10px] px-2 py-1 rounded-full">
+                            {plans.filter(p => p.is_favorite && !p.deleted_at).length}
+                        </span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {plans.filter(p => p.is_favorite && !p.deleted_at).map((plan, planIdx) => renderPlanCard(plan, planIdx, false))}
+                    </div>
+                </div>
             ) : activeTab === 'all' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
-                    {plans.filter(p => !p.deleted_at).map((plan, planIdx) => renderPlanCard(plan, planIdx, false))}
+                <div className="animate-in fade-in duration-300">
+                    <h3 className="text-xl font-black text-navy mb-6 flex items-center gap-2">
+                        Your Date Plans
+                        <span className="bg-gray-100 text-gray-400 text-[10px] px-2 py-1 rounded-full">{plans.filter(p => !p.deleted_at && !p.is_favorite).length}</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {plans.filter(p => !p.deleted_at && !p.is_favorite).map((plan, planIdx) => renderPlanCard(plan, planIdx, false))}
+                    </div>
                 </div>
-            ) : (
-                <div className="space-y-12 pb-12 animate-in fade-in duration-500">
-                    {Object.entries(groupedFavorites).map(([monthYear, categories]) => (
-                        <div key={monthYear} className="bg-white p-6 sm:p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                            <h2 className="text-3xl font-black text-navy mb-8 flex items-center gap-3">
-                                <div className="w-12 h-12 bg-coral rounded-2xl flex items-center justify-center shadow-md shadow-coral/20">
-                                    <Calendar className="w-6 h-6 text-white" />
-                                </div>
-                                {monthYear}
-                            </h2>
-                            <div className="space-y-10">
-                                {Object.entries(categories).map(([category, categoryPlans]) => (
-                                    <div key={category} className="pl-4 sm:pl-6 border-l-4 border-gray-100 relative">
-                                        {/* Decorative dot */}
-                                        <div className="absolute top-1.5 -left-2.5 w-4 h-4 bg-gray-200 border-4 border-white rounded-full"></div>
+            ) : null}
 
-                                        <h3 className="text-xl font-bold text-gray-800 uppercase tracking-wide mb-6 flex items-center gap-3">
-                                            {category} Dates
-                                            <span className="bg-gray-100 text-gray-500 px-3 py-1 text-xs rounded-full">{categoryPlans.length}</span>
-                                        </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {categoryPlans.map((plan, idx) => renderPlanCard(plan, idx, false, true))}
-                                        </div>
-                                    </div>
-                                ))}
+            {/* Discovery Button (Noticeable FAB) */}
+            <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 1, type: "spring" }}
+                className="fixed bottom-24 right-6 z-40"
+            >
+                <motion.button
+                    whileHover={{ scale: 1.15 }}
+                    whileTap={{ scale: 0.9 }}
+                    animate={{ 
+                        boxShadow: ["0px 0px 0px rgba(124, 58, 237, 0)", "0px 0px 25px rgba(255, 107, 107, 0.6)", "0px 0px 0px rgba(124, 58, 237, 0)"],
+                        y: [0, -4, 0]
+                    }}
+                    transition={{ 
+                        boxShadow: { duration: 2.5, repeat: Infinity, ease: "easeInOut" },
+                        y: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                    onClick={() => setShowDiscovery(true)}
+                    className="w-14 h-14 bg-gradient-to-br from-coral to-pink-500 text-white rounded-full shadow-2xl flex items-center justify-center border-2 border-white/20 relative group"
+                    title="Discovery Mode"
+                >
+                    <Sparkles className="w-7 h-7 animate-pulse" />
+                    
+                    {/* Pop notification badge */}
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-white text-[8px] font-black text-coral items-center justify-center">NEW</span>
+                    </span>
+
+                    {/* Tooltip on hover */}
+                    <div className="absolute right-full mr-4 bg-navy px-3 py-1.5 rounded-lg text-[10px] font-black text-white whitespace-nowrap hidden md:group-hover:block animate-in fade-in slide-in-from-right-2">
+                        DISCOVER TRENDING DATES 💖
+                    </div>
+                </motion.button>
+            </motion.div>
+
+            {/* Discovery Mode (Dating App Swipe Interface) */}
+            <AnimatePresence>
+                {showDiscovery && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className={`fixed inset-0 z-[100] backdrop-blur-xl flex flex-col p-6 overflow-hidden transition-colors duration-500 ${
+                            appTheme === 'dark' ? 'bg-navy/95' : 
+                            appTheme === 'sunset' ? 'bg-[#ff6b6b]/10 contrast-125' : 
+                            'bg-gray-50/95'
+                        }`}
+                    >
+                        <div className="flex justify-between items-center mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${appTheme === 'dark' ? 'bg-white/10' : 'bg-navy/5'}`}>
+                                    <Sparkles className={`w-6 h-6 ${appTheme === 'dark' ? 'text-white' : 'text-coral'}`} />
+                                </div>
+                                <div>
+                                    <h2 className={`text-xl font-black leading-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>Discovery Mode</h2>
+                                    <p className={`text-[10px] font-bold uppercase tracking-widest ${appTheme === 'dark' ? 'text-white/40' : 'text-gray-400'}`}>Swipe right to save</p>
+                                </div>
                             </div>
+                            <button 
+                                onClick={() => setShowDiscovery(false)}
+                                className={`p-3 rounded-full transition-colors ${appTheme === 'dark' ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-navy/5 hover:bg-navy/10 text-navy'}`}
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
                         </div>
-                    ))}
-                </div>
-            )}
+
+                        <div className="flex-1 relative flex items-center justify-center perspective-[2000px] w-full px-4">
+                            {globalTrendingPlans.length > 0 ? (
+                                <div className="relative w-full max-w-[520px] h-full max-h-[70vh] md:max-h-[75vh] lg:max-h-[80vh]">
+                                    {globalTrendingPlans.slice(swipeIndex, swipeIndex + 3).reverse().map((plan, i) => {
+                                        const isTop = i === 2 || (globalTrendingPlans.length - swipeIndex < 3 && i === (globalTrendingPlans.length - swipeIndex - 1));
+                                        return (
+                                            <motion.div
+                                                key={plan.id}
+                                                initial={isTop ? { scale: 0.8, y: 20, opacity: 0 } : {}}
+                                                animate={isTop ? { scale: 1, y: 0, opacity: 1 } : {}}
+                                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                                className="absolute inset-0"
+                                            >
+                                                <SwipeCard 
+                                                    plan={plan}
+                                                    isTop={isTop}
+                                                    theme={appTheme}
+                                                onSwipe={(dir) => {
+                                                    if (dir === 'right') handleToggleFavorite(plan);
+                                                    setSwipeIndex(prev => prev + 1);
+                                                }}
+                                                onView={() => {
+                                                    setSelectedPlan(plan);
+                                                    setShowDiscovery(false);
+                                                }}
+                                            />
+                                            </motion.div>
+                                        );
+                                    })}
+                                    
+                                    {swipeIndex >= globalTrendingPlans.length && (
+                                        <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white/5 rounded-[2.5rem] border-2 border-dashed border-white/10">
+                                            <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mb-4">
+                                                <History className="w-10 h-10 text-white/20" />
+                                            </div>
+                                            <h3 className="text-xl font-black text-white">No more plans!</h3>
+                                            <p className="text-white/40 text-sm mt-1">Check back later for more community inspiration.</p>
+                                            <button 
+                                                onClick={() => setSwipeIndex(0)}
+                                                className="mt-6 px-6 py-3 bg-white/10 text-white font-bold rounded-xl hover:bg-white/20 transition-all"
+                                            >
+                                                Start Over
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <Loader2 className="w-12 h-12 text-white animate-spin" />
+                            )}
+                        </div>
+
+                        <div className="flex justify-center gap-10 mt-12 mb-8">
+                            <button 
+                                onClick={() => setSwipeIndex(prev => prev + 1)}
+                                disabled={swipeIndex >= globalTrendingPlans.length}
+                                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all active:scale-95 border-2 shadow-2xl relative group/btn ${
+                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/50 shadow-black/40' : 'bg-white border-gray-200 text-red-500 hover:border-red-500/30 hover:bg-red-50 shadow-gray-200/50'
+                                }`}
+                                title="Pass (Swipe Left)"
+                            >
+                                <X className="w-10 h-10 transition-transform group-hover/btn:scale-110 active:scale-90" />
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    const currentPlan = globalTrendingPlans[swipeIndex];
+                                    if (currentPlan) handleToggleFavorite(currentPlan);
+                                    setSwipeIndex(prev => prev + 1);
+                                }}
+                                disabled={swipeIndex >= globalTrendingPlans.length}
+                                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all active:scale-95 border-2 shadow-2xl relative group/btn ${
+                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 hover:bg-green-500/20 hover:text-green-500 hover:border-green-500/50 shadow-black/40' : 'bg-white border-gray-200 text-coral hover:border-coral/30 hover:bg-coral/5 shadow-gray-200/50'
+                                }`}
+                                title="Like (Swipe Right)"
+                            >
+                                <Heart className={`w-10 h-10 transition-all duration-300 group-hover/btn:scale-110 active:scale-90 ${globalTrendingPlans[swipeIndex]?.is_favorite ? 'fill-coral text-coral' : ''}`} />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             {/* Batch Action Bar */}
             {selectedPlanIds.length > 0 && (
                 <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] animate-in slide-in-from-bottom-10 duration-500">
@@ -1411,7 +1999,7 @@ const Dashboard = () => {
 
         {/* View Plan Modal (Sleek Timeline UI) */}
         {selectedPlan && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/50 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/50 backdrop-blur-sm">
                 <div className="bg-[#f8f9fa] rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
                     {/* Desktop Close Button */}
                     <button
@@ -1438,7 +2026,13 @@ const Dashboard = () => {
                                     <Heart className={`w-5 h-5 transition-all duration-300 ${selectedPlan.is_favorite ? 'fill-coral text-coral scale-110' : 'text-white/70'}`} />
                                 </button>
                                 <div className="min-w-0">
-                                    <h2 className="text-base font-black font-outfit tracking-tight truncate">{selectedPlan.vibe} Date</h2>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-base font-black font-outfit tracking-tight truncate">{selectedPlan.vibe} Date</h2>
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white/10 rounded-md border border-white/10">
+                                            <History className="w-2.5 h-2.5 text-gray-400" />
+                                            <span className="text-[9px] font-black text-white/70">{selectedPlan.total_tries || 0} Tries</span>
+                                        </div>
+                                    </div>
                                     <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70">
                                         {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
                                             `${new Date(selectedPlan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
@@ -1448,6 +2042,13 @@ const Dashboard = () => {
                             </div>
 
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleForkPlan(selectedPlan)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-[10px] font-black group shadow-lg shadow-violet-500/20"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+                                    <span>Steal & Customize</span>
+                                </button>
                                 <button
                                     onClick={handleShare}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all text-[10px] font-black group"
@@ -1698,6 +2299,51 @@ const Dashboard = () => {
                                     );
                                 })}
                             </div>
+
+                            {/* Community Feedback Section */}
+                            <div className="mt-8 border-t border-gray-100 pt-8 pb-10">
+                                <h3 className="text-xl font-black text-navy mb-4 flex items-center gap-2">
+                                    <MessageSquare className="w-5 h-5 text-coral" /> Community Feedback
+                                </h3>
+                                
+                                {Array.isArray(selectedPlan?.reviews) && selectedPlan.reviews.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {selectedPlan.reviews.map((r, i) => (
+                                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm animate-in fade-in duration-300 relative overflow-hidden">
+                                                <div className="flex items-center gap-2 mb-3 z-10 relative">
+                                                    <div className="flex bg-yellow-50 px-2 py-1 flex-shrink-0 rounded-lg outline outline-1 outline-yellow-100 items-center gap-1">
+                                                        <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                                                        <span className="text-[11px] font-black text-yellow-700">{r.rating}.0</span>
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-400 font-bold ml-auto uppercase tracking-wider">{new Date(r.timestamp).toLocaleDateString()}</span>
+                                                </div>
+                                                {r.comment && <p className="text-sm text-gray-700 font-medium mb-3 relative z-10 leading-relaxed">{r.comment}</p>}
+                                                {r.image && (
+                                                    <img src={r.image} alt="User captured moment" className="w-full max-h-48 rounded-xl object-cover shadow-sm border border-gray-200 mt-2 z-10 relative" loading="lazy" />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="bg-gradient-to-br from-indigo-50/50 to-white rounded-3xl p-6 text-center border border-indigo-100/50 mb-4 shadow-sm relative overflow-hidden">
+                                        <div className="absolute -right-8 -bottom-8 w-24 h-24 bg-indigo-100 rounded-full blur-2xl"></div>
+                                        <div className="w-12 h-12 bg-white rounded-2xl mx-auto flex items-center justify-center mb-3 shadow-sm border border-gray-50 text-indigo-500 relative z-10 rotate-6">
+                                            <Sparkles className="w-6 h-6" />
+                                        </div>
+                                        <p className="text-[15px] font-black text-navy relative z-10">No feedback yet</p>
+                                        <p className="text-xs font-medium text-gray-500 mt-1.5 max-w-[200px] mx-auto relative z-10 line-clamp-2 leading-relaxed">Be the very first to try this specific date and leave a review!</p>
+                                    </div>
+                                )}
+                                
+                                <button 
+                                    onClick={() => setRatingPlan(selectedPlan)}
+                                    className="w-full mt-4 py-3.5 bg-gray-50 border border-gray-200 text-navy font-black rounded-xl hover:bg-coral hover:text-white hover:border-coral transition-colors flex justify-center items-center gap-2 tracking-wide group/btn transform active:scale-95 shadow-sm"
+                                >
+                                    <Heart className="w-4 h-4 text-coral group-hover/btn:text-white group-hover/btn:fill-white group-hover/btn:scale-110 transition-all" />
+                                    I Tried this Plan
+                                </button>
+                            </div>
+
                         </div>
                     </div>
 
@@ -1775,6 +2421,19 @@ const Dashboard = () => {
             onClose={() => { setShowUpgradeModal(false); setLimitType(null); }}
             onUpgrade={(type) => handleBuyPass(type || 'ELITE')}
             limitType={limitType}
+        />
+
+        {/* COMMUNITY FEEDBACK MODAL */}
+        <CommunityFeedbackModal 
+            isOpen={!!ratingPlan}
+            onClose={() => setRatingPlan(null)}
+            plan={ratingPlan}
+            onFeedbackSubmitted={(updatedPlan) => {
+                setPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+                if (selectedPlan && selectedPlan.id === updatedPlan.id) {
+                    setSelectedPlan(updatedPlan);
+                }
+            }}
         />
 
         {/* OUR VISION MODAL */}
@@ -2161,13 +2820,22 @@ const Dashboard = () => {
                                 <p className="text-gray-500 mb-8 font-medium">Customize your DateSpark experience.</p>
 
                                 <div className="space-y-6">
-                                    <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
+                                    <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-gray-50/50 opacity-60">
                                         <div>
-                                            <h4 className="font-bold text-navy">Email Reminders</h4>
-                                            <p className="text-sm text-gray-500 mt-0.5">Get reminded the day before your planned date.</p>
+                                            <h4 className="font-bold text-navy">Weekend Spark Emails</h4>
+                                            <p className="text-[11px] text-gray-500 mt-0.5 italic">Coming Soon: Weekly top-rated community spotlights for your weekend plans.</p>
                                         </div>
-                                        <div className="w-12 h-6 bg-navy rounded-full relative cursor-pointer">
-                                            <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+                                        <div className="w-12 h-6 bg-gray-300 rounded-full relative cursor-not-allowed">
+                                            <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-gray-50/50 opacity-60">
+                                        <div>
+                                            <h4 className="font-bold text-navy">Planned Date Reminders</h4>
+                                            <p className="text-xs text-gray-500 mt-0.5 italic">Coming Soon: Automatic reminders for your scheduled plans.</p>
+                                        </div>
+                                        <div className="w-12 h-6 bg-gray-300 rounded-full relative cursor-not-allowed">
+                                            <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
@@ -2212,6 +2880,15 @@ const Dashboard = () => {
                                                 </button>
                                             ))}
                                         </div>
+                                    </div>
+                                    <div className="pt-4">
+                                        <button
+                                            onClick={handleUpdateProfile}
+                                            disabled={isSavingProfile}
+                                            className="w-full py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-navy/20"
+                                        >
+                                            {isSavingProfile ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving Preferences...</> : 'Save Preferences'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -2272,17 +2949,21 @@ const Dashboard = () => {
                 {confirmModal.isOpen && (
                     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-300">
                         <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
-                            <div className={`p-8 text-center ${confirmModal.type === 'delete' ? 'bg-red-50' : 'bg-coral/5'}`}>
-                                <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg transform -rotate-3 ${confirmModal.type === 'delete' ? 'bg-red-500 text-white' : 'bg-coral text-white'}`}>
-                                    <Trash2 className="w-10 h-10" />
+                            <div className={`p-8 text-center ${confirmModal.type === 'delete' ? 'bg-red-50' : confirmModal.type === 'favorite' ? 'bg-coral/10' : 'bg-coral/5'}`}>
+                                <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg transform -rotate-3 ${confirmModal.type === 'delete' ? 'bg-red-500 text-white' : confirmModal.type === 'favorite' ? 'bg-coral text-white' : 'bg-coral text-white'}`}>
+                                    {confirmModal.type === 'favorite' ? <Heart className="w-10 h-10 fill-white" /> : <Trash2 className="w-10 h-10" />}
                                 </div>
                                 <h3 className="text-2xl font-black text-navy mb-2 tracking-tight">
-                                    {confirmModal.type === 'delete' ? 'Permanently Delete?' : 'Move to Trash?'}
+                                    {confirmModal.type === 'delete' ? 'Permanently Delete?' : 
+                                     confirmModal.type === 'favorite' ? 'Move to Favorites?' : 
+                                     'Move to Trash?'}
                                 </h3>
                                 <p className="text-gray-500 font-medium text-[15px] leading-relaxed px-4">
                                     {confirmModal.type === 'delete' 
                                         ? "This action is final and cannot be undone. Say goodbye to this date forever?"
-                                        : "Don't worry, you can recover this date plan from your settings for up to 7 days."}
+                                        : confirmModal.type === 'favorite'
+                                            ? "This plan will be tucked away in your Favorites tab to keep your dashboard clean."
+                                            : "Don't worry, you can recover this date plan from your settings for up to 7 days."}
                                 </p>
                             </div>
                             <div className="p-6 grid grid-cols-2 gap-4">
@@ -2294,9 +2975,15 @@ const Dashboard = () => {
                                 </button>
                                 <button 
                                     onClick={performDelete}
-                                    className={`py-4 rounded-2xl text-[14px] font-black text-white shadow-lg transition-all active:scale-95 uppercase tracking-widest ${confirmModal.type === 'delete' ? 'bg-red-600 shadow-red-500/30' : 'bg-navy shadow-navy/30'}`}
+                                    className={`py-4 rounded-2xl text-[14px] font-black text-white shadow-lg transition-all active:scale-95 uppercase tracking-widest ${
+                                        confirmModal.type === 'delete' ? 'bg-red-600 shadow-red-500/30' : 
+                                        confirmModal.type === 'favorite' ? 'bg-coral shadow-coral/30' :
+                                        'bg-navy shadow-navy/30'
+                                    }`}
                                 >
-                                    {confirmModal.type === 'delete' ? 'Delete' : 'Confirm'}
+                                    {confirmModal.type === 'delete' ? 'Delete' : 
+                                     confirmModal.type === 'favorite' ? 'Move to Favorites' : 
+                                     'Confirm'}
                                 </button>
                             </div>
                         </div>
