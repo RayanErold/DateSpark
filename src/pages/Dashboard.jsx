@@ -281,19 +281,7 @@ const Dashboard = () => {
     }, [appTheme]);
 
     // --- FREEMIUM LOGIC STATE ---
-    const [isPremium, setIsPremium] = useState(() => {
-        const premium = localStorage.getItem('isPremium') === 'true';
-        const expiry = localStorage.getItem('premiumExpiry');
-        if (expiry) {
-            if (Date.now() > new Date(expiry).getTime()) {
-                localStorage.setItem('isPremium', 'false');
-                localStorage.removeItem('premiumExpiry');
-                return false;
-            }
-            return true; // Expiry is in the future
-        }
-        return premium;
-    });
+    const [isPremium, setIsPremium] = useState(false); // Default to false, strictly synced with DB via API
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
@@ -1475,29 +1463,6 @@ const Dashboard = () => {
                 </Link>
 
                 <div className="flex items-center gap-4 relative">
-                    {/* Mock Toggle for testing Premium Features in Header */}
-                    <div className="hidden md:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
-                        <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const newVal = !isPremium;
-                                console.log('Premium Toggle Triggered:', newVal);
-                                // Set UI instantly
-                                setIsPremium(newVal);
-                                localStorage.setItem('isPremium', newVal.toString());
-                                // Sync behind the scenes
-                                syncPremiumWithDB(newVal);
-                            }}
-                            style={{ cursor: 'pointer', pointerEvents: 'auto', zIndex: 9999, position: 'relative' }}
-                            className={`w-12 h-6 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-navy' : 'bg-gray-300'}`}
-                            title="Toggle Premium Status for Testing"
-                        >
-                            <div className={`w-4 h-4 rounded-full bg-white shadow-md absolute transition-all duration-200 ${isPremium ? 'left-7' : 'left-1'}`} />
-                        </button>
-                        <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
-                    </div>
 
                     <button
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}

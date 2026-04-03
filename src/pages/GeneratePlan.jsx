@@ -25,7 +25,7 @@ const GeneratePlan = () => {
 
     // Core states
     const [mode, setMode] = useState('classic'); // 'classic' or 'ai_custom'
-    const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); 
+    const [isPremium, setIsPremium] = useState(false); // Default to false, strictly synced with DB via API
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
     const [showAiAddonModal, setShowAiAddonModal] = useState(false);
@@ -645,29 +645,6 @@ const GeneratePlan = () => {
                             </div>
                         </div>
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
-                    </div>
-
-                    {/* Mock Toggle for testing Premium Features in Header */}
-                    <div className="hidden md:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                        <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const newVal = !isPremium;
-                                console.log('Premium Toggle Triggered:', newVal);
-                                // Set UI instantly
-                                setIsPremium(newVal);
-                                localStorage.setItem('isPremium', newVal.toString());
-                                // Sync behind the scenes
-                                syncPremiumWithDB(newVal);
-                            }}
-                            className={`w-10 h-5 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-navy' : 'bg-gray-300'}`}
-                            title="Toggle Premium Status for Testing"
-                        >
-                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md absolute transition-all duration-200 ${isPremium ? 'left-6' : 'left-0.5'}`} />
-                        </button>
-                        <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
                     </div>
 
                     <div className="w-8 flex justify-end" />

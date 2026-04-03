@@ -20,7 +20,7 @@ const Dashboard = () => {
     const [settingsTab, setSettingsTab] = useState('profile');
 
     // --- FREEMIUM LOGIC STATE ---
-    const [isPremium, setIsPremium] = useState(() => localStorage.getItem('isPremium') === 'true'); // Bound to localStorage for testing
+    const [isPremium, setIsPremium] = useState(false); // Default false, synced with DB
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
     const [completedSteps, setCompletedSteps] = useState([]);
@@ -393,22 +393,6 @@ const Dashboard = () => {
                     </Link>
 
                     <div className="flex items-center gap-4 relative">
-                        {/* Mock Toggle for testing Premium Features in Header */}
-                        <div className="hidden md:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 mr-2">
-                            <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
-                            <button
-                                onClick={() => {
-                                    const newVal = !isPremium;
-                                    setIsPremium(newVal);
-                                    localStorage.setItem('isPremium', newVal.toString());
-                                }}
-                                className={`w-10 h-5 rounded-full transition-colors relative flex items-center ${isPremium ? 'bg-navy' : 'bg-gray-200'}`}
-                                title="Toggle Premium Status for Testing"
-                            >
-                                <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-transform ${isPremium ? 'translate-x-[22px]' : 'translate-x-[3px]'}`} />
-                            </button>
-                            <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
-                        </div>
 
                         <button
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
