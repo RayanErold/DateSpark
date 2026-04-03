@@ -20,7 +20,15 @@ const Dashboard = () => {
     const [settingsTab, setSettingsTab] = useState('profile');
 
     // --- FREEMIUM LOGIC STATE ---
-    const [isPremium, setIsPremium] = useState(false); // Default false, synced with DB
+    const [isPremium, setIsPremium] = useState(() => {
+        // Admin Override Initialization for Persistence
+        const adminEmail = 'rayanerold@gmail.com';
+        const isCurrentlyAdmin = localStorage.getItem('userEmail') === adminEmail;
+        if (isCurrentlyAdmin) {
+            return localStorage.getItem('isPremium') === 'true';
+        }
+        return false;
+    });
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
     const [completedSteps, setCompletedSteps] = useState([]);
@@ -90,6 +98,7 @@ const Dashboard = () => {
             setUser(user);
 
             if (user) {
+                localStorage.setItem('userEmail', user.email);
                 // Fetch user's plans
                 const { data, error } = await supabase
                     .from('plans')
@@ -393,6 +402,24 @@ const Dashboard = () => {
                     </Link>
 
                     <div className="flex items-center gap-4 relative">
+                        {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
+                        {user?.email === 'rayanerold@gmail.com' && (
+                            <div className="hidden md:flex items-center gap-2 bg-rose-50/50 px-3 py-1.5 rounded-lg border border-rose-100 mr-2">
+                                <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
+                                <button
+                                    onClick={() => {
+                                        const newVal = !isPremium;
+                                        setIsPremium(newVal);
+                                        localStorage.setItem('isPremium', newVal.toString());
+                                    }}
+                                    className={`w-10 h-5 rounded-full transition-colors relative flex items-center ${isPremium ? 'bg-navy' : 'bg-gray-200'}`}
+                                    title="Admin: Toggle Premium Status"
+                                >
+                                    <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-transform ${isPremium ? 'translate-x-[22px]' : 'translate-x-[3px]'}`} />
+                                </button>
+                                <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
+                            </div>
+                        )}
 
                         <button
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}

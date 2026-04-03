@@ -281,7 +281,15 @@ const Dashboard = () => {
     }, [appTheme]);
 
     // --- FREEMIUM LOGIC STATE ---
-    const [isPremium, setIsPremium] = useState(false); // Default to false, strictly synced with DB via API
+    const [isPremium, setIsPremium] = useState(() => {
+        // Allow Admin to persist their manual toggle for testing
+        const adminEmail = 'rayanerold@gmail.com';
+        const isCurrentlyAdmin = localStorage.getItem('userEmail') === adminEmail;
+        if (isCurrentlyAdmin) {
+            return localStorage.getItem('isPremium') === 'true';
+        }
+        return false; // Regular users default to false (strict DB sync)
+    });
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
@@ -1463,6 +1471,29 @@ const Dashboard = () => {
                 </Link>
 
                 <div className="flex items-center gap-4 relative">
+                    {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
+                    {user?.email === 'rayanerold@gmail.com' && (
+                        <div className="hidden md:flex items-center gap-2 bg-rose-50/50 px-3 py-1.5 rounded-lg border border-rose-100 mr-2">
+                            <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const newVal = !isPremium;
+                                    console.log('[ ADMIN ] Premium Toggle Triggered:', newVal);
+                                    setIsPremium(newVal);
+                                    localStorage.setItem('isPremium', newVal.toString());
+                                    syncPremiumWithDB(newVal);
+                                }}
+                                style={{ cursor: 'pointer', pointerEvents: 'auto', zIndex: 9999, position: 'relative' }}
+                                className={`w-12 h-6 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-navy' : 'bg-gray-300'}`}
+                                title="Admin: Toggle Premium Status"
+                            >
+                                <div className={`w-4 h-4 rounded-full bg-white shadow-md absolute transition-all duration-200 ${isPremium ? 'left-7' : 'left-1'}`} />
+                            </button>
+                            <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
+                        </div>
+                    )}
 
                     <button
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}

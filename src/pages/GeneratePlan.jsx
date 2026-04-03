@@ -25,7 +25,16 @@ const GeneratePlan = () => {
 
     // Core states
     const [mode, setMode] = useState('classic'); // 'classic' or 'ai_custom'
-    const [isPremium, setIsPremium] = useState(false); // Default to false, strictly synced with DB via API
+    // --- FREEMIUM LOGIC STATE ---
+    const [isPremium, setIsPremium] = useState(() => {
+        // Admin Override Initialization
+        const adminEmail = 'rayanerold@gmail.com';
+        const isCurrentlyAdmin = localStorage.getItem('userEmail') === adminEmail;
+        if (isCurrentlyAdmin) {
+            return localStorage.getItem('isPremium') === 'true';
+        }
+        return false; // Default false for security
+    });
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
     const [showAiAddonModal, setShowAiAddonModal] = useState(false);
@@ -73,6 +82,9 @@ const GeneratePlan = () => {
             try {
                 const { data: { user: currentUser } } = await supabase.auth.getUser();
                 setUser(currentUser);
+                if (currentUser?.email) {
+                    localStorage.setItem('userEmail', currentUser.email);
+                }
 
                     // Fetch premium status and usage from secure backend proxy
                     const [premRes, usageRes] = await Promise.all([
@@ -103,6 +115,9 @@ const GeneratePlan = () => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             const newUser = session?.user || null;
             setUser(newUser);
+            if (newUser?.email) {
+                localStorage.setItem('userEmail', newUser.email);
+            }
             if (newUser) {
                 // Fetch premium status from secure backend proxy to avoid 400 UUID errors
                 const response = await fetch(`/api/user-premium/${newUser.id}`);
@@ -646,6 +661,29 @@ const GeneratePlan = () => {
                         </div>
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
                     </div>
+                    {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
+                    {user?.email === 'rayanerold@gmail.com' && (
+                        <div className="hidden md:flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
+                            <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const newVal = !isPremium;
+                                    console.log('[ ADMIN ] Premium Toggle Triggered:', newVal);
+                                    setIsPremium(newVal);
+                                    localStorage.setItem('isPremium', newVal.toString());
+                                    // Local state sync
+                                    syncPremiumWithDB(newVal);
+                                }}
+                                className={`w-10 h-5 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-navy' : 'bg-gray-300'}`}
+                                title="Admin: Toggle Premium Status"
+                            >
+                                <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md absolute transition-all duration-200 ${isPremium ? 'left-6' : 'left-0.5'}`} />
+                            </button>
+                            <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
+                        </div>
+                    )}
 
                     <div className="w-8 flex justify-end" />
                 </div>
