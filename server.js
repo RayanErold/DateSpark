@@ -610,6 +610,22 @@ const getPlacePhotoUrl = (photoName, apiKey) => {
     return `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=800&maxWidthPx=800&key=${apiKey}`;
 };
 
+// --- SERVICE AREA GATING (NYC & NJ ONLY) ---
+const isLocationInServiceArea = (locationStr, lat, lng) => {
+    if (!locationStr && !lat) return false;
+    
+    const serviceKeywords = [
+        'new york', 'brooklyn', 'queens', 'bronx', 'staten island', 'manhattan', 'ny', 
+        'nj', 'new jersey', 'jersey city', 'hoboken', 'newark', 'weehawken', 'union city',
+        '100', '112', '111', '104', '103', '070', '071', '073'
+    ];
+    const lowerLoc = (locationStr || '').toLowerCase().trim();
+    const hasKeyword = serviceKeywords.some(kw => lowerLoc.includes(kw));
+
+    const isWithinCoords = lat >= 40.40 && lat <= 41.10 && lng >= -74.30 && lng <= -73.60;
+    return hasKeyword || isWithinCoords;
+};
+
 const getCategoryFallback = (type) => {
     const t = (type || '').toLowerCase();
     if (t.includes('restaurant') || t.includes('food') || t.includes('dinner')) {
@@ -797,6 +813,14 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
         return res.status(400).json({ error: 'conversationHistory array is required' });
     }
 
+    // --- SERVICE AREA ENFORCEMENT ---
+    if (!isLocationInServiceArea(location, lat, lng)) {
+        return res.status(400).json({ 
+            error: `DateSpark is currently only available in the NYC and NJ area.`, 
+            type: 'OUT_OF_SERVICE_AREA' 
+        });
+    }
+
     try {
         // --- TIER ENFORCEMENT ---
         const { data: profile } = await supabase
@@ -970,6 +994,14 @@ app.post('/api/generate-custom-date', async (req, res) => {
         if (!userId) return res.status(400).json({ error: 'User ID is required.' });
         if (!concept || !concept.title) return res.status(400).json({ error: 'Concept/Vibe selection is required.' });
         if (!date) return res.status(400).json({ error: 'Date is required for planning.' });
+
+        // --- SERVICE AREA ENFORCEMENT ---
+        if (!isLocationInServiceArea(location, lat, lng)) {
+            return res.status(400).json({ 
+                error: `DateSpark is currently only available in the NYC and NJ area.`, 
+                type: 'OUT_OF_SERVICE_AREA' 
+            });
+        }
         
         // Sanitize numeric inputs
         const parsedLat = lat ? Number(lat) : null;
@@ -1023,10 +1055,10 @@ app.post('/api/generate-custom-date', async (req, res) => {
             try {
                 const res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
                     textQuery: finalQuery,
-                    locationBias: {
+                    locationRestriction: {
                         circle: {
                             center: centerCoords,
-                            radius: parsedRadius
+                            radius: Math.min(parsedRadius, 15000) // Cap it at 15km for strict city-logic
                         }
                     }
                 }, {
@@ -1424,6 +1456,14 @@ app.post('/api/generate-date', async (req, res) => {
         return res.status(400).json({ error: 'User ID and Location are required' });
     }
 
+    // --- SERVICE AREA ENFORCEMENT ---
+    if (!isLocationInServiceArea(location, lat, lng)) {
+        return res.status(400).json({ 
+            error: `DateSpark is currently only available in the NYC and NJ area.`, 
+            type: 'OUT_OF_SERVICE_AREA' 
+        });
+    }
+
     try {
         // --- TIER ENFORCEMENT & LIMITS ---
         const usageCheck = await checkAndIncrementUsage(userId, 'classic');
@@ -1448,7 +1488,7 @@ app.post('/api/generate-date', async (req, res) => {
         const pool = neighborhoods && Array.isArray(neighborhoods) && neighborhoods.length > 0 ? neighborhoods : [location];
         const chosenNeighborhood = pool[Math.floor(Math.random() * pool.length)];
 
-        let centerCoords = { latitude: 34.0522, longitude: -118.2437 }; // Default to LA center for broad fallback if geocoding fails
+        let centerCoords = { latitude: 40.7128, longitude: -74.0060 }; // Default to NYC center for fallback
         let customDisplayLocation = location;
 
         if (lat && lng) {
@@ -1528,10 +1568,10 @@ app.post('/api/generate-date', async (req, res) => {
                     let res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
                         textQuery: searchString,
                         priceLevels: priceLevels.length > 0 ? priceLevels : undefined,
-                        locationBias: {
+                        locationRestriction: {
                             circle: {
                                 center: centerCoords,
-                                radius: parsedRadius
+                                radius: Math.min(parsedRadius, 16000) // 10 miles max restriction
                             }
                         }
                     }, {
@@ -1546,10 +1586,10 @@ app.post('/api/generate-date', async (req, res) => {
                     if ((!res.data || !res.data.places) && priceLevels.length > 0) {
                         res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
                             textQuery: searchString,
-                            locationBias: {
+                            locationRestriction: {
                                 circle: {
                                     center: centerCoords,
-                                    radius: parsedRadius
+                                    radius: Math.min(parsedRadius * 1.5, 20000) // Expand slightly but stay restricted
                                 }
                             }
                         }, {
@@ -1561,10 +1601,16 @@ app.post('/api/generate-date', async (req, res) => {
                         });
                     }
 
-                    // Final safety retry: Unbind all radius and budget locks for broad lookup
+                    // Final safety retry: Broaden radius but stay restricted to the city-wide area
                     if (!res.data || !res.data.places) {
                         res = await axios.post('https://places.googleapis.com/v1/places:searchText', {
-                            textQuery: `${queryType} in ${location}`
+                            textQuery: `${searchString} in ${location}`,
+                            locationRestriction: {
+                                circle: {
+                                    center: centerCoords,
+                                    radius: 25000 // 15 miles city-wide cap
+                                }
+                            }
                         }, {
                             headers: {
                                 'X-Goog-Api-Key': GOOGLE_API_KEY,
@@ -1587,20 +1633,22 @@ app.post('/api/generate-date', async (req, res) => {
                                 if (level === 'PRICE_LEVEL_VERY_EXPENSIVE') return '$$$$';
                                 return 'N/A';
                             };
-                            return {
-                                name: place.displayName?.text || 'Venue',
-                                description: `Rating: ${place.rating || 'N/A'} ⭐ (${place.userRatingCount || 0} reviews). Price: ${getPriceStr(place.priceLevel)}. A top-rated spot.`,
-                                lat: place.location?.latitude,
-                                lng: place.location?.longitude,
-                                address: place.formattedAddress || location || 'Nearby',
-                                photoUrl: photoUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-                                url: place.websiteUri || null
-                            };
                         });
-                        cache.set(pCacheKey, results);
-                        return results;
+
+                        // --- DISTANCE SORTING --- (Ensures closest candidates are picked)
+                        const sortedResults = results.sort((a, b) => {
+                            const d1 = Math.pow(a.lat - centerCoords.latitude, 2) + Math.pow(a.lng - centerCoords.longitude, 2);
+                            const d2 = Math.pow(b.lat - centerCoords.latitude, 2) + Math.pow(b.lng - centerCoords.longitude, 2);
+                            return d1 - d2;
+                        });
+
+                        cache.set(pCacheKey, sortedResults);
+                        return sortedResults;
                     }
-                } catch (err) { console.error(`Failed ${queryType} fetch:`, err.response?.data || err.message); }
+                } catch (err) {
+                    console.error('PLACES FETCH FAILURE SEARCHSTRING:', searchString);
+                    console.error('DETAILS:', err.response?.data || err.message);
+                }
                 return [];
             };
 
@@ -1620,7 +1668,7 @@ app.post('/api/generate-date', async (req, res) => {
                 return s ? `${s} ${baseType}` : `${randomFb}`;
             };
 
-            const suffix = usePreciseLocation ? '' : ` in ${chosenNeighborhood}`;
+            const suffix = ` in ${chosenNeighborhood || location || "New York City"}`;
 
             let fetchPromises = [
                 fetchPlaces('events', `${getQ(interestQuery, eventKws, 'live event')}${suffix}`),
@@ -1881,13 +1929,13 @@ app.post('/api/nearby-alternatives', async (req, res) => {
         try {
             response = await axios.post('https://places.googleapis.com/v1/places:searchText', {
                 textQuery: query,
-                locationBias: {
+                locationRestriction: {
                     circle: {
                         center: centerCoords,
                         radius: searchRadius
                     }
                 },
-                maxResultCount: 10,
+                maxResultCount: 20,
                 ...(priceLevels.length > 0 && { priceLevels })
             }, {
                 headers: {
@@ -1906,13 +1954,13 @@ app.post('/api/nearby-alternatives', async (req, res) => {
             try {
                 response = await axios.post('https://places.googleapis.com/v1/places:searchText', {
                     textQuery: query,
-                    locationBias: {
+                    locationRestriction: {
                         circle: {
                             center: centerCoords,
-                            radius: searchRadius
+                            radius: searchRadius * 1.5 // Expand slightly but stay restricted
                         }
                     },
-                    maxResultCount: 10
+                    maxResultCount: 20
                 }, {
                     headers: {
                         'Content-Type': 'application/json',
@@ -1943,7 +1991,13 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                 photo: p.photos?.[0] 
                     ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${process.env.VITE_GOOGLE_MAPS_API_KEY}` 
                     : getCategoryFallback(type)
-            }));
+            }))
+            .sort((a, b) => { // Proximity sort
+                if (!a.location || !b.location) return 0;
+                const d1 = Math.pow(a.location.latitude - centerCoords.latitude, 2) + Math.pow(a.location.longitude - centerCoords.longitude, 2);
+                const d2 = Math.pow(b.location.latitude - centerCoords.latitude, 2) + Math.pow(b.location.longitude - centerCoords.longitude, 2);
+                return d1 - d2;
+            });
 
         // FINAL FALLBACK: If no live nearby results, return the enriched curated ones
         if (filtered.length === 0) {
