@@ -471,6 +471,47 @@ app.post('/api/generate-custom-date', async (req, res) => {
     }
 });
 
+// FORGOT USERNAME - Send email reminder
+app.post('/api/forgot-username', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    try {
+        // Look up the user in profiles by email
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, email')
+            .eq('email', email)
+            .single();
+
+        // Always respond with success to prevent email enumeration
+        if (profile) {
+            await resend.emails.send({
+                from: 'DateSpark <support@datespark.live>',
+                to: email,
+                subject: '💌 Your DateSpark Account Details',
+                html: `
+                    <div style="font-family: Inter, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #060B1A; color: white; border-radius: 16px;">
+                        <h1 style="color: #FF7F50; font-size: 24px; margin-bottom: 8px;">Hey ${profile.first_name || 'there'} 👋</h1>
+                        <p style="color: #94a3b8;">You asked us to remind you of your DateSpark account details.</p>
+                        <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin: 24px 0;">
+                            <p style="color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Your login email</p>
+                            <p style="color: white; font-size: 18px; font-weight: bold; margin: 0;">${email}</p>
+                        </div>
+                        <a href="https://datespark.live/login" style="display: block; background: #FF7F50; color: white; text-align: center; padding: 14px; border-radius: 10px; text-decoration: none; font-weight: bold;">Sign In Now →</a>
+                        <p style="color: #475569; font-size: 12px; margin-top: 24px; text-align: center;">© 2026 DateSpark Inc. · <a href="https://datespark.live/privacy" style="color: #FF7F50;">Privacy Policy</a></p>
+                    </div>
+                `
+            });
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        logError('[FORGOT USERNAME]', err);
+        res.status(500).json({ error: 'Failed to send account reminder' });
+    }
+});
+
 // WAITLIST
 app.post('/api/waitlist', async (req, res) => {
     const { email } = req.body;
