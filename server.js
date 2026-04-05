@@ -38,8 +38,13 @@ app.use(cors());
 app.use(express.json());
 
 // Diagnostic Startup Log - Pointed to organized /logs folder
-const startupLogPath = path.join(__dirname, 'logs', 'startup_diag.txt');
-const errorLogPath = path.join(__dirname, 'logs', 'error_log.txt');
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+}
+
+const startupLogPath = path.join(logsDir, 'startup_diag.txt');
+const errorLogPath = path.join(logsDir, 'error_log.txt');
 fs.writeFileSync(startupLogPath, `[STARTUP] Server booting at ${new Date().toISOString()}\n`);
 
 function logError(tag, err) {
