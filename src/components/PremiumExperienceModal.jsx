@@ -25,7 +25,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
     return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 md:p-6 bg-navy/80 backdrop-blur-xl animate-in fade-in duration-300">
             {/* Modal Container - Wider for side-by-side */}
-            <div className="relative w-full max-w-[850px] max-h-[95vh] overflow-y-auto overflow-x-hidden bg-[#fdfdfd] rounded-[2.5rem] shadow-2xl flex flex-col animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 border border-white/20 disable-scrollbar">
+            <div className="relative w-full max-w-[850px] max-h-[95vh] overflow-y-auto overflow-x-hidden bg-[#fdfdfd] rounded-[2.5rem] shadow-2xl flex flex-col animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 border border-white/20 disable-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
                 
                 {/* Close Button */}
                 <button 
@@ -55,7 +55,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                     </p>
 
                     {/* Even Split Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8 overflow-visible">
                         
                         {/* 24-Hour Pass Card */}
                         <div className="bg-white border-2 border-slate-100 rounded-3xl p-8 flex flex-col relative transition-all duration-300 hover:border-coral/30 hover:shadow-xl hover:shadow-coral/10 hover:-translate-y-1 group">
@@ -125,7 +125,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                                 onClick={() => onUpgrade('ELITE')}
                                 className="w-full py-4 bg-gradient-to-r from-coral to-rose-500 hover:from-rose-500 hover:to-coral text-white font-black rounded-2xl shadow-xl shadow-coral/30 transition-all transform active:scale-95 animate-pulse-subtle"
                             >
-                                Get 30 Days Free
+                                Start Free Trial
                             </button>
                         </div>
                     </div>
@@ -139,7 +139,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                 </div>
 
                 {/* Footer Stats */}
-                <div className="px-10 py-6 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="px-6 sm:px-10 py-6 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1 opacity-60">
                             {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-navy text-navy" />)}

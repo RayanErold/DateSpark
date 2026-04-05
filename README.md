@@ -4,20 +4,28 @@
 [![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node%20%7C%20Supabase-blue)](https://datespark.live)
 [![AI Powered](https://img.shields.io/badge/AI-Google%20Gemini-pink)](https://datespark.live)
 
-**DateSpark** is the "Million Dollar" itinerary engine designed for high-intent couples in **New York City** and **Northern New Jersey**. It transforms the stress of planning into the magic of connection using state-of-the-art AI and real-time venue data.
+**DateSpark** is the "Million Dollar" itinerary engine designed for high-intent couples in **New York City** and **Northern New Jersey**. It transforms the stress of planning into the magic of connection using state-of-the-art AI, real-time venue data, and a flawless mobile-first interface.
 
 ---
 
-## 🚀 Vision & Value Proposition
+## 👋 The Experience
 
-DateSpark isn't just a planner; it's a romantic companion. By combining **Google Gemini's** creative reasoning with **Google Places'** real-world verification, we provide itineraries that are both imaginative and logistically sound.
+### 🤖 AI-Guided Planning
+Multi-stop date nights tailored to your "vibe," budget, and location using **Google Gemini 1.5 Pro**.
 
-### Core Features:
-- 🤖 **AI-Guided Planning**: Multi-stop date nights tailored to your "vibe," budget, and location.
-- 📍 **Real-Time Veridicity**: Every venue is vetted via official Google data for ratings, photos, and current status.
-- 💳 **Monetization Engine**: Production-ready **Stripe** integration for 24-Hour Passes ($1.99) and DateSpark Plus ($9.99/mo).
-- 🔐 **Trust & Safety**: Built-in verification, safety tips, and a full legal suite (Privacy, Terms, Refunds, Cookies).
-- 📧 **Retention Engine**: Automated "Weekend Spark" engagement emails via **Resend**.
+### 📱 Mastered Mobile Layout
+Optimized for the modern iPhone and Android experience:
+- **Fixed Header Architecture**: Smooth, persistent navigation that respects device "Safe Areas" (notches).
+- **Responsive Itinerary Cards**: Dynamic `snap-alignment` grid that eliminates whitespace gaps and provides a "peek" into upcoming plans.
+- **Micro-Animations**: Glassmorphism and ambient glow effects for a premium, native-app feel.
+
+### 📍 Local Intelligence
+Every venue is vetted via official Google Places data for high-resolution photos, real-time ratings, and live hours.
+
+### 💳 Monetization Ready
+Production-ready **Stripe** integration for:
+- **24-Hour Passes** ($1.99)
+- **DateSpark Plus** ($9.99/mo) with unlimited AI generations.
 
 ---
 
@@ -25,8 +33,12 @@ DateSpark isn't just a planner; it's a romantic companion. By combining **Google
 
 | Layer | Technology |
 | :--- | :--- |
-| **Frontend** | React, Vite, Vanilla CSS, Lucide Icons |
-| **Backend** | Node.js, Express (Secure API Proxy) |
+| **Frontend** | React, Vite, Tailwind CSS v4, Lucide Icons |
+| **Backend** | Node.js, Express (Secure AI Proxy) |
+| **Core Storage** | Supabase (PostgreSQL & Real-time) |
+| **AI Magic** | Google Cloud Vertex AI (Gemini 1.5) |
+| **Payment Hub** | Stripe (Live Mode Ready) |
+| **Engagement** | Resend (Automated Transactional Emails) |
 | **Database & Auth** | Supabase (PostgreSQL) |
 | **Intelligence** | Google Cloud (Vertex AI / Gemini 1.5) |
 | **Geolocation** | Google Maps & Places API |

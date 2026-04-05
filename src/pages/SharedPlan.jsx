@@ -110,8 +110,8 @@ const SharedPlan = () => {
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-violet-50 text-violet-700 rounded-full text-sm font-bold mb-4 shadow-sm border border-violet-100">
                         <Sparkles className="w-4 h-4" /> AI-Generated Date Plan
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-black text-navy mb-4 capitalize">{plan.vibe} Date</h1>
-                    <div className="flex flex-wrap items-center justify-center gap-4 text-gray-500 font-medium">
+                    <h1 className="text-3xl font-black text-navy mb-4 capitalize font-inter">{plan.vibe} Date</h1>
+                    <div className="flex flex-wrap items-center justify-center gap-4 text-gray-500 font-medium font-inter">
                         <span className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100"><MapPin className="w-4 h-4 text-coral" /> {plan.location}</span>
                         <span className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100"><Calendar className="w-4 h-4 text-navy" /> {
                             plan.itinerary?.metadata?.planDate
@@ -126,27 +126,31 @@ const SharedPlan = () => {
                 <div className="w-full bg-transparent md:bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-700 delay-100 border border-gray-100">
 
                     {/* Left Column: Timeline UI */}
-                    <div className="flex-1 md:w-1/2 bg-transparent md:bg-white p-6 sm:p-8 md:p-12 md:max-h-[700px] overflow-y-auto z-10">
+                    <div className="flex-1 md:w-1/2 bg-transparent md:bg-white p-6 sm:p-8 md:p-12 md:max-h-[700px] overflow-y-auto z-10 font-inter">
                             {/* Spacer for Map on Mobile */}
                             <div className="h-[200px] md:hidden flex-shrink-0"></div>
                             <div className="bg-white md:bg-transparent rounded-t-[2.5rem] p-6 md:p-0 shadow-sm md:shadow-none">
                                 <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-12 pb-8">
-                            {itinerarySteps.map((step, idx) => {
-                                const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
-                                const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
-                                const colorIdx = idx % dotColors.length;
+                                {itinerarySteps.map((step, idx) => {
+                                    // Public Gating: If it's a preview plan, recipients only see 2 stops (idx 0, 1). 3rd stop (idx 2) is locked.
+                                    const isPreview = plan.itinerary?.metadata?.isPreviewPlan || plan.is_preview || false;
+                                    const isLockedStep = isPreview && idx >= 2;
 
-                                return (
-                                    <div key={idx} className="relative pl-8 group">
-                                        {/* Colored Dot */}
-                                        <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white flex items-center justify-center ${dotColors[colorIdx]}`}>
-                                        </div>
+                                    const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
+                                    const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
+                                    const colorIdx = idx % dotColors.length;
 
-                                        <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]}`}>
+                                    return (
+                                        <div key={idx} className={`relative pl-8 group ${isLockedStep ? 'blur-[8px] select-none opacity-40 pointer-events-none' : ''}`}>
+                                            {/* Colored Dot */}
+                                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white flex items-center justify-center ${dotColors[colorIdx]}`}>
+                                            </div>
+
+                                        <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]} font-inter`}>
                                             {step.time} • {step.activity}
                                         </p>
-                                        <h4 className="text-2xl font-black text-navy mb-2">{step.venue}</h4>
-                                        <p className="text-gray-500 font-medium mb-3">{step.description}</p>
+                                        <h4 className="text-2xl font-black text-navy mb-2 font-inter">{step.venue}</h4>
+                                        <p className="text-gray-500 font-medium mb-3 font-inter">{step.description}</p>
 
                                         {step.photoUrl && (
                                             <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">

@@ -12,6 +12,7 @@
   --animate-shimmer-fast: shimmer 2s infinite linear;
   --animate-waitlist-glow: button-glow-pulse 2.5s infinite ease-in-out;
   --animate-float-badge: float-badge 3s infinite ease-in-out;
+  --animate-pulse-slow: pulse-slow 8s infinite ease-in-out;
 
   @keyframes shimmer {
     0% {
@@ -74,6 +75,17 @@
         opacity: 0.9;
       }
     }
+
+    @keyframes pulse-slow {
+      0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.1);
+      }
+    }
   }
 
   /* Utility classes for animations used in Dashboard.jsx */
@@ -111,7 +123,8 @@ body {
 
 /* --- THEME OVERRIDES --- */
 body.theme-dark {
-  @apply bg-[#030712] text-white; /* Deeper midnight blue/black */
+  background-color: #060B1A !important;
+  color: #ffffff;
 }
 body.theme-dark .bg-white {
   background-color: #0f172a !important; /* Slate-900 for cards */
@@ -173,5 +186,25 @@ body.theme-lavender .border-gray-100 {
 .disable-scrollbar {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
+}
+
+/* Scrollbar hide utility for horizontal scroll containers */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Remove 300ms tap delay on all interactive elements for snappy mobile UX */
+button, a, [role="button"], input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Smooth scroll for scroll-snap containers */
+.snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
 }
 

@@ -157,7 +157,7 @@ const Signup = () => {
 
     if (verificationMode) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
                 <div className="sm:mx-auto sm:w-full sm:max-w-md">
                     <div className="flex items-center justify-center gap-2 mb-8 cursor-pointer">
                         <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-coral/20 object-cover bg-white" />
@@ -209,14 +209,13 @@ const Signup = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <Link to="/" className="flex items-center justify-center gap-2 mb-8 cursor-pointer">
                     <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-coral/20 object-cover bg-white" />
                     <span className="text-2xl font-bold tracking-tight text-navy">DateSpark</span>
                 </Link>
                 <h2 className="mt-6 text-center text-3xl font-black text-navy">Create your account</h2>
-                <p className="text-center text-[10px] text-gray-400 font-mono mt-1">v2.1 Debug</p>
                 <p className="mt-2 text-center text-sm text-gray-500">
                     Already have an account?{' '}
                     <Link to="/login" className="font-medium text-coral hover:text-coral/80 transition-colors">

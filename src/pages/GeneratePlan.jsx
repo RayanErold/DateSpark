@@ -625,7 +625,6 @@ const GeneratePlan = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         userId: currentUser.id,
-                        ideaCount: isPremium ? ideaCount : 2,
                         ...formData
                     })
                 });
@@ -712,7 +711,7 @@ const GeneratePlan = () => {
                 </div>
             </header>
 
-            <main className="flex-grow flex flex-col pt-16 px-4 sm:px-6 relative z-10 w-full max-w-2xl mx-auto">
+            <main className="flex-grow flex flex-col pt-6 pb-24 px-4 sm:px-6 relative z-10 w-full max-w-2xl mx-auto">
                 <div className="text-center mb-8 sm:mb-12 relative animate-in fade-in slide-in-from-top-4 duration-700">
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-50 text-violet-600 rounded-full border border-violet-100 mb-4 sm:mb-6 group cursor-default shadow-sm animate-pulse">
                         <Sparkles className="w-3 h-3 group-hover:rotate-12 transition-transform" />
@@ -837,14 +836,15 @@ const GeneratePlan = () => {
                                                     type="button"
                                                     onClick={handlePreciseLocation}
                                                     disabled={locationLoading}
-                                                    className={`absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg active:scale-95 ${
+                                                    className={`absolute right-3 top-1/2 -translate-y-1/2 px-3 sm:px-4 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all shadow-lg active:scale-95 ${
                                                         formData.usePreciseLocation 
                                                         ? 'bg-green-500 text-white shadow-green-500/20' 
                                                         : 'bg-violet-600 text-white shadow-violet-600/30 hover:bg-violet-700 animate-pulse-subtle'
                                                     }`}
                                                 >
                                                     {locationLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Locate className="w-3.5 h-3.5" />}
-                                                    {formData.usePreciseLocation ? 'GPS: ACTIVE' : 'Use My Location'}
+                                                    <span className="hidden sm:inline">{formData.usePreciseLocation ? 'GPS: ACTIVE' : 'Use My Location'}</span>
+                                                    <span className="sm:hidden">{formData.usePreciseLocation ? 'ON' : 'GPS'}</span>
                                                 </button>
                                             </div>
 
@@ -1046,14 +1046,15 @@ const GeneratePlan = () => {
                                         type="button"
                                         onClick={handlePreciseLocation}
                                         disabled={locationLoading}
-                                        className={`absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg active:scale-95 ${
+                                        className={`absolute right-3 top-1/2 -translate-y-1/2 px-3 sm:px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all shadow-lg active:scale-95 ${
                                             formData.usePreciseLocation 
                                             ? 'bg-green-500 text-white shadow-green-500/20' 
                                             : 'bg-coral text-white shadow-coral/30 hover:bg-coral-600 animate-pulse-subtle'
                                         }`}
                                     >
                                         {locationLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Locate className="w-3.5 h-3.5" />}
-                                        {formData.usePreciseLocation ? 'GPS: ACTIVE' : 'Use My Location'}
+                                        <span className="hidden sm:inline">{formData.usePreciseLocation ? 'GPS: ACTIVE' : 'Use My Location'}</span>
+                                        <span className="sm:hidden">{formData.usePreciseLocation ? 'ON' : 'GPS'}</span>
                                     </button>
                                 </div>
 
