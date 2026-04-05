@@ -633,7 +633,8 @@ app.post('/api/create-portal-session', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle SPA routing - deliver index.html for all non-API routes
-app.get('/*', (req, res) => {
+// Using app.use() as a fallback because Express 5 dropped wildcard '*' support
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
