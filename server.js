@@ -37,9 +37,9 @@ const GEMINI_MODEL = "gemini-1.5-flash-latest";
 app.use(cors());
 app.use(express.json());
 
-// Diagnostic Startup Log
-const startupLogPath = path.join(__dirname, 'startup_diag.txt');
-const errorLogPath = path.join(__dirname, 'error_log.txt');
+// Diagnostic Startup Log - Pointed to organized /logs folder
+const startupLogPath = path.join(__dirname, 'logs', 'startup_diag.txt');
+const errorLogPath = path.join(__dirname, 'logs', 'error_log.txt');
 fs.writeFileSync(startupLogPath, `[STARTUP] Server booting at ${new Date().toISOString()}\n`);
 
 function logError(tag, err) {
@@ -621,6 +621,15 @@ app.post('/api/create-portal-session', async (req, res) => {
         });
         res.json({ url: session.url });
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- PRODUCTION SERVING ---
+// Serve static files from the 'dist' directory
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Handle SPA routing - deliver index.html for all non-API routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => console.log(`[SERVER] DateSpark live on ${PORT}`));
