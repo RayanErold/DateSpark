@@ -1,2 +1,0 @@
-Curl Open: 358, Close: 358 (Diff: 0)
-Div Open: 128, Close: 120 (Diff: 8)
