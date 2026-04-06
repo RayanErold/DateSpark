@@ -669,30 +669,25 @@ const Dashboard = () => {
 
         try {
             setIsUploading(true);
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-            const filePath = `avatars/${fileName}`;
-
-            // 1. Upload to Supabase Storage
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            // 2. Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            // 3. Update Auth Metadata
-            const { error: updateError } = await supabase.auth.updateUser({
-                data: { avatar_url: publicUrl }
+            
+            // Send to our bulletproof backend proxy instead of direct Supabase storage
+            const response = await fetch('/api/upload-avatar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': file.type,
+                    'x-user-id': user.id
+                },
+                body: file // express.raw() will pick this up
             });
 
-            if (updateError) throw updateError;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Server upload failed');
+            }
 
-            // 4. Update local state
+            const { publicUrl } = await response.json();
+
+            // Update local state (Auth metadata was already updated by backend)
             setUser(prev => ({
                 ...prev,
                 user_metadata: { ...prev.user_metadata, avatar_url: publicUrl }
@@ -1080,8 +1075,11 @@ const Dashboard = () => {
                     if (selectedPlan?.id === plan.id) {
                         setSelectedPlan(prev => ({ ...prev, is_favorite: newStatus }));
                     }
-                    setFeedbackMessage(newStatus ? 'Plan moved to Favorites! 💖' : 'Plan removed from Favorites.');
+                    setFeedbackMessage(newStatus ? 'Saved to Favorites! 💖' : 'Removed from Favorites.');
                     setTimeout(() => setFeedbackMessage(''), 3000);
+                    if (newStatus) {
+                        setTimeout(() => setCurrentTab('favorites'), 600);
+                    }
                 } catch (err) {
                     console.error('Error toggling favorite:', err.message);
                     alert(`Failed to update favorite status: ${err.message}`);
@@ -1581,10 +1579,10 @@ const Dashboard = () => {
         return (
             <div
                 key={plan.id}
-                className={`rounded-3xl border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-[86vw] sm:w-[380px] md:w-auto snap-start ${
+                className={`rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-full sm:max-w-none snap-start ${
                     appTheme === 'dark' 
                     ? 'bg-navy/40 backdrop-blur-md border-white/10 hover:bg-navy/60 hover:border-white/20' 
-                    : 'bg-white border-gray-100 shadow-sm hover:shadow-md'
+                    : 'bg-gradient-to-b from-white to-gray-50/40 border-navy/5 shadow-sm hover:shadow-xl hover:-translate-y-1'
                 } ${isCompact ? 'p-3' : 'p-4 sm:p-6'} ${isLockedPlan ? 'cursor-not-allowed grayscale-[0.5] opacity-80' : ''}`}
                 onClick={() => {
                     if (isLockedPlan) {
@@ -1640,11 +1638,11 @@ const Dashboard = () => {
                             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg shadow-sm border ${
                                 appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'
                             }`}>
-                                <Calendar className={`w-3.5 h-3.5 ${appTheme === 'dark' ? 'text-white/40' : 'text-gray-400'}`} />
+                                <Calendar className={`w-3.5 h-3.5 ${appTheme === 'dark' ? 'text-white/60' : 'text-coral'}`} />
                                 <p className={`text-[10px] font-black uppercase tracking-widest font-inter ${
-                                    appTheme === 'dark' ? 'text-white/40' : 'text-gray-400'
+                                    appTheme === 'dark' ? 'text-white/60' : 'text-navy/50'
                                 }`}>
-                                    PLANNED FOR: <span className={appTheme === 'dark' ? 'text-white' : 'text-navy'}>
+                                    PLANNED FOR: <span className={appTheme === 'dark' ? 'text-white' : 'text-[#0A1128]'}>
                                         {new Date((plan.itinerary?.metadata?.planDate || plan.created_at) + (plan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
                                     </span>
                                 </p>
@@ -1665,13 +1663,13 @@ const Dashboard = () => {
                             {plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + " Date" : "Perfect Date Plan")}
                         </h3>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${
-                                appTheme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-gray-50 text-gray-500'
+                            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-xl ${
+                                appTheme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-navy/5 text-navy'
                             }`}>
                                 <MapPin className="w-3 h-3 text-coral" /> {plan.location}
                             </div>
-                            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${
-                                appTheme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-gray-50 text-gray-500'
+                            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-xl ${
+                                appTheme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-navy/5 text-navy'
                             }`}>
                                 <CreditCard className="w-3 h-3 text-emerald-500" /> {plan.budget}
                             </div>
@@ -1683,14 +1681,14 @@ const Dashboard = () => {
                     <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-8">
                         {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.slice(0, 2).map((step, idx) => (
                             <div key={idx} className="flex items-center gap-4 relative group/step">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border shadow-sm transition-all group-hover:shadow ${
-                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-100 text-navy group-hover:bg-white'
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all ${
+                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-coral/5 border-coral/10 text-coral group-hover/step:bg-coral group-hover/step:text-white'
                                 }`}>
-                                    <Clock className={`w-4 h-4 ${appTheme === 'dark' ? 'text-white/40' : 'text-navy/40'}`} />
+                                    <Clock className="w-4 h-4" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className={`text-[14px] font-black leading-none mb-1 font-inter ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>{step.time}</p>
-                                    <p className={`text-[12px] font-bold truncate font-inter ${appTheme === 'dark' ? 'text-white/40' : 'text-gray-400'}`}>
+                                    <p className={`text-[12px] font-bold truncate font-inter ${appTheme === 'dark' ? 'text-white/60' : 'text-navy/80'}`}>
                                         {step.activity}
                                     </p>
                                 </div>
@@ -1725,8 +1723,8 @@ const Dashboard = () => {
                             onClick={(e) => { e.stopPropagation(); handleShare(plan); }}
                             className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center transition-colors border rounded-xl shadow-sm ${
                                 appTheme === 'dark' 
-                                ? 'bg-white/5 border-white/10 text-white/40 hover:text-coral' 
-                                : 'bg-white border-gray-100 text-navy/30 hover:text-coral'
+                                ? 'bg-white/5 border-white/10 text-white/60 hover:text-coral' 
+                                : 'bg-white border-gray-100 text-navy/50 hover:text-coral'
                             }`}
                         >
                             <Share2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
@@ -1735,8 +1733,8 @@ const Dashboard = () => {
                             onClick={(e) => handleToggleFavorite(plan, e)}
                             className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center transition-colors border rounded-xl shadow-sm ${
                                 appTheme === 'dark' 
-                                ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500' 
-                                : 'bg-white border-gray-100 text-navy/30 hover:text-red-500'
+                                ? 'bg-white/5 border-white/10 text-white/60 hover:text-red-500' 
+                                : 'bg-white border-gray-100 text-navy/50 hover:text-red-500'
                             }`}
                         >
                             <Heart className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
@@ -1745,8 +1743,8 @@ const Dashboard = () => {
                             onClick={(e) => handleDelete(plan.id, e)}
                             className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center transition-colors border rounded-xl shadow-sm ${
                                 appTheme === 'dark' 
-                                ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500' 
-                                : 'bg-white border-gray-100 text-navy/30 hover:text-red-500'
+                                ? 'bg-white/5 border-white/10 text-white/60 hover:text-red-500' 
+                                : 'bg-white border-gray-100 text-navy/50 hover:text-red-500'
                             }`}
                         >
                             <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
@@ -1756,9 +1754,9 @@ const Dashboard = () => {
 
                         <button
                             onClick={(e) => handleBoostPlan(plan, e)}
-                            className="flex items-center gap-1.5 px-4 sm:px-3 py-2 sm:py-1.5 bg-[#FFF2E9] border border-[#FFD8C0]/50 text-[#FF7F50] rounded-xl text-[11px] sm:text-[10px] font-black transition-all active:scale-95"
+                            className="flex items-center gap-1.5 px-4 sm:px-3 py-2 sm:py-1.5 bg-coral/10 border border-coral/20 text-coral rounded-xl text-[11px] sm:text-[10px] font-black transition-all hover:bg-coral hover:text-white group/boost shadow-sm hover:shadow-coral/20 active:scale-95"
                         >
-                            <Flame className="w-3.5 h-3.5 sm:w-3 sm:h-3 fill-[#FF7F50]" />
+                            <Flame className="w-3.5 h-3.5 sm:w-3 sm:h-3 fill-coral group-hover/boost:fill-white" />
                             {plan.boost_count || 0}
                         </button>
                     </div>
@@ -1770,22 +1768,29 @@ const Dashboard = () => {
                         if (isLockedPlan) setShowUpgradeModal(true);
                         else setSelectedPlan({ ...plan, isPartiallyLocked });
                     }}
-                    className={`w-full py-4 text-[14px] font-black rounded-2xl transition-all active:scale-[0.98] hover:scale-[1.02] font-inter border flex items-center justify-center gap-2 ${
+                    className={`w-full py-4 text-[14px] font-black rounded-2xl transition-all active:scale-[0.98] font-inter border flex items-center justify-center gap-2 group/btn ${
                         isLockedPlan 
-                        ? "bg-gray-100 text-gray-400 border-gray-200" 
+                        ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-gray-100 text-gray-400 border-gray-200") 
                         : isPartiallyLocked 
-                        ? "bg-violet-600 text-white shadow-md transition-all hover:bg-coral hover:shadow-[0_10px_25px_rgba(255,127,80,0.3)]"
-                        : "bg-white text-navy border-white hover:bg-coral hover:text-white active:bg-coral hover:shadow-[0_10px_25px_rgba(255,127,80,0.4)] shadow-sm transition-all"
+                        ? (appTheme === 'dark' 
+                            ? "bg-white/10 text-white border-white/20 hover:bg-white hover:text-navy shadow-lg shadow-white/5" 
+                            : "bg-white text-navy border-navy/10 shadow-sm hover:bg-navy hover:text-white hover:border-navy hover:shadow-xl hover:shadow-navy/10")
+                        : (appTheme === 'dark'
+                            ? "bg-white/10 text-white border-white/20 hover:bg-white hover:text-navy shadow-lg shadow-white/5"
+                            : "bg-white text-[#0A1128] border-[#0A1128]/10 shadow-sm hover:bg-[#0A1128] hover:text-white hover:border-[#0A1128] hover:shadow-xl hover:shadow-navy/20")
                     }`}
                 >
                     {isLockedPlan ? (
-                        <><Lock className="w-3.5 h-3.5" /> Unlock Master Plan</>
+                        <div className="flex items-center gap-2">
+                            <Lock className="w-3.5 h-3.5" /> Unlock Master Plan
+                        </div>
                     ) : isPartiallyLocked ? (
-                        <><Sparkles className="w-4 h-4 text-white" /> Preview Plan</>
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-coral" /> Preview Plan <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                        </div>
                     ) : (
                         <div className="flex items-center gap-2">
-                            View Plan
-                            <ArrowRight className="w-4 h-4" />
+                            View Plan <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
                         </div>
                     )}
                 </button>
@@ -1820,7 +1825,7 @@ const Dashboard = () => {
                             <Heart className="w-10 h-10 fill-white text-white" />
                         </div>
                         <h2 className="text-4xl font-black text-white tracking-tight">Let's plan your next date 💖</h2>
-                        <p className="text-white/80 max-w-md mx-auto font-medium text-lg">Stop deciding, start dating. Generate custom timelines and interactive maps in seconds.</p>
+                        <p className={`${appTheme === 'dark' ? 'text-white/80' : 'text-navy/80'} max-w-md mx-auto font-medium text-lg text-white`}>Stop deciding, start dating. Generate custom timelines and interactive maps in seconds.</p>
                         <div className="pt-4">
                             <Link to="/generate" className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-navy font-black rounded-2xl hover:bg-coral hover:text-white transition-all shadow-xl hover:-translate-y-1 active:scale-[0.98] group">
                                 Start your first plan <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
@@ -1844,18 +1849,27 @@ const Dashboard = () => {
                                     isSelectMode 
                                     ? 'bg-navy text-white border-navy' 
                                     : (appTheme === 'dark' 
-                                        ? 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10' 
+                                        ? 'bg-white/10 text-white border-white/20 hover:bg-white/20' 
                                         : 'bg-white text-navy border-gray-200 hover:bg-gray-50')
                                 }`}
                             >
                                 {isSelectMode ? 'Cancel' : 'Select'}
                             </button>
-                            <button onClick={() => setCurrentTab('plans')} className="text-sm font-bold text-coral hover:bg-coral/5 px-4 py-2 rounded-xl transition-all">View Full History</button>
+                            <button 
+                                onClick={() => setCurrentTab('plans')} 
+                                className={`text-sm font-bold px-4 py-2 rounded-xl transition-all ${
+                                    appTheme === 'dark' 
+                                    ? 'text-coral bg-coral/10 hover:bg-coral/20' 
+                                    : 'text-coral hover:bg-coral/5'
+                                }`}
+                            >
+                                View Full History
+                            </button>
                         </div>
                     </div>
                     <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory px-4 md:px-0 pb-4 md:pb-0 scrollbar-hide">
                         {plans
-                            .filter(p => !p.deleted_at)
+                            .filter(p => !p.deleted_at && !p.is_favorite)
                             .slice(0, 3)
                             .map((plan, idx) => renderPlanCard(plan, idx, false))}
                     </div>
@@ -1887,7 +1901,7 @@ const Dashboard = () => {
                                     <h3 className={`text-2xl font-black tracking-tight ${
                                         appTheme === 'dark' ? 'text-white' : 'text-navy'
                                     }`}>Trending Spots Now</h3>
-                                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-gray-500'} text-sm font-medium`}>Visual high-quality itineraries curated for you.</p>
+                                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Visual high-quality itineraries curated for you.</p>
                                 </div>
                             </div>
                             <button onClick={() => setCurrentTab('discovery')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
@@ -1968,17 +1982,17 @@ const Dashboard = () => {
                         <Calendar className="w-8 h-8 text-gray-300" />
                     </div>
                     <h3 className="text-xl font-bold text-navy mb-2">No plans yet</h3>
-                    <p className="text-gray-500 mb-6">Start planning your first unforgettable date tonight.</p>
+                    <p className="text-navy/60 mb-6">Start planning your first unforgettable date tonight.</p>
                     <Link to="/generate" className="inline-flex items-center gap-2 px-8 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-all">
                         <Plus className="w-4 h-4" /> Create First Plan
                     </Link>
                 </div>
             ) : (
-                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory px-4 md:px-0 pb-4 md:pb-0 scrollbar-hide">
-                    {(activeTab === 'favorites' ? plans.filter(p => p.is_favorite) : plans)
+                <div className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-5 scrollbar-hide pb-4 px-4 md:px-0">
+                    {(activeTab === 'favorites' ? plans.filter(p => p.is_favorite) : plans.filter(p => !p.is_favorite))
                         .filter(p => !p.deleted_at)
                         .map((plan, idx) => (
-                            <div key={plan.id} className="min-w-[85%] md:min-w-0 snap-center">
+                            <div key={plan.id} className="flex-shrink-0 w-[85vw] sm:w-[400px] snap-center">
                                 {renderPlanCard(plan, idx, false)}
                             </div>
                         ))}
@@ -2005,7 +2019,7 @@ const Dashboard = () => {
                 <h2 className={`text-4xl font-black tracking-tight ${
                     appTheme === 'dark' ? 'text-white' : 'text-navy'
                 }`}>Today’s Top Sparks 🔥</h2>
-                <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-gray-500'} text-sm font-medium mt-1`}>Swipe right on dates you love to save them to your Favorites.</p>
+                <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>Swipe right on dates you love to save them to your Favorites.</p>
                 <div className="hidden md:flex items-center justify-center gap-3 mt-4">
                     <span className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded text-[10px] font-black text-gray-400 border border-gray-200 shadow-sm uppercase tracking-tighter">
                         <kbd className="font-sans">←</kbd> Pass
@@ -2046,7 +2060,7 @@ const Dashboard = () => {
                                             <History className="w-10 h-10 text-gray-300 animate-pulse" />
                                         </div>
                                         <h3 className="text-2xl font-black text-navy tracking-tight">End of the stack!</h3>
-                                        <p className="text-gray-400 text-[13px] mt-2 font-medium leading-relaxed max-w-[220px] mx-auto">We’ve shown you everything popular in your area. Come back tomorrow for fresh sparks!</p>
+                                        <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/50'} text-[13px] mt-2 font-medium leading-relaxed max-w-[220px] mx-auto`}>We’ve shown you everything popular in your area. Come back tomorrow for fresh sparks!</p>
                                         <button
                                             onClick={() => setSwipeIndex(0)}
                                             className="mt-8 px-10 py-4 bg-navy text-white font-black rounded-2xl active:scale-95 transition-all shadow-xl shadow-navy/20 flex items-center gap-2 group"
@@ -2138,7 +2152,7 @@ const Dashboard = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">First Name</label>
+                                <label className="block text-[10px] font-black text-navy/40 uppercase tracking-widest mb-2 px-1">First Name</label>
                                 <input
                                     type="text"
                                     value={profileData.first_name}
@@ -2147,7 +2161,7 @@ const Dashboard = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Last Name</label>
+                                <label className="block text-[10px] font-black text-navy/40 uppercase tracking-widest mb-2 px-1">Last Name</label>
                                 <input
                                     type="text"
                                     value={profileData.last_name}
@@ -2158,14 +2172,14 @@ const Dashboard = () => {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Email Address</label>
+                            <label className="block text-[10px] font-black text-navy/40 uppercase tracking-widest mb-2 px-1">Email Address</label>
                             <input
                                 type="email"
                                 value={profileData.email}
                                 disabled
-                                className="w-full px-5 py-4 bg-gray-50/50 border-2 border-transparent rounded-2xl font-bold text-gray-400 cursor-not-allowed"
+                                className="w-full px-5 py-4 bg-gray-50/50 border-2 border-transparent rounded-2xl font-bold text-navy/40 cursor-not-allowed"
                             />
-                            <p className="text-[10px] text-gray-400 mt-2 px-1 italic">Email cannot be changed directly for security.</p>
+                            <p className="text-[10px] text-navy/30 mt-2 px-1 italic">Email cannot be changed directly for security.</p>
                         </div>
                         <div className="pt-4">
                             <button
@@ -2194,7 +2208,7 @@ const Dashboard = () => {
                                 </div>
                                 <div>
                                     <h4 className="text-xl font-black text-navy">{isPremium ? 'DateSpark Premium' : 'Free Spark Plan'}</h4>
-                                    <p className="text-gray-500 font-bold text-xs">{isPremium ? 'Unlimited access enabled' : 'Limited itinerary generation'}</p>
+                                    <p className="text-navy/40 font-bold text-xs">{isPremium ? 'Unlimited access enabled' : 'Limited itinerary generation'}</p>
                                 </div>
                             </div>
                             {!isPremium && <span className="bg-coral text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse shadow-lg shadow-coral/30">Upgrade</span>}
@@ -2434,7 +2448,7 @@ const Dashboard = () => {
                     <h2 className={`text-2xl font-black tracking-tight ${
                         appTheme === 'dark' ? 'text-white' : 'text-navy'
                     }`}>Your Favorites ✨</h2>
-                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-gray-500'} text-sm font-medium mt-1`}>Your hand-picked itineraries for perfect dates.</p>
+                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>Your hand-picked itineraries for perfect dates.</p>
                 </div>
             </div>
 
@@ -2450,9 +2464,43 @@ const Dashboard = () => {
                     </button>
                 </div>
             ) : (
-                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory px-4 md:px-0 pb-4 md:pb-0 scrollbar-hide">
-                    {plans.filter(p => !p.deleted_at && p.is_favorite).map((plan, idx) => renderPlanCard(plan, idx, false))}
-                </div>
+                (() => {
+                    const favPlans = plans.filter(p => !p.deleted_at && p.is_favorite);
+                    // Group by Month
+                    const grouped = favPlans.reduce((acc, plan) => {
+                        const date = new Date(plan.created_at);
+                        const key = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(plan);
+                        return acc;
+                    }, {});
+                    return (
+                        <div className="space-y-8 px-4">
+                            {Object.entries(grouped).map(([month, monthPlans]) => (
+                                <div key={month}>
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${
+                                            appTheme === 'dark' ? 'text-white/30' : 'text-gray-300'
+                                        }`}>{month}</span>
+                                        <div className={`flex-1 h-px ${
+                                            appTheme === 'dark' ? 'bg-white/10' : 'bg-gray-100'
+                                        }`} />
+                                        <span className={`text-[10px] font-bold ${
+                                            appTheme === 'dark' ? 'text-white/20' : 'text-gray-300'
+                                        }`}>{monthPlans.length} plan{monthPlans.length !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    <div className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-6 scrollbar-hide pb-2 md:pb-0 px-1">
+                                        {monthPlans.map((plan, idx) => (
+                                            <div key={plan.id} className="flex-shrink-0 w-[85vw] sm:w-[400px] snap-center">
+                                                {renderPlanCard(plan, idx, false)}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()
             )}
         </div>
     );

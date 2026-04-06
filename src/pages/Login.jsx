@@ -36,7 +36,7 @@ const ResendConfirmation = ({ email, resetType, onResend, onBack }) => {
             </div>
             <div>
                 <h3 className="text-xl font-black text-navy">Check your email</h3>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className={`text-sm mt-1 ${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'}`}>
                     {resetType === 'username'
                         ? `We've sent your account details to`
                         : `We've sent a password reset link to`}
@@ -44,7 +44,7 @@ const ResendConfirmation = ({ email, resetType, onResend, onBack }) => {
                 <p className="text-sm font-bold text-navy mt-1">{email}</p>
             </div>
 
-            <p className="text-xs text-gray-400">Didn't get it? Check your spam folder or resend below.</p>
+            <p className="text-xs text-navy/40">Didn't get it? Check your spam folder or resend below.</p>
 
             <button
                 onClick={handleResend}
@@ -89,6 +89,7 @@ const Login = () => {
     const [otpSent, setOtpSent] = useState(false);
     const [otpCode, setOtpCode] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [appTheme, setAppTheme] = useState(localStorage.getItem('appTheme') || 'light');
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -281,7 +282,7 @@ const Login = () => {
 
                             {!otpSent && (
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700">{isResetMode ? 'Account Email' : 'Username or Email'}</label>
+                                    <label className="block text-sm font-bold text-navy">Account Email</label>
                                     <div className="mt-1">
                                         <input
                                             name="email"
@@ -299,7 +300,7 @@ const Login = () => {
 
                             {otpSent && (
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700">Verification Code</label>
+                                    <label className="block text-sm font-bold text-navy">Verification Code</label>
                                     <div className="mt-1">
                                         <input
                                             type="text"
@@ -317,7 +318,7 @@ const Login = () => {
                             {!isOtpMode && !isResetMode && !otpSent && (
                                 <div>
                                     <div className="flex items-center justify-between">
-                                        <label className="block text-sm font-bold text-gray-700">Password</label>
+                                        <label className="block text-sm font-bold text-navy">Password</label>
                                         <button type="button" onClick={() => { setIsResetMode(true); setResetStep('select'); }} className="text-xs font-semibold text-coral hover:underline">Forgot username or password?</button>
                                     </div>
                                     <div className="mt-1 relative">
