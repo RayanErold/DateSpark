@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Star, X, Upload, Loader2, Image as ImageIcon, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Star, X, Upload, Loader2, Image as ImageIcon, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 // ─────────────────────────────────────────────────────────────
@@ -42,8 +42,9 @@ const CommunityFeedbackModal = ({ isOpen, onClose, plan, onFeedbackSubmitted }) 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
-    // Per-stop state: { [stopIndex]: { stars: number, reaction: string } }
+    // Per-stop state: { [stopIndex]: { stars: number, reaction: string, comment: string } }
     const [stopRatings, setStopRatings] = useState({});
+    const [activeStopComment, setActiveStopComment] = useState(null); // idx of stop currently being commented on
 
     if (!isOpen || !plan) return null;
 
@@ -63,6 +64,9 @@ const CommunityFeedbackModal = ({ isOpen, onClose, plan, onFeedbackSubmitted }) 
             ...prev,
             [idx]: { ...prev[idx], reaction: prev[idx]?.reaction === reaction ? null : reaction }
         }));
+
+    const setStopComment = (idx, comment) =>
+        setStopRatings(prev => ({ ...prev, [idx]: { ...prev[idx], comment } }));
 
     const handleSubmit = async () => {
         if (rating === 0) { setError('Please pick a star rating first!'); return; }
@@ -96,6 +100,21 @@ const CommunityFeedbackModal = ({ isOpen, onClose, plan, onFeedbackSubmitted }) 
             const newTotal = oldTotal + 1;
             const newAvg   = ((oldAvg * oldTotal) + rating) / newTotal;
 
+            const updatedVibeTags = selectedTag ? [...oldVibeTags, selectedTag] : oldVibeTags;
+
+            // Bundle per-stop feedback into the main review for public visibility
+            const stopFeedback = Object.entries(stopRatings).reduce((acc, [idx, data]) => {
+                const stop = stops[parseInt(idx)];
+                if (stop && (data.stars || data.reaction || data.comment)) {
+                    acc[stop.venue] = {
+                        rating: data.stars || null,
+                        quickTag: data.reaction || null,
+                        comment: data.comment || null
+                    };
+                }
+                return acc;
+            }, {});
+
             const newReview = {
                 rating,
                 comment:   comment.trim(),
@@ -104,11 +123,10 @@ const CommunityFeedbackModal = ({ isOpen, onClose, plan, onFeedbackSubmitted }) 
                 user_id:   userId,
                 likes:     [],
                 replies:   [],
+                stop_feedback: stopFeedback, // Store here for easy SharedView access
             };
 
             const updatedReviews  = [...oldReviews, newReview];
-            const oldVibeTags     = currentPlan?.vibe_tags || [];
-            const updatedVibeTags = selectedTag ? [...oldVibeTags, selectedTag] : oldVibeTags;
 
             // Update plan stats
             const patchRes = await fetch('/api/update-plan', {
@@ -283,19 +301,22 @@ const CommunityFeedbackModal = ({ isOpen, onClose, plan, onFeedbackSubmitted }) 
                             <div className="space-y-2">
                                 <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Add a photo <span className="text-gray-300 font-medium normal-case">(optional)</span></p>
                                 {!previewUrl ? (
-                                    <label className="w-full border-2 border-dashed border-gray-200 hover:border-coral bg-gray-50 hover:bg-coral/5 rounded-2xl p-5 flex flex-col items-center gap-2 cursor-pointer transition-colors group">
-                                        <span className="text-3xl">📸</span>
-                                        <span className="text-sm font-bold text-gray-400 group-hover:text-coral transition-colors">Tap to add a photo</span>
+                                    <label className="w-full border-2 border-dashed border-gray-200 hover:border-coral bg-gray-50 hover:bg-coral/5 rounded-2xl p-6 flex flex-col items-center gap-2 cursor-pointer transition-all group">
+                                        <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <span className="text-2xl">📸</span>
+                                        </div>
+                                        <span className="text-sm font-bold text-gray-400 group-hover:text-coral transition-colors">Capture or upload a memory</span>
                                         <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                                     </label>
                                 ) : (
-                                    <div className="relative w-full h-32 rounded-2xl overflow-hidden border-2 border-gray-100">
+                                    <div className="relative w-full h-48 rounded-2xl overflow-hidden border-2 border-gray-100 group/preview animate-in fade-in zoom-in duration-300">
                                         <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/20 group-hover/preview:bg-black/40 transition-colors" />
                                         <button
                                             onClick={() => { setFile(null); setPreviewUrl(null); }}
-                                            className="absolute top-2 right-2 bg-black/60 text-white p-1.5 rounded-full hover:bg-black/80 transition-colors"
+                                            className="absolute top-4 right-4 bg-white/90 backdrop-blur-md text-navy px-4 py-2 rounded-xl text-xs font-black shadow-xl hover:bg-red-500 hover:text-white transition-all flex items-center gap-2"
                                         >
-                                            <X className="w-4 h-4" />
+                                            <X className="w-4 h-4" /> Remove Photo
                                         </button>
                                     </div>
                                 )}
@@ -319,21 +340,46 @@ const CommunityFeedbackModal = ({ isOpen, onClose, plan, onFeedbackSubmitted }) 
                                 return (
                                     <div key={idx} className="bg-gray-50 rounded-2xl p-4 space-y-3 border border-gray-100">
                                         {/* Stop Header */}
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-xl bg-navy flex items-center justify-center flex-shrink-0">
-                                                <span className="text-white text-sm font-black">{idx + 1}</span>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-9 h-9 rounded-xl bg-navy flex items-center justify-center flex-shrink-0 shadow-md">
+                                                    <span className="text-white text-xs font-black">{idx + 1}</span>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-black text-navy text-sm truncate">{stop.venue}</p>
+                                                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">{stop.activity || stop.time}</p>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="font-black text-navy text-sm truncate">{stop.venue}</p>
-                                                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">{stop.activity || stop.time}</p>
-                                            </div>
+                                            <button 
+                                                onClick={() => setActiveStopComment(activeStopComment === idx ? null : idx)}
+                                                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
+                                                    sr.comment 
+                                                    ? 'bg-coral border-coral text-white' 
+                                                    : 'bg-white border-gray-100 text-gray-400 hover:border-coral hover:text-coral'
+                                                }`}
+                                            >
+                                                <MessageSquare className="w-4.5 h-4.5" />
+                                            </button>
                                         </div>
+
+                                        {/* Individual Comment Field */}
+                                        {activeStopComment === idx && (
+                                            <div className="animate-in slide-in-from-top-2 duration-200">
+                                                <textarea
+                                                    autoFocus
+                                                    value={sr.comment || ''}
+                                                    onChange={(e) => setStopComment(idx, e.target.value)}
+                                                    placeholder={`What did you think of ${stop.venue}?`}
+                                                    className="w-full bg-white border-2 border-gray-100 focus:border-coral rounded-xl p-3 text-sm text-navy placeholder:text-gray-300 font-medium outline-none resize-none h-20 transition-all"
+                                                />
+                                            </div>
+                                        )}
 
                                         {/* Star rating for this stop */}
                                         <div className="flex gap-1.5 justify-center pt-1">
                                             {[1, 2, 3, 4, 5].map(s => (
-                                                <button key={s} onClick={() => setStopStar(idx, sr.stars === s ? 0 : s)} className="focus:outline-none transition-transform hover:scale-110 active:scale-95">
-                                                    <Star className={`w-7 h-7 transition-colors ${(sr.stars || 0) >= s ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`} />
+                                                <button key={s} onClick={() => setStopStar(idx, sr.stars === s ? 0 : s)} className="focus:outline-none transition-transform hover:scale-125 active:scale-95">
+                                                    <Star className={`w-7 h-7 transition-all duration-150 ${(sr.stars || 0) >= s ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`} />
                                                 </button>
                                             ))}
                                         </div>
@@ -344,10 +390,10 @@ const CommunityFeedbackModal = ({ isOpen, onClose, plan, onFeedbackSubmitted }) 
                                                 <button
                                                     key={r.id}
                                                     onClick={() => setStopReaction(idx, r.id)}
-                                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all ${
+                                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-[11px] font-black transition-all ${
                                                         sr.reaction === r.id
-                                                            ? r.color + ' scale-[1.03] shadow-sm'
-                                                            : 'bg-white border-gray-100 text-gray-500 hover:border-gray-300'
+                                                            ? r.color + ' scale-[1.03] shadow-md border-transparent text-white'
+                                                            : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300'
                                                     }`}
                                                 >
                                                     <span className="text-lg">{r.emoji}</span> {r.label}

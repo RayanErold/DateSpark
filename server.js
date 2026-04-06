@@ -113,7 +113,10 @@ app.get('/api/user-premium/:userId', async (req, res) => {
             referral_code: data?.referral_code, 
             referral_count: data?.referral_count 
         });
-    } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+    } catch (err) { 
+        logError('[PREMIUM SYNC ERROR]', err);
+        res.status(500).json({ error: 'DB Connection Error' }); 
+    }
 });
 
 app.get('/api/user-usage/:userId', async (req, res) => {
@@ -239,6 +242,78 @@ app.get('/api/user-plans', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'DB Error fetching user plans' }); }
 });
 
+// COMMUNITY ENGAGEMENT: Increment Tries
+app.post('/api/plans/:id/try', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data: current } = await supabase.from('plans').select('total_tries').eq('id', id).single();
+        const newCount = (current?.total_tries || 0) + 1;
+        
+        const { data, error } = await supabase
+            .from('plans')
+            .update({ total_tries: newCount })
+            .eq('id', id)
+            .select('total_tries')
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, total_tries: data.total_tries });
+    } catch (err) {
+        logError('[TRY ERROR]', err);
+        res.status(500).json({ error: 'Failed to update tries' });
+    }
+});
+
+// COMMUNITY ENGAGEMENT: Toggle Boosts (Add/Remove)
+app.post('/api/plans/:id/boost', async (req, res) => {
+    const { id } = req.params;
+    const { userId } = req.body;
+    
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+    try {
+        const { data: plan, error: fetchError } = await supabase
+            .from('plans')
+            .select('boost_count, boosted_by')
+            .eq('id', id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        const boostedBy = Array.isArray(plan.boosted_by) ? plan.boosted_by : [];
+        const alreadyBoosted = boostedBy.includes(userId);
+        
+        let newCount;
+        let newBoostedBy;
+
+        if (alreadyBoosted) {
+            // UNBOOST
+            newCount = Math.max(0, (plan.boost_count || 0) - 1);
+            newBoostedBy = boostedBy.filter(uid => uid !== userId);
+        } else {
+            // BOOST
+            newCount = (plan.boost_count || 0) + 1;
+            newBoostedBy = [...boostedBy, userId];
+        }
+
+        const { data, error } = await supabase
+            .from('plans')
+            .update({ 
+                boost_count: newCount,
+                boosted_by: newBoostedBy
+            })
+            .eq('id', id)
+            .select('boost_count')
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, boost_count: data.boost_count, is_boosted: !alreadyBoosted });
+    } catch (err) {
+        logError('[BOOST ERROR]', err);
+        res.status(500).json({ error: 'Failed to toggle boost' });
+    }
+});
+
 // SWAP LOGIC
 app.post('/api/nearby-alternatives', async (req, res) => {
     let { lat, lng, type, radius, budget, currentPlaceId, userId } = req.body;
@@ -310,47 +385,74 @@ app.post('/api/nearby-alternatives', async (req, res) => {
 
 // --- GOOGLE PLACES OPTIMIZED GENERATOR (No AI Tokens) ---
 const VIBE_MAPPING = {
-    romantic: ['cozy cafe or viewpoint', 'romantic fine dining restaurant', 'dessert shop or wine bar'],
-    adventurous: ['active entertainment or park', 'unique themed restaurant', 'fun activity or arcade'],
-    trendy: ['modern rooftop or cafe', 'fusion restaurant or bistro', 'speakeasy or cocktail bar'],
-    chill: ['quiet park or bookstore', 'casual comfort food restaurant', 'cozy cafe or scenic spot'],
-    fun: ['interactive experience or game', 'lively shared plates restaurant', 'dessert spot or fun bar'],
-    budget: ['free local attraction', 'popular affordable restaurant', 'scenic public park']
+    romantic: ['scenic viewpoint or garden', 'cozy cafe or bistro', 'romantic fine dining restaurant', 'dessert shop or wine bar', 'moonlight stroll or rooftop lounge', 'scenic park'],
+    adventurous: ['active entertainment or arcade', 'unique themed cafe', 'exciting fusion restaurant', 'competitive game or bowling', 'fun late night snack', 'arcade'],
+    active: ['rock climbing or active game', 'healthy cafe or juice bar', 'lively casual restaurant', 'top-rated park or stroll', 'interactive experience', 'bowling'],
+    fancy: ['upscale rooftop lounge', 'high-end boutique or gallery', 'fine dining restaurant', 'sophisticated jazz bar', 'luxury dessert lounge', 'speakeasy'],
+    trendy: ['modern rooftop or cafe', 'art gallery or pop-up', 'fusion restaurant or bistro', 'speakeasy or cocktail bar', 'trendy dessert or lounge', 'rooftop'],
+    chill: ['quiet park or bookstore', 'casual brunch or cafe', 'comfort food restaurant', 'cozy bar or tea house', 'scenic night walk', 'park'],
+    fun: ['interactive experience or game', 'lively shared plates restaurant', 'dessert spot or ice cream', 'fun bar or karaoke', 'arcade or game center', 'lively bar'],
+    budget: ['free local attraction', 'popular affordable cafe', 'highly-rated budget restaurant', 'scenic public park', 'affordable street food', 'free museum'],
+    hidden: ['hidden gem or speakeasy', 'secret garden or viewpoint', 'hole-in-the-wall restaurant', 'quiet boutique or workshop', 'unique late-night find', 'undiscovered cafe'],
+    artistic: ['contemporary art gallery', 'creative workshop or museum', 'art-themed cafe or bistro', 'cultural center or show', 'artistic lounge or bar', 'indie gallery'],
+    playful: ['retro arcade or game bar', 'interactive exhibit', 'fun casual dining', 'dessert parlor', 'competitive activity center', 'karaoke'],
+    nature: ['botanical garden or park', 'scenic trail or waterfront', 'organic cafe or terrace', 'nature viewpoint', 'serene outdoor spot', 'park'],
+    party: ['high-energy lounge', 'lively bar or pub', 'late-night snack spot', 'vibrant dance house', 'after-hours lounge', 'cocktail bar'],
+    educational: ['museum or historical site', 'informative tour or exhibit', 'quiet library-themed cafe', 'cultural landmark', 'intellectual bookstore', 'museum']
 };
 
-async function generateStandardItinerary(numVariants, vibe, location, calcDuration) {
+async function generateStandardItinerary(numVariants, vibe, location, calcDuration, targetSteps = 3) {
     const queries = VIBE_MAPPING[vibe.toLowerCase()] || VIBE_MAPPING['chill'];
+    const selectedQueries = queries.slice(0, targetSteps);
     const plans = [];
 
     for (let i = 0; i < numVariants; i++) {
         const steps = [];
-        const times = ['7:00 PM', '8:30 PM', '10:00 PM'];
+        // Generate dynamic times based on duration and targetSteps
+        const startTime = 18; // Default 6 PM
+        const intervals = Math.floor(calcDuration * 60 / Math.max(1, targetSteps - 1));
         
-        for (let j = 0; j < queries.length; j++) {
-            const query = `${queries[j]} near ${location}`;
+        for (let j = 0; j < targetSteps; j++) {
+            const query = `${selectedQueries[j]} near ${location}`;
             const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}`;
             const response = await axios.get(searchUrl);
             const results = response.data?.results || [];
             
             // Pick a random result offset by variant index to ensure diversity
             const place = results[(i + j) % Math.max(results.length, 1)] || { name: 'Local Gem', formatted_address: location };
-            
+
+            let details = {};
+            if (place.place_id) {
+                try {
+                    const detailsRes = await axios.get(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,url&key=${GOOGLE_API_KEY}`);
+                    details = detailsRes.data?.result || {};
+                } catch (e) { console.error('[DETAILS ERROR]', e.message); }
+            }
+
+            // Calculate timestamp string
+            const minutesTotal = (startTime * 60) + (j * intervals);
+            const h = Math.floor(minutesTotal / 60) % 24;
+            const m = minutesTotal % 60;
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const displayH = h % 12 || 12;
+            const timeStr = `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
+
             steps.push({
-                time: times[j],
+                time: timeStr,
                 venue: place.name,
-                activity: queries[j].split(' or ')[0],
-                description: `Experience the best ${vibe} vibes at this highly-rated local spot! Perfect for a memorable ${j === 1 ? 'dinner' : 'evening'} in ${location}.`,
+                activity: selectedQueries[j].split(' or ')[0],
+                description: `Experience the best ${vibe} vibes at this highly-rated local spot! Perfect for a memorable sequence in ${location}.`,
                 search_term: place.name,
-                sub_headline: j === 0 ? "The Perfect Start" : j === 1 ? "A Taste of Magic" : "Ending on a High Note",
+                sub_headline: j === 0 ? "The Perfect Start" : j === targetSteps - 1 ? "Ending on a High Note" : "Continuing the Spark",
                 vibe_score: 9,
                 placeId: place.place_id,
                 address: place.formatted_address,
                 lat: place.geometry?.location?.lat,
                 lng: place.geometry?.location?.lng,
-                rating: place.rating || (4.5 + (Math.random() * 0.4)), // Realistic fallback
-                userRatingCount: place.user_ratings_total || Math.floor(Math.random() * 800) + 200, // Realistic fallback
-                searchUrl: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
-                websiteUrl: place.website || `https://www.google.com/search?q=${encodeURIComponent(place.name + ' ' + place.formatted_address)}`, // Direct fallback
+                rating: place.rating || (4.5 + (Math.random() * 0.4)), 
+                userRatingCount: place.user_ratings_total || Math.floor(Math.random() * 800) + 200, 
+                searchUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+                websiteUrl: details.website || null,
                 photoUrl: place.photos?.[0]?.photo_reference 
                     ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` 
                     : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
@@ -378,7 +480,6 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
 
         const isPremium = !!usageCheck.isPremium;
         const numVariants = isPremium ? 3 : 2;
-        const stepsPerPlan = 3; // Standardized to 3 steps for all (Gating blurs 3rd for free)
 
         // Calculate hours if time/endTime provided
         let calcDuration = duration || 4;
@@ -388,19 +489,24 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
             calcDuration = end > start ? end - start : (24 - start) + end;
         }
 
+        // --- DYNAMIC STEPS CALCULATION ---
+        // 1-3 hrs: 3 steps | 4 hrs+: 4-5 steps
+        const targetSteps = Math.max(3, Math.min(5, Math.ceil(calcDuration / 1.2)));
+        const stepsPerPlan = targetSteps; 
+
         let rawPlans = [];
 
         // --- FORK: Guided Builder (Places API) vs Custom (AI) ---
         if (!customization?.prompt) {
-            console.log(`[GENERATOR] Guided Builder: Using Places API Template for ${vibe} in ${location}`);
-            const data = await generateStandardItinerary(numVariants, vibe, location, calcDuration);
+            console.log(`[GENERATOR] Guided Builder: Using Places API Template for ${vibe} in ${location} (${targetSteps} steps)`);
+            const data = await generateStandardItinerary(numVariants, vibe, location, calcDuration, targetSteps);
             rawPlans = data.plans || [];
         } else {
-            console.log(`[GENERATOR] Custom AI: Using Gemini 2.0 Flash for Prompt: "${customization.prompt}"`);
+            console.log(`[GENERATOR] Custom AI: Using Gemini 2.0 Flash for Prompt: "${customization.prompt}" (${targetSteps} steps)`);
             const model = genAI.getGenerativeModel({ model: GEMINI_MODEL }); 
             const prompt = `Create ${numVariants} distinct ${vibe} date itinerary variations in ${location} for ${budget || 'moderate'} budget. User request: "${customization.prompt}".
             Return JSON object: { "plans": [ { "vibe_variant": "string", "steps": [ { "time": "string", "venue": "string", "activity": "string", "description": "string", "search_term": "string", "sub_headline": "string (viral catchphrase, max 6 words)", "vibe_score": number, "rating": number, "user_rating_count": number } ] } ] }
-            Generate EXACTLY ${stepsPerPlan} steps per plan. Do NOT use all uppercase for sub_headlines. Use realistic ratings (4.5-4.9) and review counts (100-3000). Date: ${planDate}.`;
+            Generate EXACTLY ${targetSteps} chronological sequence-flow steps per plan based on a ${calcDuration}-hour window. Do NOT use all uppercase for sub_headlines. Use realistic ratings (4.5-4.9) and review counts (100-3000). Date: ${planDate}.`;
 
             const result = await model.generateContent(prompt);
             const response = await result.response;
@@ -414,6 +520,11 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
                 try {
                     const searchRes = await axios.get(`https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent((step.venue || step.activity) + ' near ' + location)}&key=${GOOGLE_API_KEY}`);
                     const place = searchRes.data?.results?.[0];
+                    let details = {};
+                    if (place?.place_id) {
+                        const detailsRes = await axios.get(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,url&key=${GOOGLE_API_KEY}`);
+                        details = detailsRes.data?.result || {};
+                    }
                     return {
                         ...step,
                         placeId: place?.place_id,
@@ -422,8 +533,8 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
                         lng: place?.geometry?.location?.lng,
                         rating: place?.rating || step.rating || 4.7,
                         userRatingCount: place?.user_ratings_total || step.user_rating_count || 450,
-                        searchUrl: `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
-                        websiteUrl: place?.website || `https://www.google.com/search?q=${encodeURIComponent(step.venue || step.activity)}`,
+                        searchUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
+                        websiteUrl: details.website || null,
                         photoUrl: place?.photos?.[0]?.photo_reference ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
                     };
                 } catch { return step; }
@@ -431,8 +542,21 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
 
             const isCurrentPreview = !isPremium && pIdx === 1;
             const { data: newPlan } = await supabase.from('plans').insert([{
-                user_id: userId, vibe: pData.vibe_variant || vibe, location, budget, 
-                itinerary: { steps: enhancedSteps, metadata: { planDate, type, time, endTime, totalSteps: stepsPerPlan, isPremiumGenerated: isPremium, isPreviewPlan: isCurrentPreview } }
+                user_id: userId, 
+                vibe: pData.vibe_variant || vibe, 
+                location, 
+                budget, 
+                itinerary: { 
+                    steps: enhancedSteps, 
+                    metadata: { 
+                        planDate, type, time, endTime, 
+                        totalSteps: stepsPerPlan, 
+                        isPremiumGenerated: isPremium, 
+                        isPreviewPlan: isCurrentPreview,
+                        lat: enhancedSteps[0]?.lat, 
+                        lng: enhancedSteps[0]?.lng 
+                    } 
+                }
             }]).select().single();
             return newPlan;
         }));
@@ -500,6 +624,11 @@ app.post('/api/generate-custom-date', async (req, res) => {
                 const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent((step.venue || step.activity) + ' in ' + location)}&key=${GOOGLE_API_KEY}`;
                 const searchRes = await axios.get(searchUrl);
                 const place = searchRes.data?.results?.[0];
+                let details = {};
+                if (place?.place_id) {
+                    const detailsRes = await axios.get(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,url&key=${GOOGLE_API_KEY}`);
+                    details = detailsRes.data?.result || {};
+                }
                 return {
                     ...step,
                     placeId: place?.place_id,
@@ -508,16 +637,30 @@ app.post('/api/generate-custom-date', async (req, res) => {
                     lng: place?.geometry?.location?.lng,
                     rating: place?.rating || step.rating || 4.8,
                     userRatingCount: place?.user_ratings_total || step.user_rating_count || 320,
-                    searchUrl: `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
-                    websiteUrl: place?.website || `https://www.google.com/search?q=${encodeURIComponent((step.venue || step.activity) + ' in ' + location)}`,
+                    searchUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
+                    websiteUrl: details.website || null,
                     photoUrl: place?.photos?.[0]?.photo_reference ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
                 };
             } catch { return step; }
         }));
 
         const { data: newPlan, error: insertError } = await supabase.from('plans').insert([{
-            user_id: userId, vibe: concept.title, location, budget: budget || 'moderate', 
-            itinerary: { steps: enhancedSteps, metadata: { planDate: date, type: 'guided', totalSteps: numSteps, isPremiumGenerated: isPremium, isPreviewPlan } }
+            user_id: userId, 
+            vibe: concept.title, 
+            location, 
+            budget: budget || 'moderate', 
+            itinerary: { 
+                steps: enhancedSteps, 
+                metadata: { 
+                    planDate: date, 
+                    type: 'guided', 
+                    totalSteps: numSteps, 
+                    isPremiumGenerated: isPremium, 
+                    isPreviewPlan,
+                    lat: enhancedSteps[0]?.lat,
+                    lng: enhancedSteps[0]?.lng
+                } 
+            }
         }]).select().single();
 
         if (insertError) throw insertError;

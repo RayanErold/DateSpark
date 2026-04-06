@@ -52,7 +52,8 @@ import {
     Gift,
     Copy,
     ThumbsUp,
-    Reply
+    Reply,
+    TrendingUp
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { loadStripe } from '@stripe/stripe-js';
@@ -398,6 +399,22 @@ const Dashboard = () => {
         email: '',
         weekend_spark_enabled: true
     });
+
+    // --- CUSTOMIZATION INTERCEPT ---
+    const [showCustomizeModal, setShowCustomizeModal] = useState(false);
+    const [pendingCustomizeAction, setPendingCustomizeAction] = useState(null);
+    const [isCustomizing, setIsCustomizing] = useState(false);
+
+    // --- UNIFIED STATE SYNC HELPER ---
+    const syncPlanState = (updatedPlan) => {
+        if (!updatedPlan?.id) return;
+        const updater = p => p.id === updatedPlan.id ? { ...p, ...updatedPlan } : p;
+        setPlans(prev => prev.map(updater));
+        setGlobalTrendingPlans(prev => prev.map(updater));
+        if (selectedPlan?.id === updatedPlan.id) {
+            setSelectedPlan(prev => ({ ...prev, ...updatedPlan }));
+        }
+    };
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [showVisionBanner, setShowVisionBanner] = useState(() => {
         return localStorage.getItem('hideVisionBanner') !== 'true';
@@ -426,7 +443,8 @@ const Dashboard = () => {
     const [showVisionModal, setShowVisionModal] = useState(false); // Vision Modal state
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, plan: null, type: 'trash', isBatch: false });
     const [showIdeaModal, setShowIdeaModal] = useState(false);
-    const [feedbackMessage, setFeedbackMessage] = useState('');
+    const [toastMessage, setToastMessage] = useState('');
+    const [ideaText, setIdeaText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     const [completedSteps, setCompletedSteps] = useState([]);
 
@@ -653,13 +671,13 @@ const Dashboard = () => {
         try {
             await supabase.auth.signOut();
             localStorage.clear();
-            // Redirect to landing page or login. Landing page is usually better for brand.
-            navigate('/');
+            // Force hard reload to landing page to clear all in-memory state
+            window.location.href = '/'; 
         } catch (error) {
             console.error('Logout error:', error);
             // Even if Supabase fails (e.g. invalid session), we MUST clear local state
             localStorage.clear();
-            navigate('/');
+            window.location.href = '/';
         }
     };
 
@@ -1147,40 +1165,72 @@ const Dashboard = () => {
         }
     };
 
-    const handleForkPlan = async (originalPlan) => {
-        if (!originalPlan) return;
-        setIsLoading(true);
+    const handleForkPlan = async (originalPlan, isAutomatic = false) => {
+        if (!originalPlan) return null;
+        if (!isAutomatic) setIsLoading(true);
         try {
             // Clone the plan but reset stats/reviews
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            const activeUser = currentUser || user; // Fallback to state user
+
+            if (!activeUser) throw new Error('No active session found for customization');
+
+            const firstStep = Array.isArray(originalPlan.itinerary) ? originalPlan.itinerary[0] : originalPlan.itinerary?.steps?.[0];
+            const fallbackLat = originalPlan.itinerary?.metadata?.lat || firstStep?.lat;
+            const fallbackLng = originalPlan.itinerary?.metadata?.lng || firstStep?.lng;
+
+            // --- SAFE ITINERARY CLONING ---
+            let newItinerary;
+            if (Array.isArray(originalPlan.itinerary)) {
+                newItinerary = [...originalPlan.itinerary];
+            } else {
+                newItinerary = {
+                    ...originalPlan.itinerary,
+                    metadata: {
+                        ...(originalPlan.itinerary?.metadata || {}),
+                        isPreviewPlan: false, // UNLOCK for the new owner
+                        isPremiumGenerated: isPremium,
+                        forkedFrom: originalPlan.id,
+                        // SAFE STORAGE: Move top-level lat/lng (which might not exist in original) or use fallbacks
+                        lat: originalPlan.lat || fallbackLat,
+                        lng: originalPlan.lng || fallbackLng
+                    }
+                };
+            }
+
+            // --- SAFE CLONE: Only use columns known to exist in the database table ---
             const newPlan = {
-                user_id: user.id,
+                user_id: activeUser.id,
                 vibe: originalPlan.vibe,
                 location: originalPlan.location,
-                itinerary: originalPlan.itinerary,
-                is_favorite: false,
-                avg_rating: 0,
-                total_tries: 0,
-                reviews: [],
-                vibe_tags: []
+                itinerary: newItinerary,
+                budget: originalPlan.budget || '$$'
             };
 
+            console.log('[Safe Fork] Attempting insert with columns:', Object.keys(newPlan));
             const { data, error } = await supabase
                 .from('plans')
                 .insert([newPlan])
-                .select();
+                .select()
+                .single();
 
             if (error) throw error;
 
-            setPlans(prev => [data[0], ...prev]);
-            setSelectedPlan(null);
-            setFeedbackMessage('Plan cloned! You can now customize it.');
-            setTimeout(() => setFeedbackMessage(''), 3000);
+            setPlans(prev => [data, ...prev]);
+            setSelectedPlan({ ...data, isPartiallyLocked: false }); 
+            
+            if (!isAutomatic) {
+                setFeedbackMessage('Plan saved to your dashboard! 🚀');
+                setCurrentTab('home'); 
+                setTimeout(() => setFeedbackMessage(''), 4000);
+            }
+            return data;
         } catch (err) {
             console.error('Error forking plan:', err);
-            setDebugError('Failed to clone plan: ' + err.message);
+            setDebugError('Failed to customize plan: ' + (err.message || 'Check database schema'));
+            return null;
         } finally {
-            setIsLoading(false);
+            if (!isAutomatic) setIsLoading(false);
         }
     };
 
@@ -1219,10 +1269,7 @@ const Dashboard = () => {
                 })
             });
             if (!response.ok) throw new Error('Proxy favorite update failed');
-            setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, is_favorite: newStatus } : p));
-            if (selectedPlan?.id === plan.id) {
-                setSelectedPlan(prev => ({ ...prev, is_favorite: newStatus }));
-            }
+            syncPlanState({ id: plan.id, is_favorite: newStatus });
         } catch (err) {
             console.error('Error toggling favorite:', err.message);
             alert(`Failed to update favorite status: ${err.message}`);
@@ -1274,7 +1321,7 @@ const Dashboard = () => {
     };
 
     const handleSubmitFeedback = async () => {
-        if (!feedbackMessage.trim()) return;
+        if (!ideaText.trim() || isSubmittingFeedback) return;
         setIsSubmittingFeedback(true);
 
         try {
@@ -1284,7 +1331,7 @@ const Dashboard = () => {
                 body: JSON.stringify({
                     userId: user?.id,
                     email: user?.email,
-                    text: feedbackMessage.trim()
+                    text: ideaText.trim()
                 })
             });
 
@@ -1293,18 +1340,121 @@ const Dashboard = () => {
                 throw new Error(errData.error || response.statusText);
             }
 
-            alert('Thank you for your feedback! 🚀 (Message sent to admin)');
-            setFeedbackMessage('');
+            setToastMessage('Thank you for your feedback! 🚀');
+            setTimeout(() => setToastMessage(''), 4000);
+            setIdeaText('');
             setShowIdeaModal(false);
         } catch (err) {
             console.error('Feedback Submission Error:', err);
-            alert(`Submission failed: ${err.message}`);
+            setToastMessage(`Submission failed: ${err.message}`);
+            setTimeout(() => setToastMessage(''), 4000);
         } finally {
             setIsSubmittingFeedback(false);
         }
     };
 
-    const handleSwitchUp = async (idx, step) => {
+    const handleTryPlan = async (planId) => {
+        const id = typeof planId === 'object' ? planId.id : planId;
+        if (!id) return;
+        try {
+            const response = await fetch(`/api/plans/${id}/try`, { method: 'POST' });
+            if (response.ok) {
+                setToastMessage('Date Sparked! Enjoy your night! 🥂');
+                setTimeout(() => setToastMessage(''), 3000);
+            }
+        } catch (err) {
+            console.error('Failed to spark date:', err);
+        }
+    };
+
+    const handleBoostPlan = async (planId) => {
+        const id = typeof planId === 'object' ? planId.id : planId;
+        if (!id || !user?.id) return;
+        
+        const targetPlan = selectedPlan?.id === id ? selectedPlan : plans.find(p => p.id === id);
+        const isBoosted = Array.isArray(targetPlan?.boosted_by) && targetPlan.boosted_by.includes(user.id);
+
+        try {
+            const response = await fetch(`/api/plans/${id}/boost`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setToastMessage(isBoosted ? 'Boost Removed' : 'Plan Boosted! 🚀');
+                setTimeout(() => setToastMessage(''), 2000);
+                
+                // Optimistic UI Update for toggle
+                const updatedFields = {
+                    boost_count: data.boost_count ?? (isBoosted ? Math.max(0, (targetPlan?.boost_count || 0) - 1) : (targetPlan?.boost_count || 0) + 1),
+                    boosted_by: isBoosted 
+                        ? (targetPlan?.boosted_by || []).filter(uid => uid !== user.id)
+                        : Array.isArray(targetPlan?.boosted_by) ? [...targetPlan.boosted_by, user.id] : [user.id]
+                };
+
+                const updatePlan = p => p.id === id ? { ...p, ...updatedFields } : p;
+                setPlans(prev => prev.map(updatePlan));
+                setGlobalTrendingPlans(prev => prev.map(updatePlan));
+                if (selectedPlan?.id === id) {
+                    setSelectedPlan(prev => ({ ...prev, ...updatedFields }));
+                }
+            }
+        } catch (err) {
+            console.error('Failed to toggle boost:', err);
+        }
+    };
+
+    const handleConfirmCustomize = async () => {
+        if (!selectedPlan) return;
+        setIsCustomizing(true);
+        try {
+            console.log('[Customize] Triggering fork for plan:', selectedPlan.id);
+            const newPlan = await handleForkPlan(selectedPlan, true);
+            
+            if (newPlan) {
+                console.log('[Customize] Fork successful. New Plan ID:', newPlan.id);
+                // Ensure UI reflects the new tab behind the modal
+                setCurrentTab('home'); 
+                setToastMessage('Plan saved to your dashboard! 🚀');
+                setTimeout(() => setToastMessage(''), 4000);
+
+                if (pendingCustomizeAction) {
+                    const { idx, step } = pendingCustomizeAction;
+                    console.log('[Customize] Resuming swap for step index:', idx);
+                    
+                    const steps = Array.isArray(newPlan.itinerary) ? newPlan.itinerary : newPlan.itinerary?.steps || [];
+                    const newStep = steps[idx] || step;
+
+                    // Longer delay to let state settle
+                    setTimeout(() => {
+                        handleSwitchUp(idx, newStep, newPlan);
+                    }, 800); 
+                }
+            } else {
+                console.warn('[Customize] Fork returned null. Check handleForkPlan errors.');
+            }
+            setShowCustomizeModal(false);
+            setPendingCustomizeAction(null);
+        } catch (err) {
+            console.error('Customize failed in confirm handler:', err);
+            alert('Something went wrong during customization. Please try again.');
+        } finally {
+            setIsCustomizing(false);
+        }
+    };
+
+    const handleSwitchUp = async (idx, step, customPlan = null) => {
+        const targetPlan = customPlan || selectedPlan;
+        
+        // --- INTERCEPT: Only owners can edit. If not owned, prompt customize ---
+        if (targetPlan.user_id !== user?.id) {
+            setPendingCustomizeAction({ idx, step });
+            setShowCustomizeModal(true);
+            return;
+        }
+
         if (!isPremium && usage.swap >= limits.swap) {
             setLimitType('swap');
             setShowUpgradeModal(true);
@@ -1317,14 +1467,21 @@ const Dashboard = () => {
 
         try {
             // Priority 1: Use coordinates stored in the step (the specific venue location)
-            // Priority 2: Use selectedPlan base coordinates
-            // Priority 3: Fallback to NYC center
+            // Priority 2: Use plan base coordinates
             let lat = step.lat ? Number(step.lat) : null;
             let lng = step.lng ? Number(step.lng) : null;
 
             if (!lat || !lng) {
-                lat = selectedPlan.lat ? Number(selectedPlan.lat) : null;
-                lng = selectedPlan.lng ? Number(selectedPlan.lng) : null;
+                // Check metadata fallback if top-level "lat" column is missing
+                lat = targetPlan.lat || targetPlan.itinerary?.metadata?.lat || null;
+                lng = targetPlan.lng || targetPlan.itinerary?.metadata?.lng || null;
+                
+                // Final fallback if still null: Use first step coordinates
+                if (!lat || !lng) {
+                    const firstStep = Array.isArray(targetPlan.itinerary) ? targetPlan.itinerary[0] : targetPlan.itinerary?.steps?.[0];
+                    lat = firstStep?.lat;
+                    lng = firstStep?.lng;
+                }
             }
 
             if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
@@ -1358,7 +1515,7 @@ const Dashboard = () => {
                 lng,
                 type: swapVibe,
                 radius: 12000, 
-                budget: selectedPlan?.budget || '$$',
+                budget: targetPlan?.budget || '$$',
                 currentPlaceId: step.placeId || '',
                 userId: user?.id
             });
@@ -1427,9 +1584,8 @@ const Dashboard = () => {
                 throw new Error(`Proxy Update Failed: ${err.message}`);
             }
 
-            // Update local state
-            setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, itinerary: updatedItinerary } : p));
-            setSelectedPlan(prev => ({ ...prev, itinerary: updatedItinerary }));
+            // Update local state across all lists
+            syncPlanState({ id: selectedPlan.id, itinerary: updatedItinerary });
 
             setActiveSwitchIndex(null);
             setAlternatives([]);
@@ -1495,31 +1651,6 @@ const Dashboard = () => {
     // SOCIAL HANDLERS — Boost, Like Review, Reply to Review
     // ————————————————————————————————————————————————————————————————————————————————————————
 
-    const handleBoostPlan = async (plan, e) => {
-        e.stopPropagation();
-        if (!user?.id) return;
-        setBoostingPlanId(plan.id);
-        try {
-            const res = await fetch('/api/boost-plan', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ planId: plan.id, userId: user.id })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-            // Optimistic update
-            const updatePlan = p => p.id === plan.id
-                ? { ...p, boost_count: data.boost_count, boosted_by: data.boosted ? [...(p.boosted_by || []), user.id] : (p.boosted_by || []).filter(id => id !== user.id) }
-                : p;
-            setPlans(prev => prev.map(updatePlan));
-            if (selectedPlan?.id === plan.id) setSelectedPlan(prev => updatePlan(prev));
-            setGlobalTrendingPlans(prev => prev.map(updatePlan));
-        } catch (err) {
-            console.error('[Boost]', err);
-        } finally {
-            setBoostingPlanId(null);
-        }
-    };
 
     const handleLikeReview = async (planId, reviewIndex) => {
         if (!user?.id) return;
@@ -1579,10 +1710,10 @@ const Dashboard = () => {
         return (
             <div
                 key={plan.id}
-                className={`rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-full sm:max-w-none snap-start ${
+                className={`rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-full sm:max-w-none snap-start premium-shadow premium-shadow-hover ${
                     appTheme === 'dark' 
                     ? 'bg-navy/40 backdrop-blur-md border-white/10 hover:bg-navy/60 hover:border-white/20' 
-                    : 'bg-gradient-to-b from-white to-gray-50/40 border-navy/5 shadow-sm hover:shadow-xl hover:-translate-y-1'
+                    : 'bg-white border-navy/5 shadow-sm'
                 } ${isCompact ? 'p-3' : 'p-4 sm:p-6'} ${isLockedPlan ? 'cursor-not-allowed grayscale-[0.5] opacity-80' : ''}`}
                 onClick={() => {
                     if (isLockedPlan) {
@@ -1624,7 +1755,7 @@ const Dashboard = () => {
                 {/* Popular Vibe Tag Badge */}
                 {!isLockedPlan && getPopularTag(plan.vibe_tags) && (
                     <div className={`absolute top-4 ${isSelectMode ? 'left-12' : 'left-4'} z-30 animate-in fade-in zoom-in duration-500`}>
-                        <div className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-coral/20 rounded-full shadow-sm flex items-center gap-1.5 ring-1 ring-coral/5">
+                        <div className="px-3 py-1 bg-white/90 backdrop-blur-md border border-coral/20 rounded-full shadow-md flex items-center gap-1.5 ring-1 ring-coral/5">
                             <span className="text-xs">{getPopularTag(plan.vibe_tags).icon}</span>
                             <span className="text-[10px] font-black text-coral uppercase tracking-tighter">{getPopularTag(plan.vibe_tags).label}</span>
                         </div>
@@ -1635,44 +1766,40 @@ const Dashboard = () => {
                     {/* 🗓️ Planned For - TOP Minimalist Badge */}
                     <div className="flex items-center justify-between gap-4">
                         {(plan.itinerary?.metadata?.planDate || plan.created_at) && (
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg shadow-sm border ${
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border ${
                                 appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'
                             }`}>
                                 <Calendar className={`w-3.5 h-3.5 ${appTheme === 'dark' ? 'text-white/60' : 'text-coral'}`} />
-                                <p className={`text-[10px] font-black uppercase tracking-widest font-inter ${
-                                    appTheme === 'dark' ? 'text-white/60' : 'text-navy/50'
+                                <p className={`text-[10px] font-black uppercase tracking-widest font-outfit ${
+                                    appTheme === 'dark' ? 'text-white/60' : 'text-navy/40'
                                 }`}>
-                                    PLANNED FOR: <span className={appTheme === 'dark' ? 'text-white' : 'text-[#0A1128]'}>
+                                    Scheduled for: <span className={appTheme === 'dark' ? 'text-white' : 'text-navy'}>
                                         {new Date((plan.itinerary?.metadata?.planDate || plan.created_at) + (plan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
                                     </span>
                                 </p>
                             </div>
                         )}
-                        {!isLockedPlan && !isPreview && getPopularTag(plan.vibe_tags) && (
-                            <div className="px-2.5 py-1.5 bg-coral/5 border border-coral/10 rounded-lg flex items-center gap-1.5">
-                                <span className="text-xs">{getPopularTag(plan.vibe_tags).icon}</span>
-                                <span className="text-[9px] font-black text-coral uppercase tracking-tighter">{getPopularTag(plan.vibe_tags).label}</span>
-                            </div>
-                        )}
                     </div>
 
                     <div className="space-y-1">
-                        <h3 className={`text-xl font-black leading-tight font-inter line-clamp-2 ${
-                            appTheme === 'dark' ? 'text-white' : 'text-[#0A1128]'
+                        <h3 className={`text-2xl font-black leading-tight font-outfit line-clamp-2 ${
+                            appTheme === 'dark' ? 'text-white' : 'text-navy'
                         }`}>
                             {plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + " Date" : "Perfect Date Plan")}
                         </h3>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-xl ${
-                                appTheme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-navy/5 text-navy'
+                            <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${
+                                appTheme === 'dark' ? 'bg-white/5 text-white/70' : 'bg-navy/5 text-navy/60'
                             }`}>
                                 <MapPin className="w-3 h-3 text-coral" /> {plan.location}
                             </div>
-                            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-xl ${
-                                appTheme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-navy/5 text-navy'
-                            }`}>
-                                <CreditCard className="w-3 h-3 text-emerald-500" /> {plan.budget}
-                            </div>
+                            {plan.budget && (
+                                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${
+                                    appTheme === 'dark' ? 'bg-white/5 text-white/70' : 'bg-navy/5 text-navy/60'
+                                }`}>
+                                    <CreditCard className="w-3 h-3 text-emerald-500" /> {plan.budget}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1681,82 +1808,87 @@ const Dashboard = () => {
                     <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-8">
                         {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.slice(0, 2).map((step, idx) => (
                             <div key={idx} className="flex items-center gap-4 relative group/step">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all ${
-                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-coral/5 border-coral/10 text-coral group-hover/step:bg-coral group-hover/step:text-white'
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all ${
+                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-coral/5 border-coral/10 text-coral group-hover/step:bg-coral group-hover/step:text-white group-hover/step:border-coral'
                                 }`}>
-                                    <Clock className="w-4 h-4" />
+                                    <Clock className="w-4.5 h-4.5" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className={`text-[14px] font-black leading-none mb-1 font-inter ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>{step.time}</p>
-                                    <p className={`text-[12px] font-bold truncate font-inter ${appTheme === 'dark' ? 'text-white/60' : 'text-navy/80'}`}>
+                                    <p className={`text-[14px] font-black leading-none mb-1 font-outfit ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>{step.time}</p>
+                                    <p className={`text-[12px] font-bold truncate font-outfit ${appTheme === 'dark' ? 'text-white/50' : 'text-navy/70'}`}>
                                         {step.activity}
                                     </p>
                                 </div>
                             </div>
                         ))}
                         {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.length > 2 && (
-                            <div className="flex items-center gap-3 pl-14">
-                                <span className={`text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                                    appTheme === 'dark' ? 'bg-white/5 text-white/40' : 'bg-coral/5 text-coral'
+                            <div className="flex items-center gap-3 pl-15">
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${
+                                    appTheme === 'dark' ? 'bg-white/5 text-white/30' : 'bg-coral/5 text-coral/80'
                                 }`}>
-                                    + {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps)?.length - 2} MORE STOPS
+                                    + {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps)?.length - 2} ADDED STOPS
                                 </span>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Modern Social Action Bar - NO LONGER OVERLAPPING TOP */}
-                <div className="flex items-center justify-between gap-2 py-3 mb-4 border-t border-gray-50">
+                {/* Modern Social Action Bar */}
+                <div className={`flex items-center justify-between gap-2 py-4 mb-5 border-t ${appTheme === 'dark' ? 'border-white/5' : 'border-gray-50'}`}>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-0.5">
                             {[1, 2, 3, 4, 5].map((s) => (
-                                <Star key={s} className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />
+                                <Star key={s} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
                             ))}
                         </div>
-                        <span className="text-xs font-black text-navy/80">{Array.isArray(plan.itinerary) ? 4.8 : 4.5}</span>
+                        <span className={`text-xs font-black ${appTheme === 'dark' ? 'text-white/80' : 'text-navy/80'}`}>{plan.avg_rating || '4.9'}</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {/* ⚡ Share/Heart/Trash Group - 44px Tap Targets for Mobile */}
+                    <div className="flex items-center gap-1.5">
                         <button
                             onClick={(e) => { e.stopPropagation(); handleShare(plan); }}
-                            className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center transition-colors border rounded-xl shadow-sm ${
+                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${
                                 appTheme === 'dark' 
-                                ? 'bg-white/5 border-white/10 text-white/60 hover:text-coral' 
-                                : 'bg-white border-gray-100 text-navy/50 hover:text-coral'
+                                ? 'bg-white/5 border-white/10 text-white/40 hover:text-white' 
+                                : 'bg-white border-gray-100 text-navy/40 hover:text-navy hover:border-navy/20'
                             }`}
                         >
-                            <Share2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                            <Share2 className="w-4 h-4" />
                         </button>
                         <button
                             onClick={(e) => handleToggleFavorite(plan, e)}
-                            className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center transition-colors border rounded-xl shadow-sm ${
+                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${
                                 appTheme === 'dark' 
-                                ? 'bg-white/5 border-white/10 text-white/60 hover:text-red-500' 
-                                : 'bg-white border-gray-100 text-navy/50 hover:text-red-500'
+                                ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500' 
+                                : 'bg-white border-gray-100 text-navy/40 hover:text-red-500 hover:border-red-100'
                             }`}
                         >
-                            <Heart className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
+                            <Heart className={`w-4 h-4 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
                         </button>
                         <button
                             onClick={(e) => handleDelete(plan.id, e)}
-                            className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center transition-colors border rounded-xl shadow-sm ${
+                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${
                                 appTheme === 'dark' 
-                                ? 'bg-white/5 border-white/10 text-white/60 hover:text-red-500' 
-                                : 'bg-white border-gray-100 text-navy/50 hover:text-red-500'
+                                ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500' 
+                                : 'bg-white border-gray-100 text-navy/40 hover:text-red-500 hover:border-red-100'
                             }`}
                         >
-                            <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                         </button>
 
-                        <div className="w-px h-5 bg-gray-100 mx-1 opacity-20" />
+                        <div className={`w-px h-6 mx-1 opacity-20 ${appTheme === 'dark' ? 'bg-white' : 'bg-gray-300'}`} />
 
                         <button
-                            onClick={(e) => handleBoostPlan(plan, e)}
-                            className="flex items-center gap-1.5 px-4 sm:px-3 py-2 sm:py-1.5 bg-coral/10 border border-coral/20 text-coral rounded-xl text-[11px] sm:text-[10px] font-black transition-all hover:bg-coral hover:text-white group/boost shadow-sm hover:shadow-coral/20 active:scale-95"
+                            onClick={(e) => { e.stopPropagation(); handleBoostPlan(plan.id); }}
+                            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-[12px] font-black transition-all group/boost shadow-md active:scale-95 ${
+                                Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
+                                ? 'bg-orange-100 border-orange-200 text-orange-600 hover:bg-white/50'
+                                : appTheme === 'dark'
+                                ? 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                                : 'bg-coral/10 border border-coral/20 text-coral hover:bg-coral hover:text-white'
+                            }`}
                         >
-                            <Flame className="w-3.5 h-3.5 sm:w-3 sm:h-3 fill-coral group-hover/boost:fill-white" />
+                            <Flame className={`w-3.5 h-3.5 ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'fill-orange-500 text-orange-500' : 'fill-coral group-hover/boost:fill-white'} transition-colors ${appTheme === 'dark' && !plan.boosted_by?.includes(user?.id) ? 'opacity-70 group-hover/boost:opacity-100' : ''}`} />
                             {plan.boost_count || 0}
                         </button>
                     </div>
@@ -1768,30 +1900,24 @@ const Dashboard = () => {
                         if (isLockedPlan) setShowUpgradeModal(true);
                         else setSelectedPlan({ ...plan, isPartiallyLocked });
                     }}
-                    className={`w-full py-4 text-[14px] font-black rounded-2xl transition-all active:scale-[0.98] font-inter border flex items-center justify-center gap-2 group/btn ${
+                    className={`w-full py-4.5 text-[15px] font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg ${
                         isLockedPlan 
                         ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-gray-100 text-gray-400 border-gray-200") 
                         : isPartiallyLocked 
                         ? (appTheme === 'dark' 
-                            ? "bg-white/10 text-white border-white/20 hover:bg-white hover:text-navy shadow-lg shadow-white/5" 
-                            : "bg-white text-navy border-navy/10 shadow-sm hover:bg-navy hover:text-white hover:border-navy hover:shadow-xl hover:shadow-navy/10")
+                            ? "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral" 
+                            : "bg-navy text-white border-navy hover:bg-coral hover:border-coral")
                         : (appTheme === 'dark'
-                            ? "bg-white/10 text-white border-white/20 hover:bg-white hover:text-navy shadow-lg shadow-white/5"
-                            : "bg-white text-[#0A1128] border-[#0A1128]/10 shadow-sm hover:bg-[#0A1128] hover:text-white hover:border-[#0A1128] hover:shadow-xl hover:shadow-navy/20")
+                            ? "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral"
+                            : "bg-navy text-white border-navy hover:bg-coral hover:border-coral")
                     }`}
                 >
                     {isLockedPlan ? (
-                        <div className="flex items-center gap-2">
-                            <Lock className="w-3.5 h-3.5" /> Unlock Master Plan
-                        </div>
+                        <><Lock className="w-4 h-4" /> Unlock Master Plan</>
                     ) : isPartiallyLocked ? (
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-coral" /> Preview Plan <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
-                        </div>
+                        <><Sparkles className="w-5 h-5 text-gold group-hover/btn:text-white" /> Preview Plan <ArrowRight className="w-4.5 h-4.5 transition-transform group-hover/btn:translate-x-1" /></>
                     ) : (
-                        <div className="flex items-center gap-2">
-                            View Plan <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
-                        </div>
+                        <>View Full Itinerary <ArrowRight className="w-4.5 h-4.5 transition-transform group-hover/btn:translate-x-1" /></>
                     )}
                 </button>
             </div>
@@ -2427,11 +2553,12 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Subtle Logout */}
+                {/* Visible Logout */}
                 <button
                     onClick={handleSignOut}
-                    className="w-full py-4 text-gray-300 font-black text-[10px] uppercase tracking-widest hover:text-red-500 transition-colors"
+                    className="w-full py-4.5 bg-red-50 text-red-600 font-black text-xs uppercase tracking-[0.2em] hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-sm active:scale-95 border border-red-100 flex items-center justify-center gap-2 group"
                 >
+                    <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
                     Sign Out Securely
                 </button>
 
@@ -2766,6 +2893,14 @@ const Dashboard = () => {
                                         <span>Steal</span>
                                     </button>
                                     <button
+                                        onClick={() => handleBoostPlan(selectedPlan.id)}
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-coral/10 hover:bg-coral/20 border border-coral/20 rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter text-coral"
+                                        title="Boost this Plan"
+                                    >
+                                        <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 group-hover:scale-125 transition-transform" />
+                                        <span className="hidden sm:inline">Boost</span>
+                                    </button>
+                                    <button
                                         onClick={handleShare}
                                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter"
                                     >
@@ -2785,6 +2920,8 @@ const Dashboard = () => {
                                     </button>
                                 </div>
                             </div>
+
+
 
                             {/* Mobile Map Spacer */}
                             <div className="h-[180px] sm:h-[200px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
@@ -2904,19 +3041,26 @@ const Dashboard = () => {
                                                     <div className="flex flex-wrap items-center gap-3 mt-2">
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleSwitchUp(idx, step); }}
-                                                            className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[11px] font-black rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all active:scale-95 flex items-center gap-1.5 shadow-md"
+                                                            className={`px-4 py-2 text-white text-[11px] font-black rounded-xl hover:shadow-lg transition-all active:scale-95 flex items-center gap-1.5 shadow-md ${
+                                                                selectedPlan?.user_id === user?.id 
+                                                                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:shadow-indigo-500/30' 
+                                                                : 'bg-gradient-to-r from-coral to-pink-500 hover:shadow-coral/30'
+                                                            }`}
                                                         >
-                                                            <Sparkles className="w-3.5 h-3.5" /> Swap This Spot
+                                                            <Sparkles className="w-3.5 h-3.5" />
+                                                            {selectedPlan?.user_id === user?.id ? 'Swap This Spot' : 'Customize to Swap'}
                                                         </button>
 
-                                                        <a
-                                                            href={step.websiteUrl || `https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="px-4 py-2 bg-white text-navy border border-gray-200 text-[11px] font-black rounded-xl hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-sm"
-                                                        >
-                                                            <Ticket className="w-3.5 h-3.5 text-coral" /> View Tickets
-                                                        </a>
+                                                         {step.websiteUrl && (
+                                                            <a
+                                                                href={step.websiteUrl}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="px-4 py-2 bg-white text-navy border border-gray-200 text-[11px] font-black rounded-xl hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-sm"
+                                                            >
+                                                                <Ticket className="w-3.5 h-3.5 text-coral" /> Visit Website
+                                                            </a>
+                                                        )}
 
                                                         <a
                                                             href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
@@ -3027,14 +3171,20 @@ const Dashboard = () => {
                                         <button
                                             onClick={(e) => handleBoostPlan(selectedPlan, e)}
                                             disabled={boostingPlanId === selectedPlan?.id}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-sm transition-all border ${Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id)
-                                                    ? 'bg-orange-100 border-orange-300 text-orange-600'
-                                                    : 'bg-gray-50 border-gray-100 text-gray-400 hover:bg-orange-50 hover:text-orange-500 hover:border-orange-200'
+                                            className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-sm transition-all border shadow-lg ${Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id)
+                                                    ? 'bg-orange-100 border-orange-300 text-orange-600 hover:bg-white'
+                                                    : 'bg-gray-50 border-gray-100 text-teal-600 hover:bg-orange-50 hover:text-orange-500 hover:border-orange-200'
                                                 }`}
-                                            title="Boost this plan so more people see it!"
+                                            title={Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id) ? "Remove Boost" : "Boost this plan so more people see it!"}
                                         >
-                                            <Flame className={`w-4 h-4 ${Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id) ? 'fill-orange-400 text-orange-500' : ''}`} />
-                                            {Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id) ? 'Boosted!' : 'Boost'} · {selectedPlan?.boost_count || 0}
+                                            <Flame className={`w-5 h-5 ${Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id) ? 'fill-orange-400 text-orange-500' : ''}`} />
+                                            <span className="hidden sm:inline">
+                                                {Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id) ? 'Boosted!' : 'Boost Plan'}
+                                            </span>
+                                            <span className="sm:hidden">
+                                                {Array.isArray(selectedPlan?.boosted_by) && selectedPlan.boosted_by.includes(user?.id) ? 'Boosted' : 'Boost'}
+                                            </span>
+                                            · {selectedPlan?.boost_count || 0}
                                         </button>
                                     </div>
 
@@ -3311,8 +3461,8 @@ const Dashboard = () => {
                             <h2 className="text-3xl font-black text-white mb-3">Have an Idea? 💡</h2>
                             <p className="text-gray-400 font-medium mb-8 leading-relaxed">What improvements or features would you love to see in DateSpark?</p>
                             <textarea
-                                value={feedbackMessage}
-                                onChange={(e) => setFeedbackMessage(e.target.value)}
+                                value={ideaText}
+                                onChange={(e) => setIdeaText(e.target.value)}
                                 placeholder="I want to see... / Add this feature..."
                                 className="w-full h-40 bg-[#252f44] border-2 border-transparent focus:border-coral/50 rounded-2xl p-5 text-white placeholder:text-gray-500 font-medium outline-none transition-all resize-none shadow-inner mb-6"
                             />
@@ -3372,6 +3522,64 @@ const Dashboard = () => {
                 </div>
             )}
 
+            {/* CUSTOMIZE PLAN MODAL (FOR TRENDING SPOTS) */}
+            <AnimatePresence>
+                {showCustomizeModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm"
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col relative"
+                        >
+                            <div className="p-8 text-center bg-gradient-to-b from-violet-50 to-white">
+                                <div className="w-20 h-20 bg-violet-600 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-xl shadow-violet-500/20 transform -rotate-3 hover:rotate-0 transition-transform">
+                                    <Sparkles className="w-10 h-10 text-white" />
+                                </div>
+                                <h3 className="text-2xl font-black text-navy mb-3 tracking-tight">Customize this plan? ✨</h3>
+                                <p className="text-gray-500 font-medium text-[15px] leading-relaxed px-4 mb-8">
+                                    To swap spots or edit this Trending Plan, we'll save a <span className="text-violet-600 font-bold">private copy</span> to your dashboard so you can make it your own.
+                                </p>
+                                
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={handleConfirmCustomize}
+                                        disabled={isCustomizing}
+                                        className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                                    >
+                                        {isCustomizing ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                                Preparing Spark...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Yes, Customize & Swap
+                                                <ChevronRight className="w-4 h-4" />
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowCustomizeModal(false);
+                                            setPendingCustomizeAction(null);
+                                        }}
+                                        className="w-full py-4 text-[13px] font-black text-gray-400 hover:text-navy transition-colors uppercase tracking-widest"
+                                    >
+                                        Maybe Later
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* BATCH ACTION BAR (Floating) */}
             <AnimatePresence>
                 {isSelectMode && selectedPlanIds.length > 0 && (
@@ -3411,14 +3619,31 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            <BottomNav
-                currentTab={currentTab}
-                onTabChange={setCurrentTab}
-                avatarUrl={user?.user_metadata?.avatar_url}
-                userInitial={user?.user_metadata?.first_name?.[0] || 'K'}
-            />
-        </div>
-    );
-};
-
-export default Dashboard;
+             <BottomNav
+                 currentTab={currentTab}
+                 onTabChange={setCurrentTab}
+                 avatarUrl={user?.user_metadata?.avatar_url}
+                 userInitial={user?.user_metadata?.first_name?.[0] || 'K'}
+             />
+ 
+             {/* GLOBAL TOAST NOTIFICATION */}
+             <AnimatePresence>
+                 {toastMessage && (
+                     <motion.div
+                         initial={{ opacity: 0, y: 50, scale: 0.9, x: '-50%' }}
+                         animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
+                         exit={{ opacity: 0, y: 20, scale: 0.9, x: '-50%' }}
+                         className="fixed top-8 left-1/2 z-[2000] px-6 py-3.5 bg-navy/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-coral/20 flex items-center gap-3 min-w-[280px]"
+                     >
+                         <div className="w-8 h-8 bg-coral rounded-full flex items-center justify-center shadow-lg flex-shrink-0 animate-bounce">
+                             <Sparkles className="w-4 h-4 text-white" />
+                         </div>
+                         <p className="text-white font-black text-sm whitespace-nowrap tracking-tight">{toastMessage}</p>
+                     </motion.div>
+                 )}
+             </AnimatePresence>
+         </div>
+     );
+ };
+ 
+ export default Dashboard;

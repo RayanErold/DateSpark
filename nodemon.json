@@ -1,0 +1,3 @@
+{
+  "ignore": ["logs/*", "backups/*", "temp_rebuild/*"]
+}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass } from 'lucide-react';
+import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const darkMapStyle = [
@@ -110,6 +110,17 @@ const SharedPlan = () => {
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-violet-50 text-violet-700 rounded-full text-sm font-bold mb-4 shadow-sm border border-violet-100">
                         <Sparkles className="w-4 h-4" /> AI-Generated Date Plan
                     </div>
+                    {/* Community Rating Summary */}
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                        <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map(s => (
+                                <Star key={s} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                            ))}
+                            <span className="ml-1 text-sm font-black text-navy">{plan.avg_rating || '4.9'}</span>
+                        </div>
+                        <div className="w-px h-4 bg-gray-200" />
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Community Approved</p>
+                    </div>
                     <h1 className="text-3xl font-black text-navy mb-4 capitalize font-inter">{plan.vibe} Date</h1>
                     <div className="flex flex-wrap items-center justify-center gap-4 text-gray-500 font-medium font-inter">
                         <span className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100"><MapPin className="w-4 h-4 text-coral" /> {plan.location}</span>
@@ -150,6 +161,15 @@ const SharedPlan = () => {
                                             {step.time} • {step.activity}
                                         </p>
                                         <h4 className="text-2xl font-black text-navy mb-2 font-inter">{step.venue}</h4>
+                                        
+                                        {/* Per-Stop Community Snippet */}
+                                        {plan.reviews?.find(r => r.stop_feedback?.[step.venue]?.comment) && (
+                                            <div className="mb-3 p-3 bg-gray-50/80 rounded-xl border border-gray-100 italic text-[13px] text-gray-600 relative">
+                                                <Quote className="w-3 h-3 text-coral/30 absolute -top-1 -left-1" />
+                                                "{plan.reviews.find(r => r.stop_feedback?.[step.venue]?.comment).stop_feedback[step.venue].comment}"
+                                            </div>
+                                        )}
+
                                         <p className="text-gray-500 font-medium mb-3 font-inter">{step.description}</p>
 
                                         {step.photoUrl && (
@@ -175,17 +195,21 @@ const SharedPlan = () => {
                                                 </a>
                                             )}
 
-                                            {step.url && (
+                                            {/* Primary Website Button */}
+                                            { (step.websiteUrl || step.url) && (
                                                 <a
-                                                    href={step.url}
+                                                    href={step.websiteUrl || step.url}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                     className="px-2.5 py-1.5 bg-indigo-50 text-indigo-600 outline outline-1 outline-indigo-200 text-[10px] font-bold rounded-lg hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                 >
-                                                    <Compass className="w-3 h-3" /> Visit Official Website
+                                                    <Ticket className="w-3 h-3 text-coral" /> Visit Official Website
                                                 </a>
                                             )}
 
+
+
+                                            {/* Booking Integration (OpenTable etc) */}
                                             {step.bookingUrl && (
                                                 <a
                                                     href={step.bookingUrl}
@@ -250,6 +274,80 @@ const SharedPlan = () => {
                         )}
                     </div>
                 </div>
+
+                {/* Community Reviews Section */}
+                {plan.reviews && plan.reviews.length > 0 && (
+                    <div className="w-full mt-20 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+                        <div className="flex items-center justify-between mb-10">
+                            <div>
+                                <h2 className="text-3xl font-black text-navy mb-2 font-inter uppercase tracking-tighter">Community Buzz</h2>
+                                <p className="text-gray-400 font-bold text-sm uppercase tracking-widest">Real experiences from DateSpark couples</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-4xl font-black text-navy leading-none">{plan.avg_rating || '4.9'}</p>
+                                <div className="flex items-center gap-0.5 justify-end mt-1">
+                                    {[1,2,3,4,5].map(s => <Star key={s} className="w-3 h-3 fill-yellow-400 text-yellow-400" />)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
+                            {plan.reviews.map((rev, i) => (
+                                <div key={i} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col gap-4 premium-shadow hover:shadow-xl transition-all duration-300">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-coral/10 flex items-center justify-center border border-coral/20">
+                                                <span className="text-lg">👤</span>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-0.5">
+                                                    {[...Array(5)].map((_, si) => (
+                                                        <Star key={si} className={`w-3 h-3 ${si < rev.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-100'}`} />
+                                                    ))}
+                                                </div>
+                                                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest leading-none">Verified User</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-black text-navy/20 uppercase tracking-widest">
+                                            {new Date(rev.timestamp).toLocaleDateString()}
+                                        </span>
+                                    </div>
+
+                                    {rev.comment && (
+                                        <p className="text-sm font-medium text-navy/70 leading-relaxed italic">
+                                            "{rev.comment}"
+                                        </p>
+                                    )}
+
+                                    {rev.image && (
+                                        <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-sm">
+                                            <img src={rev.image} alt="Date Memory" className="w-full h-full object-cover" />
+                                        </div>
+                                    )}
+
+                                    {rev.stop_feedback && Object.keys(rev.stop_feedback).length > 0 && (
+                                        <div className="pt-4 border-t border-gray-100 space-y-3">
+                                            <p className="text-[10px] font-black text-coral uppercase tracking-widest">Venue Feedback</p>
+                                            <div className="space-y-2">
+                                                {Object.entries(rev.stop_feedback).map(([venue, info], fi) => (
+                                                    <div key={fi} className="flex items-start gap-2 bg-gray-50/50 p-2.5 rounded-xl border border-gray-50">
+                                                        <div className="w-6 h-6 rounded-lg bg-navy flex items-center justify-center flex-shrink-0">
+                                                            <span className="text-[10px] text-white font-black">{fi + 1}</span>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-[11px] font-black text-navy truncate">{venue}</p>
+                                                            {info.comment && <p className="text-[11px] text-gray-400 font-medium leading-tight mt-1">"{info.comment}"</p>}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </main>
 
             {/* Final Viral CTA / Free Marketing */}
