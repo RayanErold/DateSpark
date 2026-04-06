@@ -1,7 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Heart, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Heart, Loader2, Eye, EyeOff, Mail, RefreshCw } from 'lucide-react';
+
+// Resend Email Confirmation Component with cooldown timer
+const ResendConfirmation = ({ email, resetType, onResend, onBack }) => {
+    const [cooldown, setCooldown] = useState(30);
+    const [isSending, setIsSending] = useState(false);
+    const [resendCount, setResendCount] = useState(0);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        timerRef.current = setInterval(() => {
+            setCooldown(prev => {
+                if (prev <= 1) { clearInterval(timerRef.current); return 0; }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timerRef.current);
+    }, [resendCount]);
+
+    const handleResend = async (e) => {
+        if (cooldown > 0 || isSending) return;
+        setIsSending(true);
+        await onResend(e);
+        setIsSending(false);
+        setCooldown(30);
+        setResendCount(c => c + 1);
+    };
+
+    return (
+        <div className="text-center space-y-5">
+            <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+                <Mail className="w-7 h-7 text-green-500" />
+            </div>
+            <div>
+                <h3 className="text-xl font-black text-navy">Check your email</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                    {resetType === 'username'
+                        ? `We've sent your account details to`
+                        : `We've sent a password reset link to`}
+                </p>
+                <p className="text-sm font-bold text-navy mt-1">{email}</p>
+            </div>
+
+            <p className="text-xs text-gray-400">Didn't get it? Check your spam folder or resend below.</p>
+
+            <button
+                onClick={handleResend}
+                disabled={cooldown > 0 || isSending}
+                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all border ${
+                    cooldown > 0
+                        ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'
+                        : 'bg-coral/10 text-coral border-coral/20 hover:bg-coral/20'
+                }`}
+            >
+                {isSending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                    <RefreshCw className="w-4 h-4" />
+                )}
+                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Email'}
+            </button>
+
+            <button
+                onClick={onBack}
+                className="w-full text-center text-sm font-semibold text-gray-400 hover:text-navy transition-colors"
+            >
+                Back to Sign In
+            </button>
+        </div>
+    );
+};
 
 const Login = () => {
     const navigate = useNavigate();
@@ -160,18 +230,12 @@ const Login = () => {
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="bg-white py-8 px-4 shadow sm:rounded-2xl sm:px-10 border border-gray-100">
                     {resetSent ? (
-                        <div className="text-center space-y-4">
-                            <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500">
-                                <Heart className="w-6 h-6 fill-current" />
-                            </div>
-                            <h3 className="text-xl font-bold text-navy">Check your email</h3>
-                            <p className="text-sm text-gray-500">
-                                {resetType === 'username' 
-                                    ? `We've sent your account details to ${formData.email}` 
-                                    : `We've sent a link to reset your password to ${formData.email}`}
-                            </p>
-                            <button onClick={() => { setIsResetMode(false); setResetStep(null); setResetType(null); setResetSent(false); }} className="text-sm font-semibold text-coral mt-4">Back to Sign In</button>
-                        </div>
+                        <ResendConfirmation
+                            email={formData.email}
+                            resetType={resetType}
+                            onResend={resetType === 'username' ? handleForgotUsername : handleResetPassword}
+                            onBack={() => { setIsResetMode(false); setResetStep(null); setResetType(null); setResetSent(false); }}
+                        />
                     ) : resetStep === 'select' ? (
                         <div className="space-y-6">
                             <div className="text-center">
