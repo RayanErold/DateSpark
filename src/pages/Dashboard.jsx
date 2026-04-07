@@ -23,6 +23,8 @@ import {
     Plus,
     Flame,
     ArrowRight,
+    LifeBuoy,
+    Loader2,
     Layout,
     Utensils,
     Compass,
@@ -38,8 +40,6 @@ import {
     Globe,
     Moon,
     Sun,
-    Shield,
-    Loader2,
     Zap,
     Crown,
     Check,
@@ -667,6 +667,27 @@ const Dashboard = () => {
         }
     };
 
+    const handleCancelManual = async () => {
+        if (!confirm('Are you sure you want to cancel your Premium status? You will lose access to all Plus features immediately.')) return;
+        try {
+            setIsLoading(true);
+            const response = await fetch('/api/cancel-manual-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user?.id })
+            });
+
+            if (response.ok) {
+                setToastMessage('Subscription canceled! 🚀');
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        } catch (err) {
+            console.error('Error canceling manual:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleSignOut = async () => {
         try {
             await supabase.auth.signOut();
@@ -1237,12 +1258,30 @@ const Dashboard = () => {
     const handleToggleFavorite = async (plan, e) => {
         if (e && e.stopPropagation) e.stopPropagation();
 
-        // --- FREEMIUM FAVORITE LIMIT LOGIC ---
+        // --- FREEMIUM WEEKLY SAVE LIMIT LOGIC ---
         if (!plan.is_favorite && !isPremium) {
-            const currentFavoritesCount = plans.filter(p => p.is_favorite).length;
-            if (currentFavoritesCount >= 4) {
-                setShowUpgradeModal(true);
-                return; // Block saving
+            try {
+                const res = await fetch('/api/increment-save-usage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user?.id })
+                });
+                if (!res.ok) {
+                    const data = await res.json();
+                    if (res.status === 403 || data.code === 'LIMIT_REACHED') {
+                        setLimitType('save_weekly');
+                        setShowUpgradeModal(true);
+                        return;
+                    }
+                }
+                const data = await res.json();
+                if (!data.allowed) {
+                    setLimitType('save_weekly');
+                    setShowUpgradeModal(true);
+                    return; 
+                }
+            } catch (err) {
+                console.error('Save limit check failed:', err);
             }
         }
 
@@ -1852,11 +1891,13 @@ const Dashboard = () => {
                                 ? 'bg-white/5 border-white/10 text-white/40 hover:text-white' 
                                 : 'bg-white border-gray-100 text-navy/40 hover:text-navy hover:border-navy/20'
                             }`}
+                            title="Share this Itinerary"
                         >
                             <Share2 className="w-4 h-4" />
                         </button>
                         <button
                             onClick={(e) => handleToggleFavorite(plan, e)}
+                            title={plan.is_favorite ? "Remove from Favorites" : "Add to Favorites"}
                             className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${
                                 appTheme === 'dark' 
                                 ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500' 
@@ -1867,6 +1908,7 @@ const Dashboard = () => {
                         </button>
                         <button
                             onClick={(e) => handleDelete(plan.id, e)}
+                            title="Delete this Date Plan"
                             className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${
                                 appTheme === 'dark' 
                                 ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500' 
@@ -2342,16 +2384,16 @@ const Dashboard = () => {
 
                         <div className="space-y-4 mb-8">
                             {(isPremium ? [
-                                "Unlimited AI date generations",
-                                "30-Day Unrestricted Access",
-                                "Priority server processing",
-                                "Unlock Custom App Themes",
-                                "Full Map Interaction"
+                                "Access to everything in 24h Pass",
+                                "Unlock Secret & Hidden Gem Venues",
+                                "Early access to new features",
+                                "Priority Support"
                             ] : [
-                                "3 Free Generations / 24hr",
-                                "Standard AI processing",
-                                "Public Date Spark browsing",
-                                "Save 3 Favorites"
+                                "Limited Date Generations / 24hr",
+                                "Limited 'Swap Spots' / 24hr",
+                                "Limited Venue Access",
+                                "Access to Trending Spots",
+                                "Public Date Spark Browsing"
                             ]).map((f, i) => (
                                 <div key={i} className="flex items-center gap-3">
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isPremium ? 'bg-navy' : 'bg-gray-100'}`}>
@@ -2364,14 +2406,19 @@ const Dashboard = () => {
 
                         {isPremium ? (
                             <div className="pt-8 border-t border-coral/10 mt-4">
-                                <button
-                                    onClick={handleManageSubscription}
-                                    className="w-full py-4 bg-gray-50 text-gray-500 font-black text-xs uppercase tracking-widest hover:bg-red-50 hover:text-red-600 rounded-2xl transition-all flex items-center justify-center gap-2 border border-gray-100"
-                                >
-                                    <Shield className="w-4 h-4 opacity-50" />
-                                    Manage Plan / Downgrade
-                                </button>
-                                <p className="text-[9px] text-gray-400 font-medium text-center mt-3 px-4 italic">Downgrade options are available in your customer portal. Changes take effect at period end.</p>
+                                <div className="space-y-3">
+                                    <button
+                                        onClick={handleManageSubscription}
+                                        className="w-full py-4 bg-gray-50 text-gray-500 font-black text-xs uppercase tracking-widest hover:bg-navy hover:text-white rounded-2xl transition-all flex items-center justify-center gap-2 border border-gray-100 shadow-sm"
+                                    >
+                                        <CreditCard className="w-4 h-4 opacity-70" />
+                                        Manage Subscription & Billing
+                                    </button>
+
+                                </div>
+                                <p className="text-[9px] text-gray-400 font-medium text-center mt-3 px-4 italic leading-relaxed">
+                                    Manage payment methods or cancel your subscription securely via our partner, Stripe.
+                                </p>
                             </div>
                         ) : (
                             <button onClick={() => setShowUpgradeModal(true)} className="w-full py-4 bg-coral text-white font-black rounded-2xl hover:bg-coral/90 transition-all shadow-xl shadow-coral/20 flex items-center justify-center gap-2">
@@ -2511,9 +2558,9 @@ const Dashboard = () => {
                             <Gift className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1 text-left">
-                            <h3 className="text-base font-black text-white tracking-tight">Give 30, Get 30 💖</h3>
+                            <h3 className="text-base font-black text-white tracking-tight">Give 7, Get 7 💖</h3>
                             <p className="text-white/50 text-[10px] font-medium leading-relaxed max-w-[180px]">
-                                Share DateSpark and unlock a **Full Month of Plus** free!
+                                Share DateSpark and unlock **7 Days of Plus** free!
                             </p>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -2536,7 +2583,7 @@ const Dashboard = () => {
                                     if (navigator.share) {
                                         navigator.share({
                                             title: 'Join DateSpark Plus 💖',
-                                            text: `Plan your dream dates with DateSpark! Use my code ${referralDetails.code} to get 30 days free.`,
+                                            text: `Plan your dream dates with DateSpark! Use my code ${referralDetails.code} to get 7 days free.`,
                                             url: `${window.location.origin}/signup?ref=${referralDetails.code}`
                                         });
                                     } else {
@@ -3037,6 +3084,39 @@ const Dashboard = () => {
                                                         </div>
                                                     )}
 
+                                                    {/* ✨ VERIFIED GOOGLE REVIEWS ✨ */}
+                                                    {step.reviews && step.reviews.length > 0 && (
+                                                        <div className="bg-gray-50/50 rounded-2xl p-4 border border-gray-100 relative overflow-hidden group/review hover:bg-gray-50 transition-colors">
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-0.5">
+                                                                        {[...Array(5)].map((_, i) => (
+                                                                            <Star key={i} className={`w-2.5 h-2.5 ${i < Math.floor(step.reviews[0].rating) ? 'fill-[#FFD700] text-[#FFD700]' : 'text-gray-200'}`} />
+                                                                        ))}
+                                                                    </div>
+                                                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verified Guest</span>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="relative">
+                                                                <MessageSquare className="absolute -left-1 -top-1 w-8 h-8 text-coral/5 rotate-12" />
+                                                                <p className="text-[12px] text-navy italic font-medium leading-relaxed relative z-10 pl-1">
+                                                                    "{step.reviews[0].text.length > 140 ? step.reviews[0].text.substring(0, 140) + '...' : step.reviews[0].text}"
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                                                                <div className="w-6 h-6 rounded-full bg-navy/5 flex items-center justify-center text-[10px] font-black text-navy border border-navy/10">
+                                                                    {step.reviews[0].author ? step.reviews[0].author.charAt(0) : 'G'}
+                                                                </div>
+                                                                <span className="text-[11px] font-black text-navy opacity-60">{step.reviews[0].author || 'Google User'}</span>
+                                                                {step.reviews.length > 1 && (
+                                                                    <span className="text-[9px] font-black text-coral/60 ml-auto">+ {step.reviews.length - 1} more reviews</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {/* Action Buttons - Per Screenshot */}
                                                     <div className="flex flex-wrap items-center gap-3 mt-2">
                                                         <button
@@ -3444,7 +3524,7 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {/* FEEDBACK / IDEA MODAL */}
+            {/* SUPPORT & FEEDBACK MODAL */}
             {showIdeaModal && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-[#1a2235] border border-white/10 rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
@@ -3455,24 +3535,29 @@ const Dashboard = () => {
                             <X className="w-5 h-5" />
                         </button>
                         <div className="p-8 sm:p-10">
-                            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-8 shadow-xl">
-                                <Compass className="w-8 h-8 text-violet-600" />
+                            <div className="w-16 h-16 bg-gradient-to-br from-coral to-violet-600 rounded-2xl flex items-center justify-center mb-8 shadow-xl">
+                                <LifeBuoy className="w-8 h-8 text-white animate-pulse" />
                             </div>
-                            <h2 className="text-3xl font-black text-white mb-3">Have an Idea? 💡</h2>
-                            <p className="text-gray-400 font-medium mb-8 leading-relaxed">What improvements or features would you love to see in DateSpark?</p>
+                            <h2 className="text-3xl font-black text-white mb-3 tracking-tight">Support & Ideas 📬</h2>
+                            <p className="text-gray-400 font-medium mb-8 leading-relaxed">Need help or have a feature request? Send a message directly to our team.</p>
                             <textarea
                                 value={ideaText}
                                 onChange={(e) => setIdeaText(e.target.value)}
-                                placeholder="I want to see... / Add this feature..."
+                                placeholder="How can we help? / I'd love to see a feature that..."
                                 className="w-full h-40 bg-[#252f44] border-2 border-transparent focus:border-coral/50 rounded-2xl p-5 text-white placeholder:text-gray-500 font-medium outline-none transition-all resize-none shadow-inner mb-6"
                             />
                             <button
                                 onClick={handleSubmitFeedback}
-                                disabled={isSubmittingFeedback || !feedbackMessage.trim()}
-                                className="w-full py-4 bg-coral text-white font-black rounded-2xl shadow-xl shadow-coral/20 hover:bg-coral/90 disabled:opacity-50 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                                disabled={isSubmittingFeedback || !ideaText.trim()}
+                                className={`w-full py-4 bg-coral text-white font-black rounded-2xl shadow-xl shadow-coral/20 hover:bg-coral/90 disabled:opacity-50 transition-all flex items-center justify-center gap-3 active:scale-[0.98] ${isSubmittingFeedback ? 'animate-pulse cursor-wait' : ''}`}
                             >
-                                {isSubmittingFeedback ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Proposal'}
+                                {isSubmittingFeedback ? (
+                                    <><Loader2 className="w-5 h-5 animate-spin" /> Sending to Team...</>
+                                ) : (
+                                    <>Send to Support <ArrowRight className="w-5 h-5" /></>
+                                )}
                             </button>
+                            <p className="text-center text-[10px] text-gray-500 mt-6 uppercase tracking-widest font-bold">Expect a reply within 24-48 hours</p>
                         </div>
                     </div>
                 </div>

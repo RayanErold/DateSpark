@@ -11,12 +11,11 @@ const Pricing = () => {
             price: "$0",
             period: "/forever",
             features: [
-                { text: "3 Classic date plans daily", icon: Star },
-                { text: "2 AI Custom date plans daily", icon: Star },
-                { text: "10 Swap Spots daily", icon: Check },
-                { text: "Save up to 4 plans in a month", icon: Check },
-                { text: "Basic venue access", icon: Check },
-                { text: "No custom themes", icon: Check }
+                { text: "Limited Date Generations / 24hr", icon: Star },
+                { text: "Limited 'Swap Spots' / 24hr", icon: Star },
+                { text: "Limited Venue Access", icon: Check },
+                { text: "Access to Trending Spots", icon: Check },
+                { text: "Public Date Spark Browsing", icon: Check }
             ],
             cta: "Try for Free",
             highlight: false,
@@ -46,17 +45,16 @@ const Pricing = () => {
             price: "$9.99",
             period: "/mo",
             features: [
-                { text: "Unlimited plans generation", icon: Star },
-                { text: "Access to unlimited swap spots", icon: Heart },
+                { text: "Access to everything in 24h Pass", icon: Star },
+                { text: "Unlock Secret & Hidden Gem Venues", icon: Heart },
                 { text: "Access to best venues", icon: Check },
-                { text: "Theme customization", icon: Check },
-                { text: "AI plans customizer", icon: Star },
-                { text: "Priority access to new features", icon: Check }
+                { text: "Early access to new features", icon: Star },
+                { text: "Priority Support", icon: Check }
             ],
             cta: "Start Free Trial",
             highlight: false,
             className: "bg-navy-light/50 border-white/20 text-white hover:border-coral/50",
-            savings: "30-Day Trial"
+            savings: "7 Days Free"
         }
     ];
 

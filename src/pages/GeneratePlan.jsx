@@ -491,6 +491,11 @@ const GeneratePlan = () => {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                if (response.status === 403 || errorData.code === 'LIMIT_REACHED') {
+                    setLimitType('guided');
+                    setShowPremiumModal(true);
+                    return;
+                }
                 throw new Error(errorData.error || 'Failed to generate suggestions.');
             }
 
@@ -544,6 +549,11 @@ const GeneratePlan = () => {
 
             if (!response.ok) {
                 const errData = await response.json();
+                if (response.status === 403 || errData.code === 'LIMIT_REACHED') {
+                    setLimitType('guided');
+                    setShowPremiumModal(true);
+                    return;
+                }
                 throw new Error(errData.error || 'Failed to build custom itinerary.');
             }
 
@@ -629,8 +639,13 @@ const GeneratePlan = () => {
                     })
                 });
 
-                const result = await response.json();
                 if (!response.ok) {
+                    const result = await response.json();
+                    if (response.status === 403 || result.code === 'LIMIT_REACHED') {
+                        setLimitType('classic');
+                        setShowPremiumModal(true);
+                        return;
+                    }
                     // Silent auto-retry for 500 errors
                     if (response.status >= 500 && retryCount < 1) {
                         console.warn('Silent retry for generation failure (5xx)...');

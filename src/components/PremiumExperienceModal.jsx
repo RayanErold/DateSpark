@@ -14,12 +14,10 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
     ];
 
     const plusFeatures = [
-        "Everything in 24-Hour Pass",
-        "30-Day Unrestricted Access",
-        "Priority AI Generation",
-        "Save Unlimited Favorites",
-        "Custom Theme Unlock",
-        "Early Access to Features"
+        "Access to everything in 24h Pass",
+        "Unlock Secret & Hidden Gem Venues",
+        "Early access to new features",
+        "Priority Support"
     ];
 
     return (
@@ -50,7 +48,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                     <h2 className="text-2xl sm:text-3xl font-black text-navy mb-2 tracking-tight font-[Outfit]">Upgrade to Premium</h2>
                     <p className="text-gray-500 text-sm font-medium leading-relaxed max-w-[400px] mx-auto mb-10">
                         {limitType 
-                            ? "You've reached your free daily limit. Upgrade for unlimited access, or try again tomorrow when your limits automatically reset." 
+                            ? `You've reached your free weekly limit. Free users can generate limited plans and save up to 3 favorites per week. Upgrade for unlimited access!` 
                             : "Stop planning, start dating. Choose the plan that fits your night."}
                     </p>
 
@@ -93,7 +91,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                         <div className="bg-[#0b101c] rounded-3xl p-8 flex flex-col relative shadow-2xl shadow-navy/40 border-[1.5px] border-slate-700/50 overflow-visible transition-transform duration-300 hover:scale-[1.02]">
                             <div className="absolute inset-0 rounded-3xl shadow-[inset_0_0_20px_rgba(255,127,80,0.1)] pointer-events-none"></div>
                             <div className="absolute -top-4 right-4 bg-gradient-to-r from-coral to-rose-500 text-white text-[11px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg shadow-coral/30 border border-white/20 z-10 animate-float-badge">
-                                30 Days Free
+                                7 Days Free
                             </div>
 
                             <div className="mb-6">
@@ -107,7 +105,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                                     <span className="text-4xl font-black">$9.99</span>
                                     <span className="text-gray-400 font-bold text-base">/month</span>
                                 </div>
-                                <p className="text-coral text-[11px] font-black uppercase tracking-wider mt-1">First 30 Days Completely Free</p>
+                                <p className="text-coral text-[11px] font-black uppercase tracking-wider mt-1">First 7 Days Completely Free</p>
                             </div>
 
                             <div className="space-y-4 mb-10 flex-1">

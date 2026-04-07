@@ -34,7 +34,7 @@ const supabaseService = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_
 const stripe = new Stripe(STRIPE_SECRET_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const GEMINI_MODEL = "gemini-1.5-flash-latest";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 app.use(cors());
 app.use(express.json());
@@ -74,12 +74,15 @@ async function checkAndIncrementUsage(userId, type) {
             .eq('type', type)
             .single();
 
-        const limits = { classic: 3, guided: 2, swap: 10 };
+        const limits = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
         const now = new Date();
         const lastUpdate = usage ? new Date(usage.updated_at || usage.created_at) : null;
-        const isCooldownActive = lastUpdate && (now - lastUpdate < 24 * 60 * 60 * 1000);
+        
+        // Cooldown: 24h for standard, 7 days for weekly types
+        const cooldownMs = type.endsWith('_weekly') ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        const isCooldownActive = lastUpdate && (now - lastUpdate < cooldownMs);
 
-        // If limit reached AND we are within 24h of the last generation -> Reject
+        // If limit reached AND we are within the cooldown window -> Reject
         if (usage && isCooldownActive && usage.count >= limits[type]) {
             return { allowed: false, isPremium, profile };
         }
@@ -87,10 +90,10 @@ async function checkAndIncrementUsage(userId, type) {
         if (!usage) {
             await supabase.from('usage_tracking').insert([{ user_id: userId, type, count: 1 }]);
         } else if (!isCooldownActive) {
-            // 24 hours have passed since the last tracked activity -> Reset count
+            // Cooldown has passed -> Reset count
             await supabase.from('usage_tracking').update({ count: 1, updated_at: now.toISOString() }).eq('id', usage.id);
         } else {
-            // Still within 24h but haven't hit limit yet -> Increment
+            // Within cooldown window but haven't hit limit yet -> Increment
             await supabase.from('usage_tracking').update({ count: usage.count + 1, updated_at: now.toISOString() }).eq('id', usage.id);
         }
         return { allowed: true, isPremium, profile };
@@ -122,11 +125,24 @@ app.get('/api/user-premium/:userId', async (req, res) => {
 app.get('/api/user-usage/:userId', async (req, res) => {
     try {
         const { data } = await supabase.from('usage_tracking').select('*').eq('user_id', req.params.userId);
-        const usage = { classic: 0, guided: 0, swap: 0 };
-        const limits = { classic: 3, guided: 2, swap: 10 };
+        const usage = { classic: 0, guided: 0, swap: 0, save_weekly: 0 };
+        const limits = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
         data?.forEach(u => { usage[u.type] = u.count; });
         res.json({ usage, limits });
     } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+});
+
+app.post('/api/increment-save-usage', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+    try {
+        const usageCheck = await checkAndIncrementUsage(userId, 'save_weekly');
+        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', code: 'LIMIT_REACHED' });
+        res.json(usageCheck);
+    } catch (err) {
+        logError('[SAVE USAGE ERROR]', err);
+        res.status(500).json({ error: 'Failed to update save usage' });
+    }
 });
 
 // POPULAR DISCOVERY & TRENDING
@@ -476,7 +492,7 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
     try {
         const type = customization?.type || 'classic';
         const usageCheck = await checkAndIncrementUsage(userId, type);
-        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', type: 'LIMIT_REACHED' });
+        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', code: 'LIMIT_REACHED' });
 
         const isPremium = !!usageCheck.isPremium;
         const numVariants = isPremium ? 3 : 2;
@@ -502,7 +518,7 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
             const data = await generateStandardItinerary(numVariants, vibe, location, calcDuration, targetSteps);
             rawPlans = data.plans || [];
         } else {
-            console.log(`[GENERATOR] Custom AI: Using Gemini 2.0 Flash for Prompt: "${customization.prompt}" (${targetSteps} steps)`);
+            console.log(`[GENERATOR] Custom AI: Using Gemini 2.5 Flash for Prompt: "${customization.prompt}" (${targetSteps} steps)`);
             const model = genAI.getGenerativeModel({ model: GEMINI_MODEL }); 
             const prompt = `Create ${numVariants} distinct ${vibe} date itinerary variations in ${location} for ${budget || 'moderate'} budget. User request: "${customization.prompt}".
             Return JSON object: { "plans": [ { "vibe_variant": "string", "steps": [ { "time": "string", "venue": "string", "activity": "string", "description": "string", "search_term": "string", "sub_headline": "string (viral catchphrase, max 6 words)", "vibe_score": number, "rating": number, "user_rating_count": number } ] } ] }
@@ -522,7 +538,7 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
                     const place = searchRes.data?.results?.[0];
                     let details = {};
                     if (place?.place_id) {
-                        const detailsRes = await axios.get(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,url&key=${GOOGLE_API_KEY}`);
+                        const detailsRes = await axios.get(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,url,reviews&key=${GOOGLE_API_KEY}`);
                         details = detailsRes.data?.result || {};
                     }
                     return {
@@ -533,6 +549,11 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
                         lng: place?.geometry?.location?.lng,
                         rating: place?.rating || step.rating || 4.7,
                         userRatingCount: place?.user_ratings_total || step.user_rating_count || 450,
+                        reviews: (details.reviews || []).slice(0, 3).map(r => ({
+                            author: r.author_name,
+                            rating: r.rating,
+                            text: r.text
+                        })),
                         searchUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
                         websiteUrl: details.website || null,
                         photoUrl: place?.photos?.[0]?.photo_reference ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
@@ -540,7 +561,7 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
                 } catch { return step; }
             }));
 
-            const isCurrentPreview = !isPremium && pIdx === 1;
+            const isCurrentPreview = !isPremium && pIdx >= 1;
             const { data: newPlan } = await supabase.from('plans').insert([{
                 user_id: userId, 
                 vibe: pData.vibe_variant || vibe, 
@@ -575,12 +596,21 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
 
     try {
         const usageCheck = await checkAndIncrementUsage(userId, 'guided');
-        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', type: 'LIMIT_REACHED' });
+        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', code: 'LIMIT_REACHED' });
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
         const historyText = conversationHistory.map(h => `${h.role}: ${h.text}`).join('\n');
         
-        const prompt = `Based on this conversation:\n${historyText}\nLocation: ${location}, Budget: ${budget || 'any'}.\nSuggest 3 unique date concepts. Format: { concepts: [{title, description}], questions: [3 related questions] }. Use pure JSON.`;
+        const prompt = `System: You are an elite, punchy boutique concierge.
+        Context: ${historyText}
+        Location: ${location}, Budget: ${budget || 'any'}.
+        
+        TASK: Suggest 3 unique, specific date concepts. 
+        RULES:
+        1. TITLES: Short & evocative (max 5 words).
+        2. DESCRIPTIONS: Be hyper-local and specific. Name real venues (e.g. "Devoción", "Lilia").
+        3. BREVITY: Max 25 words per description. No generic fluff.
+        4. FORMAT: Return ONLY a JSON object: { "concepts": [{ "title": "string", "description": "string" }], "questions": ["string", "string", "string"] }`;
         
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -602,7 +632,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
 
     try {
         const usageCheck = await checkAndIncrementUsage(userId, 'guided');
-        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', type: 'LIMIT_REACHED' });
+        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', code: 'LIMIT_REACHED' });
 
         const isPremium = !!usageCheck.isPremium;
         const { data: existingPlans } = await supabase.from('usage_tracking').select('count').eq('user_id', userId).eq('type', 'guided').single();
@@ -611,7 +641,12 @@ app.post('/api/generate-custom-date', async (req, res) => {
         const numSteps = 3; // Always 3 steps to maintain structure
 
         const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-        const prompt = `Build a full itinerary for this concept: "${concept.title} - ${concept.description}". Location: ${location}. Format as JSON array of steps: [{time, venue, activity, description, search_term, rating, user_rating_count}]. Use specific real-world places. Generate EXACTLY ${numSteps} steps. Use realistic ratings (4.5-4.9) and review counts (100-3000).`;
+        const prompt = `System: You are a luxury date planner. Build a precise 3-step itinerary for: "${concept.title} - ${concept.description}". Location: ${location}.
+        RULES:
+        1. VENUES: Must be specific, real-world locations.
+        2. DESCRIPTIONS: Punchy, experiential, and max 15 words per step.
+        3. FORMAT: Return JSON array of steps: [{time, venue, activity, description, search_term, rating, user_rating_count}].
+        4. Generate EXACTLY ${numSteps} steps. Use realistic ratings (4.5-4.9) and review counts.`;
         
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -626,7 +661,7 @@ app.post('/api/generate-custom-date', async (req, res) => {
                 const place = searchRes.data?.results?.[0];
                 let details = {};
                 if (place?.place_id) {
-                    const detailsRes = await axios.get(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,url&key=${GOOGLE_API_KEY}`);
+                    const detailsRes = await axios.get(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,url,reviews&key=${GOOGLE_API_KEY}`);
                     details = detailsRes.data?.result || {};
                 }
                 return {
@@ -637,6 +672,11 @@ app.post('/api/generate-custom-date', async (req, res) => {
                     lng: place?.geometry?.location?.lng,
                     rating: place?.rating || step.rating || 4.8,
                     userRatingCount: place?.user_ratings_total || step.user_rating_count || 320,
+                    reviews: (details.reviews || []).slice(0, 3).map(r => ({
+                        author: r.author_name,
+                        rating: r.rating,
+                        text: r.text
+                    })),
                     searchUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
                     websiteUrl: details.website || null,
                     photoUrl: place?.photos?.[0]?.photo_reference ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
@@ -786,6 +826,60 @@ app.post('/api/rate-place', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Rate Place Failed' }); }
 });
 
+// SUPPORT & FEEDBACK
+app.post('/api/feedback', async (req, res) => {
+    const { userId, email, text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: 'Message text is required' });
+
+    try {
+        // 1. Save to Supabase Feedback Table
+        const { error: dbError } = await supabase.from('feedback').insert([{
+            user_id: userId,
+            email: email,
+            text: text.trim()
+        }]);
+
+        if (dbError) {
+            console.error('[FEEDBACK DB ERROR]', dbError);
+            // We continue even if DB fails so the email still goes out
+        }
+
+        // 2. Send Email Alert to rayanerold@gmail.com
+        await resend.emails.send({
+            from: 'DateSpark Support <support@datespark.live>',
+            to: 'rayanerold@gmail.com',
+            reply_to: email || 'rayanerold@gmail.com',
+            subject: `💡 New DateSpark Message from ${email || 'Anonymous'}`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+                    <div style="background-color: #0B101C; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+                        <h1 style="color: #FF7F50; margin: 0; font-size: 24px;">New Support Request</h1>
+                    </div>
+                    <div style="padding: 30px; line-height: 1.6; color: #1a202c;">
+                        <p style="margin-bottom: 20px;">You have received a new message from a DateSpark user:</p>
+                        <div style="background-color: #f7fafc; padding: 20px; border-left: 4px solid #FF7F50; border-radius: 4px; margin-bottom: 24px;">
+                            <p style="margin: 0; font-style: italic; color: #4a5568;">"${text.trim()}"</p>
+                        </div>
+                        <div style="border-top: 1px solid #edf2f7; pt-20;">
+                            <p style="font-size: 14px; color: #718096; margin-bottom: 4px;">User Details:</p>
+                            <p style="margin: 0; font-weight: bold;">Email: ${email || 'Not Provided'}</p>
+                            <p style="margin: 0; font-size: 12px; color: #a0aec0;">User ID: ${userId || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <div style="background-color: #f7fafc; padding: 15px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #718096;">
+                        This is an automated alert from your DateSpark backend.
+                    </div>
+                </div>
+            `
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        logError('[FEEDBACK ERROR]', err);
+        res.status(500).json({ error: 'Failed to process feedback: ' + err.message });
+    }
+});
+
 // STRIPE
 app.post('/api/create-checkout-session', async (req, res) => {
     const { planType, userId, email } = req.body;
@@ -818,7 +912,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
         };
 
         if (isSubscription) {
-            sessionParams.subscription_data = { trial_period_days: 30 };
+            sessionParams.subscription_data = { trial_period_days: 7 };
         }
 
         const session = await stripe.checkout.sessions.create(sessionParams);
@@ -836,7 +930,7 @@ app.post('/api/update-premium-status', async (req, res) => {
     const { userId, isPremium } = req.body;
     try {
         const expiryDate = isPremium 
-            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() 
+            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() 
             : null;
 
         const { error } = await supabase.from('profiles').update({
@@ -844,6 +938,18 @@ app.post('/api/update-premium-status', async (req, res) => {
             premium_expiry: expiryDate
         }).eq('id', userId);
 
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/cancel-manual-subscription', async (req, res) => {
+    const { userId } = req.body;
+    try {
+        const { error } = await supabase.from('profiles').update({
+            is_premium: false,
+            premium_expiry: null
+        }).eq('id', userId);
         if (error) throw error;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
