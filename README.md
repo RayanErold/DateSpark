@@ -11,7 +11,7 @@
 ## 👋 The Experience
 
 ### 🤖 AI-Guided Planning
-Multi-stop date nights tailored to your "vibe," budget, and location using **Google Gemini 1.5 Pro**.
+Multi-stop date nights tailored to your "vibe," budget, and location using **Google Gemini 2.5 Flash**.
 
 ### 📱 Mastered Mobile Layout
 Optimized for the modern iPhone and Android experience:
