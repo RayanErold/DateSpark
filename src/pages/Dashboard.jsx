@@ -61,7 +61,10 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import BottomNav from '../components/BottomNav';
 import PremiumExperienceModal from '../components/PremiumExperienceModal';
 import UsageBadge from '../components/UsageBadge';
+import { consumeFlashMessage } from '../lib/flashMessage';
 import CommunityFeedbackModal from '../components/CommunityFeedbackModal';
+
+const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
 const STOP_REACTIONS_MAP = {
     loved: { emoji: '😍', label: 'Loved It', color: 'bg-pink-50 text-pink-600 border-pink-100' },
@@ -431,7 +434,7 @@ const Dashboard = () => {
         // Allow Admin to persist their manual toggle for testing
         const adminEmail = 'rayanerold@gmail.com';
         const userEmail = localStorage.getItem('userEmail')?.toLowerCase();
-        const isCurrentlyAdmin = userEmail === adminEmail;
+        const isCurrentlyAdmin = import.meta.env.DEV && userEmail === adminEmail;
         if (isCurrentlyAdmin) {
             return localStorage.getItem('isPremium') === 'true';
         }
@@ -447,6 +450,14 @@ const Dashboard = () => {
     const [ideaText, setIdeaText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     const [completedSteps, setCompletedSteps] = useState([]);
+
+    useEffect(() => {
+        const msg = consumeFlashMessage();
+        if (!msg) return;
+        setToastMessage(msg);
+        const t = setTimeout(() => setToastMessage(''), 6500);
+        return () => clearTimeout(t);
+    }, []);
 
     // --- SWITCH UP STATE ---
     const [isSwitchingUp, setIsSwitchingUp] = useState(false);
@@ -473,26 +484,46 @@ const Dashboard = () => {
     useEffect(() => {
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition((position) => {
-                const { latitude: lat, longitude: lng } = position.coords;
-                // Simple Manhattan/Brooklyn detect for NYC, fallback to Manhattan
+                const { latitude: lat, longitude: lng, accuracy } = position.coords;
+                console.log(`[Dashboard GPS] Detected: ${lat}, ${lng} (Accuracy: ${accuracy}m)`);
+
+                // Service Area Bounding Box (NYC + Jersey Waterfront)
+                const isWithinCoords = lat >= 40.40 && lat <= 41.10 && lng >= -74.30 && lng <= -73.60;
+                
+                if (!isWithinCoords && accuracy < 5000) {
+                    console.log('User appears to be outside NYC/NJ service area. Defaulting to Manhattan for discovery.');
+                    setUserBorough('Manhattan');
+                    return;
+                }
+
+                // Accurate Borough/City Detection
                 const boroughs = [
                     { name: 'Manhattan', lat: 40.7831, lng: -73.9712 },
                     { name: 'Brooklyn', lat: 40.6782, lng: -73.9442 },
                     { name: 'Queens', lat: 40.7282, lng: -73.7949 },
                     { name: 'Bronx', lat: 40.8448, lng: -73.8648 },
-                    { name: 'Staten Island', lat: 40.5795, lng: -74.1502 }
+                    { name: 'Staten Island', lat: 40.5795, lng: -74.1502 },
+                    { name: 'Jersey City', lat: 40.7178, lng: -74.0431 },
+                    { name: 'Hoboken', lat: 40.7440, lng: -74.0324 }
                 ];
+                
                 let closest = boroughs[0];
                 let minDist = Infinity;
                 boroughs.forEach(b => {
+                    // Haversine would be better but simple distance handles these small deltas fine
                     const dist = Math.sqrt(Math.pow(b.lat - lat, 2) + Math.pow(b.lng - lng, 2));
                     if (dist < minDist) {
                         minDist = dist;
                         closest = b;
                     }
                 });
+                
+                console.log(`[Dashboard GPS] Resolved to: ${closest.name}`);
                 setUserBorough(closest.name);
-            }, (err) => console.log('Location access denied, defaulting to Manhattan.'));
+            }, 
+            (err) => console.log('Location access denied or timed out, defaulting to Manhattan.'),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
         }
     }, []);
 
@@ -514,17 +545,14 @@ const Dashboard = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentTab, swipeIndex, globalTrendingPlans, selectedPlan]);
 
-    // Usage state for Free users
+    // Usage state for Free users (defaults match server.js until API returns)
     const [usage, setUsage] = useState({
         classic: 0,
         guided: 0,
-        swap: 0
+        swap: 0,
+        save_weekly: 0
     });
-    const [limits, setLimits] = useState({
-        classic: 3,
-        guided: 2,
-        swap: 10
-    });
+    const [limits, setLimits] = useState({ ...SERVER_DEFAULT_LIMITS });
 
     // --- PLACE RATINGS STATE ---
     const [placeRatings, setPlaceRatings] = useState([]);
@@ -600,7 +628,7 @@ const Dashboard = () => {
 
                 if (premRes.ok) {
                     const { isPremium: dbStatus } = await premRes.json();
-                    if (user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
+                    if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
                         const manualChoice = localStorage.getItem('isPremium');
                         if (manualChoice !== null) setIsPremium(manualChoice === 'true');
                         else setIsPremium(dbStatus);
@@ -612,8 +640,8 @@ const Dashboard = () => {
 
                 if (usageRes.ok) {
                     const data = await usageRes.json();
-                    setUsage(data.usage);
-                    setLimits(data.limits);
+                    setUsage(prev => ({ ...prev, ...data.usage }));
+                    setLimits(prev => ({ ...prev, ...data.limits }));
                 }
             } catch (err) {
                 console.error('Error syncing dashboard data:', err);
@@ -885,7 +913,7 @@ const Dashboard = () => {
                     const data = await premRes.ok ? await premRes.json() : { isPremium: false };
 
                     // Admin Special Logic: Sync with DB but respect manual toggle for testing
-                    if (user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
+                    if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
                         const manualChoice = localStorage.getItem('isPremium');
                         if (manualChoice !== null) {
                             setIsPremium(manualChoice === 'true');
@@ -905,8 +933,8 @@ const Dashboard = () => {
 
                 if (usageRes.ok) {
                     const data = await usageRes.json();
-                    setUsage(data.usage);
-                    setLimits(data.limits);
+                    setUsage(prev => ({ ...prev, ...data.usage }));
+                    setLimits(prev => ({ ...prev, ...data.limits }));
                 }
 
                 if (user) {
@@ -929,7 +957,7 @@ const Dashboard = () => {
                             const finalStatus = dbStatus || hasActivePass;
 
                             // Admin Special Logic: Sync with DB but respect manual toggle for testing
-                            if (user?.email === 'rayanerold@gmail.com') {
+                            if (import.meta.env.DEV && user?.email === 'rayanerold@gmail.com') {
                                 const manualChoice = localStorage.getItem('isPremium');
                                 if (manualChoice !== null) {
                                     setIsPremium(manualChoice === 'true');
@@ -1885,13 +1913,14 @@ const Dashboard = () => {
 
                     <div className="flex items-center gap-1.5">
                         <button
+                            type="button"
                             onClick={(e) => { e.stopPropagation(); handleShare(plan); }}
-                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${
-                                appTheme === 'dark' 
-                                ? 'bg-white/5 border-white/10 text-white/40 hover:text-white' 
-                                : 'bg-white border-gray-100 text-navy/40 hover:text-navy hover:border-navy/20'
+                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 ${
+                                appTheme === 'dark'
+                                    ? 'bg-coral/20 border-coral/40 text-coral hover:bg-coral/30'
+                                    : 'bg-coral/10 border-coral/30 text-coral hover:bg-coral/15'
                             }`}
-                            title="Share this Itinerary"
+                            title="Share link — your date opens it in the browser"
                         >
                             <Share2 className="w-4 h-4" />
                         </button>
@@ -1984,6 +2013,20 @@ const Dashboard = () => {
                 </Link>
             </div>
 
+            {!isPremium && user && (
+                <div className="px-4 mb-5 max-w-2xl mx-auto w-full space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-center text-gray-400">
+                        Free tier · builder, AI, and swaps reset every 24h · favorite saves refresh weekly
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        <UsageBadge label="Builder" usage={usage.classic ?? 0} limit={limits.classic ?? SERVER_DEFAULT_LIMITS.classic} isPremium={isPremium} />
+                        <UsageBadge label="AI" usage={usage.guided ?? 0} limit={limits.guided ?? SERVER_DEFAULT_LIMITS.guided} isPremium={isPremium} />
+                        <UsageBadge label="Swaps" usage={usage.swap ?? 0} limit={limits.swap ?? SERVER_DEFAULT_LIMITS.swap} isPremium={isPremium} />
+                        <UsageBadge label="Fav saves" usage={usage.save_weekly ?? 0} limit={limits.save_weekly ?? SERVER_DEFAULT_LIMITS.save_weekly} isPremium={isPremium} />
+                    </div>
+                </div>
+            )}
+
             {/* Empty State / Hero */}
             {plans.length === 0 ? (
                 <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-xl border border-navy-100/20 max-w-2xl mx-auto my-8">
@@ -2003,11 +2046,46 @@ const Dashboard = () => {
                 </div>
             ) : (
                 <div className="flex flex-col gap-6">
-                    <div className="flex items-center justify-between mb-2 px-4">
-                        <h3 className={`text-xl font-black border-l-4 border-coral pl-4 ${
-                            appTheme === 'dark' ? 'text-white' : 'text-navy'
-                        }`}>Your Date Plans</h3>
-                        <div className="flex items-center gap-3">
+                    {(() => {
+                        const activePlans = plans.filter(p => !p.deleted_at);
+                        const recent = activePlans.length
+                            ? activePlans.reduce((best, p) => {
+                                const tb = new Date(best.updated_at || best.created_at).getTime();
+                                const tp = new Date(p.updated_at || p.created_at).getTime();
+                                return tp >= tb ? p : best;
+                            })
+                            : null;
+                        return recent ? (
+                            <div className="px-4 max-w-2xl mx-auto w-full">
+                                <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                    <div className="min-w-0 text-left">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-coral mb-1">Continue</p>
+                                        <p className={`font-black text-lg truncate ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
+                                            {recent.vibe ? `${recent.vibe} date` : 'Your latest plan'}
+                                        </p>
+                                        <p className="text-xs text-gray-500 font-medium truncate">{recent.location || 'NYC area'}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedPlan(recent)}
+                                        className="shrink-0 px-6 py-3 bg-navy text-white font-black rounded-xl hover:bg-coral transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2"
+                                    >
+                                        Open plan
+                                    </button>
+                                </div>
+                            </div>
+                        ) : null;
+                    })()}
+                    <div className="flex items-center justify-between mb-2 px-4 gap-4">
+                        <div className="min-w-0 flex-1">
+                            <h3 className={`text-xl font-black border-l-4 border-coral pl-4 ${
+                                appTheme === 'dark' ? 'text-white' : 'text-navy'
+                            }`}>Your Date Plans</h3>
+                            <p className={`text-xs font-medium mt-1 pl-4 border-l-4 border-transparent ${appTheme === 'dark' ? 'text-white/50' : 'text-gray-500'}`}>
+                                Your saved itineraries — open a card for the full timeline, map, and share link.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
                             <button
                                 onClick={() => {
                                     setIsSelectMode(!isSelectMode);
@@ -2069,7 +2147,7 @@ const Dashboard = () => {
                                     <h3 className={`text-2xl font-black tracking-tight ${
                                         appTheme === 'dark' ? 'text-white' : 'text-navy'
                                     }`}>Trending Spots Now</h3>
-                                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Visual high-quality itineraries curated for you.</p>
+                                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Community ideas from other couples — preview here, or save from Discovery.</p>
                                 </div>
                             </div>
                             <button onClick={() => setCurrentTab('discovery')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
@@ -2187,7 +2265,7 @@ const Dashboard = () => {
                 <h2 className={`text-4xl font-black tracking-tight ${
                     appTheme === 'dark' ? 'text-white' : 'text-navy'
                 }`}>Today’s Top Sparks 🔥</h2>
-                <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>Swipe right on dates you love to save them to your Favorites.</p>
+                <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>Browse other people&apos;s plans (not your own). Swipe right to save to your favorites.</p>
                 <div className="hidden md:flex items-center justify-center gap-3 mt-4">
                     <span className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded text-[10px] font-black text-gray-400 border border-gray-200 shadow-sm uppercase tracking-tighter">
                         <kbd className="font-sans">←</kbd> Pass
@@ -2747,7 +2825,7 @@ const Dashboard = () => {
 
                         <div className="flex items-center gap-4 relative">
                             {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
-                            {(user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com') && (
+                            {(import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
                                 <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border mr-2 transition-colors duration-500 ${
                                     appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-rose-50/50 border-rose-100'
                                 }`}>
@@ -2948,11 +3026,14 @@ const Dashboard = () => {
                                         <span className="hidden sm:inline">Boost</span>
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={handleShare}
-                                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter"
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-coral/90 hover:bg-coral border border-coral rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter text-white shadow-md shadow-coral/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f172a]"
+                                        title="Copy or share a link to this plan"
                                     >
-                                        <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-coral group-hover:scale-110 transition-transform" />
-                                        <span className="hidden sm:inline">Share Plan</span>
+                                        <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white group-hover:scale-110 transition-transform" />
+                                        <span className="hidden sm:inline">Share link</span>
+                                        <span className="sm:hidden">Share</span>
                                     </button>
                                     {/* Close / Back — always visible, min 44px tap target */}
                                     <button
@@ -2968,7 +3049,9 @@ const Dashboard = () => {
                                 </div>
                             </div>
 
-
+                            <p className="px-3 py-2.5 text-[10px] sm:text-[11px] text-white/80 font-medium bg-[#0c1222] border-b border-white/10 leading-snug">
+                                Tip: <span className="font-black text-coral/95">Share</span> sends a link your date can open in the browser. Preview links may hide some stops until they unlock the full plan.
+                            </p>
 
                             {/* Mobile Map Spacer */}
                             <div className="h-[180px] sm:h-[200px] md:hidden relative flex items-end justify-center pb-2 flex-shrink-0 z-20">
@@ -3135,7 +3218,7 @@ const Dashboard = () => {
                                                             <a
                                                                 href={step.websiteUrl}
                                                                 target="_blank"
-                                                                rel="noreferrer"
+                                                                rel="noopener noreferrer"
                                                                 className="px-4 py-2 bg-white text-navy border border-gray-200 text-[11px] font-black rounded-xl hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-sm"
                                                             >
                                                                 <Ticket className="w-3.5 h-3.5 text-coral" /> Visit Website
@@ -3145,7 +3228,7 @@ const Dashboard = () => {
                                                         <a
                                                             href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
                                                             target="_blank"
-                                                            rel="noreferrer"
+                                                            rel="noopener noreferrer"
                                                             className="px-4 py-2 bg-white text-navy border border-gray-200 text-[11px] font-black rounded-xl hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-sm"
                                                         >
                                                             <Search className="w-3.5 h-3.5" /> Search on Google
@@ -3155,7 +3238,7 @@ const Dashboard = () => {
                                                             <a
                                                                 href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
                                                                 target="_blank"
-                                                                rel="noreferrer"
+                                                                rel="noopener noreferrer"
                                                                 className="px-4 py-2 bg-black text-white text-[11px] font-black rounded-xl hover:bg-gray-900 transition-all flex items-center gap-1.5 shadow-md"
                                                             >
                                                                 <Car className="w-3.5 h-3.5" /> Get a Ride
@@ -3718,12 +3801,21 @@ const Dashboard = () => {
                          initial={{ opacity: 0, y: 50, scale: 0.9, x: '-50%' }}
                          animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
                          exit={{ opacity: 0, y: 20, scale: 0.9, x: '-50%' }}
-                         className="fixed top-8 left-1/2 z-[2000] px-6 py-3.5 bg-navy/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-coral/20 flex items-center gap-3 min-w-[280px]"
+                         className="fixed top-8 left-1/2 z-[2000] pl-4 pr-2 py-2.5 bg-navy/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-coral/20 flex items-center gap-3 max-w-[min(90vw,420px)]"
+                         role="status"
                      >
                          <div className="w-8 h-8 bg-coral rounded-full flex items-center justify-center shadow-lg flex-shrink-0 animate-bounce">
                              <Sparkles className="w-4 h-4 text-white" />
                          </div>
-                         <p className="text-white font-black text-sm whitespace-nowrap tracking-tight">{toastMessage}</p>
+                         <p className="text-white font-black text-sm tracking-tight flex-1 min-w-0 leading-snug">{toastMessage}</p>
+                         <button
+                             type="button"
+                             onClick={() => setToastMessage('')}
+                             className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral shrink-0"
+                             aria-label="Dismiss notification"
+                         >
+                             <X className="w-4 h-4" />
+                         </button>
                      </motion.div>
                  )}
              </AnimatePresence>

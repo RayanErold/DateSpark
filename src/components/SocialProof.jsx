@@ -4,7 +4,7 @@ import { Quote } from 'lucide-react';
 const SocialProof = () => {
     const testimonials = [
         {
-            text: "Best $5 I ever spent. No more 40-minute 'I don't know, what do you want to do?' conversations.",
+            text: "Best $1.99 I ever spent. No more 40-minute 'I don't know, what do you want to do?' conversations.",
             author: "Alex & Sam",
             role: "Busy Professionals"
         },

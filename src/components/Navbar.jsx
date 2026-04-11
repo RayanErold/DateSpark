@@ -17,14 +17,14 @@ const Navbar = () => {
                     <a href="#how-it-works" className="text-gray-600 hover:text-coral font-medium transition-colors">How it works</a>
                     <a href="#benefits" className="text-gray-600 hover:text-coral font-medium transition-colors">Why us</a>
                     <a href="#pricing" className="text-gray-600 hover:text-coral font-medium transition-colors">Pricing</a>
-                    <a href="#waitlist" className="text-gray-600 hover:text-coral font-medium transition-colors">Join Waitlist</a>
+                    <a href="#waitlist" className="text-gray-600 hover:text-coral font-medium transition-colors" title="Get notified when we launch in new cities">New cities</a>
                     <a href="/login" className="text-gray-600 hover:text-coral font-medium transition-colors">Log in</a>
-                    <a href="/signup" className="btn-primary py-2 px-6 rounded-xl hover:text-white transition-all">Plan a date now</a>
+                    <a href="/signup" className="btn-primary py-2 px-6 rounded-xl hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">Plan a date now</a>
                 </div>
 
                 {/* Mobile Menu Toggle & CTA */}
                 <div className="md:hidden flex items-center gap-4">
-                    <a href="/signup" className="btn-primary py-2 px-4 text-sm rounded-xl hover:text-white transition-all">Start now</a>
+                    <a href="/signup" className="btn-primary py-2 px-4 text-sm rounded-xl hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">Start now</a>
                     <button 
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         className="p-2 -mr-2 text-gray-600 hover:text-coral transition-colors"
@@ -40,7 +40,7 @@ const Navbar = () => {
                     <a href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">How it works</a>
                     <a href="#benefits" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">Why us</a>
                     <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">Pricing</a>
-                    <a href="#waitlist" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">Join Waitlist</a>
+                    <a href="#waitlist" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">New cities waitlist</a>
                     <a href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 transition-colors mt-2">Log in to your account</a>
                 </div>
             )}

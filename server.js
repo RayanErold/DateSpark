@@ -844,11 +844,11 @@ app.post('/api/feedback', async (req, res) => {
             // We continue even if DB fails so the email still goes out
         }
 
-        // 2. Send Email Alert to rayanerold@gmail.com
+        const adminEmail = process.env.ADMIN_EMAIL || 'rayanerold@gmail.com';
         await resend.emails.send({
             from: 'DateSpark Support <support@datespark.live>',
-            to: 'rayanerold@gmail.com',
-            reply_to: email || 'rayanerold@gmail.com',
+            to: adminEmail,
+            reply_to: email || adminEmail,
             subject: `💡 New DateSpark Message from ${email || 'Anonymous'}`,
             html: `
                 <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">

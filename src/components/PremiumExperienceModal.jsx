@@ -1,6 +1,21 @@
 import React from 'react';
 import { X, Check, Heart, Sparkles, Star } from 'lucide-react';
 
+const getLimitMessage = (limitType) => {
+    if (!limitType) return null;
+    const map = {
+        classic:
+            'You have reached the free limit for Guided Builder plans. Free accounts get a small number of full itineraries every 24 hours. Upgrade for unlimited generations and full unlocks.',
+        guided:
+            'You have reached the free limit for the AI customizer (concept pitches and custom builds). This limit resets every 24 hours, or you can upgrade for unlimited access.',
+        swap:
+            'You have reached the free limit for swapping stops on a plan. Swaps refresh every 24 hours, or upgrade to swap as much as you like.',
+        save_weekly:
+            'You have reached the weekly limit for saving new favorites. This limit resets every 7 days, or upgrade for unlimited saves.',
+    };
+    return map[limitType] || map.classic;
+};
+
 const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
     if (!isOpen) return null;
 
@@ -46,10 +61,8 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                     </div>
 
                     <h2 className="text-2xl sm:text-3xl font-black text-navy mb-2 tracking-tight font-[Outfit]">Upgrade to Premium</h2>
-                    <p className="text-gray-500 text-sm font-medium leading-relaxed max-w-[400px] mx-auto mb-10">
-                        {limitType 
-                            ? `You've reached your free weekly limit. Free users can generate limited plans and save up to 3 favorites per week. Upgrade for unlimited access!` 
-                            : "Stop planning, start dating. Choose the plan that fits your night."}
+                    <p className="text-gray-500 text-sm font-medium leading-relaxed max-w-[440px] mx-auto mb-10">
+                        {limitType ? getLimitMessage(limitType) : 'Stop planning, start dating. Choose the plan that fits your night.'}
                     </p>
 
                     {/* Even Split Grid */}

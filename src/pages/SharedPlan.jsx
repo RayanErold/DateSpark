@@ -122,6 +122,9 @@ const SharedPlan = () => {
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Community Approved</p>
                     </div>
                     <h1 className="text-3xl font-black text-navy mb-4 capitalize font-inter">{plan.vibe} Date</h1>
+                    <p className="text-xs text-gray-500 font-medium max-w-md mx-auto mb-2 px-4">
+                        Shared plans open in the browser. Some stops may appear as a preview until the full itinerary is unlocked.
+                    </p>
                     <div className="flex flex-wrap items-center justify-center gap-4 text-gray-500 font-medium font-inter">
                         <span className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100"><MapPin className="w-4 h-4 text-coral" /> {plan.location}</span>
                         <span className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100"><Calendar className="w-4 h-4 text-navy" /> {
@@ -188,7 +191,7 @@ const SharedPlan = () => {
                                                 <a
                                                     href={step.directionsUrl}
                                                     target="_blank"
-                                                    rel="noreferrer"
+                                                    rel="noopener noreferrer"
                                                     className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-[10px] font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                 >
                                                     <MapPin className="w-3 h-3" /> Get Directions
@@ -200,7 +203,7 @@ const SharedPlan = () => {
                                                 <a
                                                     href={step.websiteUrl || step.url}
                                                     target="_blank"
-                                                    rel="noreferrer"
+                                                    rel="noopener noreferrer"
                                                     className="px-2.5 py-1.5 bg-indigo-50 text-indigo-600 outline outline-1 outline-indigo-200 text-[10px] font-bold rounded-lg hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                 >
                                                     <Ticket className="w-3 h-3 text-coral" /> Visit Official Website
@@ -214,7 +217,7 @@ const SharedPlan = () => {
                                                 <a
                                                     href={step.bookingUrl}
                                                     target="_blank"
-                                                    rel="noreferrer"
+                                                    rel="noopener noreferrer"
                                                     className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-[10px] font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                                 >
                                                     {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
@@ -225,7 +228,7 @@ const SharedPlan = () => {
                                             <a
                                                 href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
                                                 target="_blank"
-                                                rel="noreferrer"
+                                                rel="noopener noreferrer"
                                                 className="px-2.5 py-1.5 bg-gray-50 text-gray-600 outline outline-1 outline-gray-200 text-[10px] font-bold rounded-lg hover:bg-gray-800 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
                                             >
                                                 <Search className="w-3 h-3" /> Search on Google
@@ -235,7 +238,7 @@ const SharedPlan = () => {
                                                 <a
                                                     href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
                                                     target="_blank"
-                                                    rel="noreferrer"
+                                                    rel="noopener noreferrer"
                                                     className="px-2.5 py-1.5 bg-black text-white text-[10px] font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
                                                 >
                                                     <Car className="w-3 h-3" /> Get a Ride

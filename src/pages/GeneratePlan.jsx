@@ -7,14 +7,17 @@ import BottomNav from '../components/BottomNav';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 import PremiumExperienceModal from '../components/PremiumExperienceModal';
-import UsageBadge from '../components/UsageBadge';
+import { setFlashMessage } from '../lib/flashMessage';
 
 const LIBRARIES = ['places'];
+
+/** Must match server.js `/api/user-usage` defaults until fetch completes */
+const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
 const GeneratePlan = () => {
     const navigate = useNavigate();
     const [user, setUser] = React.useState(null);
-    const [authLoading, setAuthLoading] = React.useState(true);
+    const [, setAuthLoading] = React.useState(true);
     const [isGenerating, setIsGenerating] = React.useState(false);
     const [loadingStage, setLoadingStage] = React.useState(0);
     const [isOnline, setIsOnline] = React.useState(navigator.onLine);
@@ -46,13 +49,10 @@ const GeneratePlan = () => {
     const [usage, setUsage] = useState({
         classic: 0,
         guided: 0,
-        swap: 0
+        swap: 0,
+        save_weekly: 0
     });
-    const [limits, setLimits] = useState({
-        classic: 3,
-        guided: 2,
-        swap: 10
-    });
+    const [limits, setLimits] = useState({ ...SERVER_DEFAULT_LIMITS });
 
     // Google Maps Autocomplete states
     const { isLoaded } = useJsApiLoader({
@@ -87,7 +87,7 @@ const GeneratePlan = () => {
                     localStorage.setItem('userEmail', currentUser.email);
                 }
 
-                    // Fetch premium status and usage from secure backend proxy
+                if (currentUser) {
                     const [premRes, usageRes] = await Promise.all([
                         fetch(`/api/user-premium/${currentUser.id}`),
                         fetch(`/api/user-usage/${currentUser.id}`)
@@ -95,9 +95,8 @@ const GeneratePlan = () => {
 
                     if (premRes.ok) {
                         const { isPremium: dbStatus } = await premRes.json();
-                        
-                        // Admin Special Logic: Sync with DB but respect manual toggle for testing
-                        if (currentUser?.email?.toLowerCase() === 'rayanerold@gmail.com') {
+
+                        if (import.meta.env.DEV && currentUser?.email?.toLowerCase() === 'rayanerold@gmail.com') {
                             const manualChoice = localStorage.getItem('isPremium');
                             if (manualChoice !== null) {
                                 setIsPremium(manualChoice === 'true');
@@ -106,15 +105,16 @@ const GeneratePlan = () => {
                             }
                         } else {
                             setIsPremium(dbStatus);
-                            localStorage.setItem('isPremium', dbStatus ? 'true' : 'false' || 'false');
+                            localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
                         }
                     }
 
                     if (usageRes.ok) {
                         const data = await usageRes.json();
-                        setUsage(data.usage);
-                        setLimits(data.limits);
+                        setUsage(prev => ({ ...prev, ...data.usage }));
+                        setLimits(prev => ({ ...prev, ...data.limits }));
                     }
+                }
             } catch (err) {
                 console.error('GeneratePlan initAuth error:', err);
             } finally {
@@ -131,13 +131,14 @@ const GeneratePlan = () => {
                 localStorage.setItem('userEmail', newUser.email);
             }
             if (newUser) {
-                // Fetch premium status from secure backend proxy to avoid 400 UUID errors
-                const response = await fetch(`/api/user-premium/${newUser.id}`);
-                if (response.ok) {
-                    const { isPremium: dbStatus } = await response.json();
-                    
-                    // Admin Special Logic: Sync with DB but respect manual toggle for testing
-                    if (newUser?.email?.toLowerCase() === 'rayanerold@gmail.com') {
+                const [premRes, usageRes] = await Promise.all([
+                    fetch(`/api/user-premium/${newUser.id}`),
+                    fetch(`/api/user-usage/${newUser.id}`)
+                ]);
+                if (premRes.ok) {
+                    const { isPremium: dbStatus } = await premRes.json();
+
+                    if (import.meta.env.DEV && newUser?.email?.toLowerCase() === 'rayanerold@gmail.com') {
                         const manualChoice = localStorage.getItem('isPremium');
                         if (manualChoice !== null) {
                             setIsPremium(manualChoice === 'true');
@@ -146,8 +147,13 @@ const GeneratePlan = () => {
                         }
                     } else {
                         setIsPremium(dbStatus);
-                        localStorage.setItem('isPremium', dbStatus ? 'true' : 'false' || 'false');
+                        localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
                     }
+                }
+                if (usageRes.ok) {
+                    const data = await usageRes.json();
+                    setUsage(prev => ({ ...prev, ...data.usage }));
+                    setLimits(prev => ({ ...prev, ...data.limits }));
                 }
             }
             setAuthLoading(false);
@@ -292,8 +298,7 @@ const GeneratePlan = () => {
     const [refinePrompt, setRefinePrompt] = useState('');
     const [conversationHistory, setConversationHistory] = useState([]);
     const [aiConcepts, setAiConcepts] = useState([]);
-    const [aiQuestions, setAiQuestions] = useState([]);
-    const [ideaCount, setIdeaCount] = useState(3);
+    const [, setAiQuestions] = useState([]);
     const [selectedConceptIndex, setSelectedConceptIndex] = useState(null);
     const [refinementCount, setRefinementCount] = useState(0);
     const [aiBudget, setAiBudget] = useState('');
@@ -326,21 +331,29 @@ const GeneratePlan = () => {
     const [waitlistError, setWaitlistError] = useState(null);
 
     const isLocationInServiceArea = (locationStr, lat, lng) => {
-        if (!locationStr && !lat) return false;
+        if (!locationStr && lat === null) return false;
         
-        // String check for common service area identifiers (NYC + NJ Waterfront)
+        // Bounding box for NYC + Nearby Jersey (Roughly 40.40 to 41.10 Lat, -74.30 to -73.60 Lng)
+        // This is the most reliable check if we have coordinates
+        const isWithinCoords = lat >= 40.40 && lat <= 41.10 && lng >= -74.30 && lng <= -73.60;
+        if (lat !== null && lng !== null) return isWithinCoords;
+
+        // Fallback to string check for common service area identifiers (NYC + NJ Waterfront)
         const serviceKeywords = [
             'new york', 'brooklyn', 'queens', 'bronx', 'staten island', 'manhattan', 'ny', 
             'nj', 'new jersey', 'jersey city', 'hoboken', 'newark', 'weehawken', 'union city',
-            '100', '112', '111', '104', '103', '070', '071', '073'
+            'bayonne', 'edgewater', 'fort lee', 'north bergen', 'guttenberg'
         ];
+        const zipPrefixes = ['100', '101', '102', '103', '104', '110', '111', '112', '113', '114', '116', '070', '071', '073'];
+        
         const lowerLoc = (locationStr || '').toLowerCase().trim();
         const hasKeyword = serviceKeywords.some(kw => lowerLoc.includes(kw));
+        const hasZip = zipPrefixes.some(prefix => {
+            const regex = new RegExp(`(^|\\s|\\W)${prefix}\\d{2}($|\\s|\\W)`);
+            return regex.test(lowerLoc);
+        });
 
-        // Bounding box for NYC + Nearby Jersey (Roughly 40.5 to 41.0 Lat, -74.3 to -73.7 Lng)
-        const isWithinCoords = lat >= 40.40 && lat <= 41.10 && lng >= -74.30 && lng <= -73.60;
-
-        return hasKeyword || isWithinCoords;
+        return hasKeyword || hasZip;
     };
 
     const handlePreciseLocation = () => {
@@ -360,10 +373,18 @@ const GeneratePlan = () => {
         }
 
         setLocationLoading(true);
+        setError(null);
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const { latitude, longitude } = position.coords;
+                const { latitude, longitude, accuracy } = position.coords;
+                console.log(`[GPS] Detected: ${latitude}, ${longitude} (Accuracy: ${accuracy}m)`);
                 
+                // If accuracy is very poor (> 3km), warn the user
+                if (accuracy > 3000) {
+                    console.warn("Low GPS accuracy detected. Reverting to manual if results look wrong.");
+                }
+
                 // Use Geocoder to turn coordinates into a friendly name
                 if (window.google?.maps?.Geocoder) {
                     const geocoder = new window.google.maps.Geocoder();
@@ -371,11 +392,23 @@ const GeneratePlan = () => {
                         let readableLocation = 'Current Location';
                         
                         if (status === 'OK' && results[0]) {
+                            // Find the most specific component that isn't just a generic address
                             const neighborhood = results[0].address_components.find(c => c.types.includes('neighborhood'))?.long_name;
-                            const sublocality = results[0].address_components.find(c => c.types.includes('sublocality'))?.long_name;
+                            const sublocality = results[0].address_components.find(c => c.types.includes('sublocality_level_1'))?.long_name 
+                                || results[0].address_components.find(c => c.types.includes('sublocality'))?.long_name;
                             const locality = results[0].address_components.find(c => c.types.includes('locality'))?.long_name;
+                            const area = results[0].address_components.find(c => c.types.includes('administrative_area_level_2'))?.long_name;
                             
-                            readableLocation = neighborhood || sublocality || locality || results[0].formatted_address.split(',')[0];
+                            // prioritize: Neighborhood -> Borough/Sublocality -> City -> County -> Formatted
+                            readableLocation = neighborhood || sublocality || locality || area || results[0].formatted_address.split(',')[0];
+                        }
+
+                        // GATING: Check if this detected point is in our service area
+                        if (!isLocationInServiceArea(readableLocation, latitude, longitude)) {
+                            setDetectedCity(readableLocation);
+                            setShowWaitlistModal(true);
+                            setLocationLoading(false);
+                            return;
                         }
 
                         setFormData(prev => ({
@@ -388,7 +421,14 @@ const GeneratePlan = () => {
                         setLocationLoading(false);
                     });
                 } else {
-                    // Fallback
+                    // Fallback without Geocoder
+                    if (!isLocationInServiceArea('Current Location', latitude, longitude)) {
+                        setDetectedCity('your area');
+                        setShowWaitlistModal(true);
+                        setLocationLoading(false);
+                        return;
+                    }
+
                     setFormData(prev => ({
                         ...prev,
                         lat: latitude,
@@ -401,10 +441,13 @@ const GeneratePlan = () => {
             },
             (err) => {
                 console.error("Location error:", err);
-                setError("Unable to retrieve your location. Check permissions.");
+                let msg = "Unable to retrieve your location. Check permissions.";
+                if (err.code === 1) msg = "Location permission denied. Please enable it in browser settings.";
+                if (err.code === 3) msg = "Location request timed out. Try again or enter manually.";
+                setError(msg);
                 setLocationLoading(false);
             },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
         );
     };
 
@@ -550,6 +593,7 @@ const GeneratePlan = () => {
             if (!response.ok) {
                 const errData = await response.json();
                 if (response.status === 403 || errData.code === 'LIMIT_REACHED') {
+                    setIsGenerating(false);
                     setLimitType('guided');
                     setShowPremiumModal(true);
                     return;
@@ -561,6 +605,7 @@ const GeneratePlan = () => {
                 setUsage(prev => ({ ...prev, guided: prev.guided + 1 }));
             }
 
+            setFlashMessage('Plan saved — opening your itinerary.');
             navigate('/dashboard');
         } catch (err) {
             setError(err.message);
@@ -642,6 +687,7 @@ const GeneratePlan = () => {
                 if (!response.ok) {
                     const result = await response.json();
                     if (response.status === 403 || result.code === 'LIMIT_REACHED') {
+                        setIsGenerating(false);
                         setLimitType('classic');
                         setShowPremiumModal(true);
                         return;
@@ -658,6 +704,7 @@ const GeneratePlan = () => {
                     setUsage(prev => ({ ...prev, classic: prev.classic + 1 }));
                 }
 
+                setFlashMessage('Plan saved — opening your itinerary.');
                 navigate('/dashboard');
             } catch (err) {
                 setError(err.message === 'Failed to fetch' ? 'Network error. We will save your data so you can retry!' : err.message);
@@ -699,7 +746,7 @@ const GeneratePlan = () => {
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
                     </div>
                     {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
-                    {(user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com') && (
+                    {(import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
                         <div className="hidden md:flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button
@@ -759,6 +806,11 @@ const GeneratePlan = () => {
                         </div>
                     </button>
                 </div>
+                <p className="text-center text-[12px] sm:text-sm text-gray-500 font-medium px-2 -mt-4 mb-6 max-w-xl mx-auto leading-relaxed">
+                    <span className="font-bold text-navy">Guided Builder</span> — step-by-step vibe, budget, and map-friendly itinerary.
+                    {' '}
+                    <span className="font-bold text-navy">Create your own</span> — describe the night in your words, pick an AI concept, then generate.
+                </p>
 
                 {error && (
                     <div className="p-4 mb-6 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100 italic flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-left-4 duration-300">
@@ -1024,6 +1076,7 @@ const GeneratePlan = () => {
                         <form onSubmit={handleSubmitClassic} className="space-y-10">
                             {/* SECTION: WHERE & WHEN */}
                             <div className="space-y-6">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Step 1 of 2</p>
                                 <label className="text-[15px] font-black text-navy uppercase tracking-wider flex items-center gap-2">
                                     <MapPin className="text-coral w-4 h-4" /> Where & When
                                 </label>
@@ -1109,6 +1162,7 @@ const GeneratePlan = () => {
 
                             {/* SECTION: VIBE & INTERESTS */}
                             <div className="space-y-8 pt-4 border-t border-gray-100">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Step 2 of 2</p>
                                 <label className="text-[15px] font-black text-navy uppercase tracking-wider flex items-center gap-2">
                                     <Sparkles className="text-coral w-4 h-4" /> Vibe & Interests
                                 </label>
@@ -1303,6 +1357,7 @@ const GeneratePlan = () => {
                                         <p className="text-gray-500 font-bold text-lg animate-pulse min-h-[1.5em] duration-1000">
                                             {loadingMessages[loadingStage]}
                                         </p>
+                                        <p className="text-gray-400 text-sm font-medium mt-3">Usually finishes in under 30 seconds.</p>
                                         <div className="mt-12 max-w-xs w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
                                             <div 
                                                 className="h-full bg-coral transition-all duration-1000 ease-out"

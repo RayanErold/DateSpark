@@ -81,10 +81,10 @@ const Hero = () => {
     });
 
     const features = [
-        { id: 'itinerary', icon: <Ticket className="w-5 h-5" />, label: 'Itinerary' },
-        { id: 'sync', icon: <Calendar className="w-5 h-5" />, label: 'Sync' },
-        { id: 'share', icon: <Share2 className="w-5 h-5" />, label: 'Share' },
-        { id: 'budget', icon: <Wallet className="w-5 h-5" />, label: 'Budget' },
+        { id: 'itinerary', icon: <Ticket className="w-5 h-5" />, label: 'Itinerary', comingSoon: false },
+        { id: 'sync', icon: <Calendar className="w-5 h-5" />, label: 'Sync', comingSoon: true },
+        { id: 'share', icon: <Share2 className="w-5 h-5" />, label: 'Share', comingSoon: false },
+        { id: 'budget', icon: <Wallet className="w-5 h-5" />, label: 'Budget', comingSoon: true },
     ];
 
     return (
@@ -114,7 +114,7 @@ const Hero = () => {
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5 pt-4">
-                        <Link to="/signup" className="bg-navy text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_10px_40px_rgba(10,25,47,0.2)] hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(10,25,47,0.3)] transition-all group">
+                        <Link to="/signup" className="bg-navy text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_10px_40px_rgba(10,25,47,0.2)] hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(10,25,47,0.3)] transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
                             Start My Plan <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </Link>
                         <button
@@ -164,18 +164,22 @@ const Hero = () => {
                             </div>
 
                             {/* Feature Switcher Tabs - Minimal */}
-                            <div className="flex bg-white/5 rounded-xl p-1 justify-between">
+                            <div className="flex bg-white/5 rounded-xl p-1 justify-between gap-0.5">
                                 {features.map((f) => (
                                     <button
                                         key={f.id}
+                                        type="button"
                                         onClick={() => setActiveFeature(f.id)}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all ${activeFeature === f.id
+                                        className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg transition-all min-w-0 ${activeFeature === f.id
                                             ? 'bg-white text-navy shadow-sm'
                                             : 'text-white/40 hover:text-white'
                                             }`}
                                     >
-                                        {React.cloneElement(f.icon, { className: 'w-3.5 h-3.5' })}
-                                        <span className="text-[9px] font-black uppercase tracking-wider">{f.label}</span>
+                                        {React.cloneElement(f.icon, { className: 'w-3.5 h-3.5 shrink-0' })}
+                                        <span className="text-[8px] font-black uppercase tracking-wider leading-tight text-center">{f.label}</span>
+                                        {f.comingSoon && (
+                                            <span className="text-[6px] font-black uppercase tracking-tighter text-coral/90">Soon</span>
+                                        )}
                                     </button>
                                 ))}
                             </div>
@@ -296,31 +300,32 @@ const Hero = () => {
 
 
                             {activeFeature === 'sync' && (
-                                <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in zoom-in duration-500 py-10">
+                                <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in zoom-in duration-500 py-10 px-4">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-violet-600 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">Coming soon</span>
                                     <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center shadow-inner">
                                         <Calendar className="w-10 h-10" />
                                     </div>
                                     <div className="space-y-2">
                                         <h3 className="text-xl font-bold text-navy">Google Calendar Sync</h3>
-                                        <p className="text-sm text-gray-500 px-6">Automatically add tonight's schedule and location maps to both your calendars.</p>
+                                        <p className="text-sm text-gray-500 px-6">We&apos;re building one-tap calendar export and reminders. Preview of the experience below.</p>
                                     </div>
-                                    <label className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                                    <label className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm cursor-default opacity-60">
                                         <div className="w-10 h-6 bg-blue-600 rounded-full relative">
                                             <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
                                         </div>
-                                        <span className="font-bold text-sm text-navy">Sync Enabled</span>
+                                        <span className="font-bold text-sm text-navy">Sync (preview)</span>
                                     </label>
                                 </div>
                             )}
 
                             {activeFeature === 'share' && (
-                                <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 py-10">
+                                <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 py-10 px-4">
                                     <div className="w-20 h-20 bg-soft-pink text-coral rounded-3xl flex items-center justify-center">
                                         <Share2 className="w-10 h-10" />
                                     </div>
                                     <div className="space-y-2">
                                         <h3 className="text-xl font-bold text-navy">Shareable Itinerary</h3>
-                                        <p className="text-sm text-gray-500 px-6">Send a private web link to your date. They can see the plan but you keep the location a secret until 4pm!</p>
+                                        <p className="text-sm text-gray-500 px-6">Share a link from your real plan in the app. Preview links may hide some stops until unlock—exact behavior depends on your plan.</p>
                                     </div>
                                     <div className="w-full bg-white p-4 rounded-2xl border border-dashed border-gray-200 flex items-center justify-between gap-4">
                                         <span className="text-xs font-mono text-gray-400 truncate">datespark.live/v/x92_s0v...</span>
@@ -330,13 +335,14 @@ const Hero = () => {
                             )}
 
                             {activeFeature === 'budget' && (
-                                <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 py-10">
+                                <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 py-10 px-4">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-violet-600 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">Coming soon</span>
                                     <div className="w-20 h-20 bg-gold/10 text-gold rounded-3xl flex items-center justify-center">
                                         <Wallet className="w-10 h-10" />
                                     </div>
                                     <div className="space-y-2">
                                         <h3 className="text-xl font-bold text-navy">Smart Budget Guard</h3>
-                                        <p className="text-sm text-gray-500 px-6">We only pick spots that fit your $150/person limit. No surprise $20 cocktails here.</p>
+                                        <p className="text-sm text-gray-500 px-6">We&apos;re refining stricter budget tracking across stops. You already set budget in the planner—this screen is a preview.</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4 w-full">
                                         <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">

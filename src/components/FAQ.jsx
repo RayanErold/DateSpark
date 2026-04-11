@@ -5,11 +5,11 @@ const FAQ = () => {
     const faqs = [
         {
             question: "What exactly do I get when I pay?",
-            answer: "You get the full, unlocked itinerary for your night. This include exact addresses of all 3-4 spots, reservation links, real-time ticket availability for events, and a custom Google Maps route to navigate between them."
+            answer: "You get the full, unlocked itinerary for your night: addresses and details for each stop, links to directions and official sites or booking pages where available, and an interactive map. We surface real venue data when we can, but third-party availability and reservations are always subject to the venue or ticketing site."
         },
         {
-            question: "How do you ensure my safety during dates?",
-            answer: "Safety is our priority. We only recommend highly-rated, vetted venues in well-lit, populated areas in New York and Jersey. We also include 'Safety Check' tips in every premium itinerary."
+            question: "How do you approach safety?",
+            answer: "We focus on well-reviewed, established venues in busy areas of New York and North Jersey. You should always use your own judgment, share your plans with someone you trust, and follow venue and local guidance. Tips in itineraries are suggestions, not professional safety advice."
         },
         {
             question: "Who can I contact if I have an issue with a booking?",

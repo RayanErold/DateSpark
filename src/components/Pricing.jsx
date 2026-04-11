@@ -7,17 +7,18 @@ const Pricing = () => {
     const plans = [
         {
             name: "The Spark",
-            tagline: "Experience the magic of stress-free planning.",
+            tagline: "Sign up free—full app with fair daily limits in NYC & North Jersey.",
             price: "$0",
             period: "/forever",
             features: [
-                { text: "Limited Date Generations / 24hr", icon: Star },
-                { text: "Limited 'Swap Spots' / 24hr", icon: Star },
-                { text: "Limited Venue Access", icon: Check },
-                { text: "Access to Trending Spots", icon: Check },
-                { text: "Public Date Spark Browsing", icon: Check }
+                { text: "Up to 2 builder plans per 24 hours", icon: Star },
+                { text: "Up to 2 AI customizer sessions per 24 hours", icon: Star },
+                { text: "Up to 3 spot swaps per 24 hours", icon: Star },
+                { text: "Up to 3 favorite saves per week", icon: Star },
+                { text: "Browse trending community plans", icon: Check },
+                { text: "Shareable plan links", icon: Check }
             ],
-            cta: "Try for Free",
+            cta: "Start free",
             highlight: false,
             className: "bg-white/5 border-white/10 text-white hover:bg-white/10"
         },
@@ -124,7 +125,12 @@ const Pricing = () => {
                                     
                                     const type = planMap[sub.name];
                                     if (type === 'free') {
-                                        window.location.href = '#waitlist';
+                                        try {
+                                            const { data: { user } } = await supabase.auth.getUser();
+                                            window.location.href = user ? '/generate' : '/signup';
+                                        } catch {
+                                            window.location.href = '/signup';
+                                        }
                                         return;
                                     }
 
@@ -136,14 +142,17 @@ const Pricing = () => {
                                         }
 
                                         const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-                                        const response = await axios.post('/api/create-checkout-session', { 
+                                        const response = await axios.post('/api/create-checkout-session', {
                                             planType: type,
                                             userId: user.id,
                                             email: user.email
                                         });
-                                        
-                                        if (response.data.url) {
-                                            window.location.href = response.data.url;
+                                        const { id: sessionId, url } = response.data;
+
+                                        if (url) {
+                                            window.location.href = url;
+                                        } else if (stripe && sessionId) {
+                                            await stripe.redirectToCheckout({ sessionId });
                                         }
                                     } catch (err) {
                                         console.error('Pricing Payment Error:', err);
@@ -169,11 +178,11 @@ const Pricing = () => {
                             <img key={i} src={`https://i.pravatar.cc/100?u=${i + 10}`} className="w-10 h-10 rounded-full border-4 border-[#0A0F1E]" alt="User" />
                         ))}
                         <div className="w-10 h-10 rounded-full border-4 border-[#0A0F1E] bg-coral flex items-center justify-center text-[10px] font-black">
-                            +500
+                            +
                         </div>
                     </div>
                     <p className="text-gray-400 text-sm font-medium">
-                        Join <span className="text-white font-bold">500+ couples</span> planning stress-free dates.
+                        Join <span className="text-white font-bold">couples in NYC &amp; Jersey</span> planning stress-free dates.
                     </p>
                 </div>
             </div>
