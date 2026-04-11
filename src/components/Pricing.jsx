@@ -7,7 +7,7 @@ const Pricing = () => {
     const plans = [
         {
             name: "The Spark",
-            tagline: "Sign up free—full app with fair daily limits in NYC & North Jersey.",
+            tagline: "Sign up free—full app with fair daily limits in NYC & New Jersey.",
             price: "$0",
             period: "/forever",
             features: [
@@ -182,7 +182,7 @@ const Pricing = () => {
                         </div>
                     </div>
                     <p className="text-gray-400 text-sm font-medium">
-                        Join <span className="text-white font-bold">couples in NYC &amp; Jersey</span> planning stress-free dates.
+                        Join <span className="text-white font-bold">couples in NYC &amp; New Jersey</span> planning stress-free dates.
                     </p>
                 </div>
             </div>

@@ -158,7 +158,7 @@ const PremiumExperienceModal = ({ isOpen, onClose, onUpgrade, limitType }) => {
                         </div>
                         <div className="h-3 w-px bg-gray-200 hidden sm:block" />
                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                            Built for NYC Romance
+                            Built for NYC & NJ Romance
                         </span>
                     </div>
                     <div className="flex items-center gap-2 grayscale brightness-125 opacity-50 select-none">

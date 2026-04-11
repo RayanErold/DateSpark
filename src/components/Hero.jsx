@@ -102,7 +102,7 @@ const Hero = () => {
                         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-coral to-pink-500 text-white">
                             <Sparkles className="w-3 h-3" />
                         </div>
-                        <span className="pl-1">Available now in NYC</span>
+                        <span className="pl-1">Available now in NYC & NJ</span>
                     </div>
 
                     <h1 className="text-4xl md:text-7xl lg:text-[80px] font-black text-navy leading-[1.05] tracking-tight">

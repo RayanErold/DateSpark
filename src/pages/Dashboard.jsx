@@ -487,8 +487,8 @@ const Dashboard = () => {
                 const { latitude: lat, longitude: lng, accuracy } = position.coords;
                 console.log(`[Dashboard GPS] Detected: ${lat}, ${lng} (Accuracy: ${accuracy}m)`);
 
-                // Service Area Bounding Box (NYC + Jersey Waterfront)
-                const isWithinCoords = lat >= 40.40 && lat <= 41.10 && lng >= -74.30 && lng <= -73.60;
+                // Service Area Bounding Box (NYC + New Jersey)
+                const isWithinCoords = lat >= 38.9 && lat <= 41.4 && lng >= -75.6 && lng <= -73.7;
                 
                 if (!isWithinCoords && accuracy < 5000) {
                     console.log('User appears to be outside NYC/NJ service area. Defaulting to Manhattan for discovery.');
@@ -1624,7 +1624,9 @@ const Dashboard = () => {
                 lat: alt.location?.latitude || originalStep.lat,
                 lng: alt.location?.longitude || originalStep.lng,
                 searchUrl: alt.searchUrl || `https://www.google.com/search?q=${encodeURIComponent(alt.name || 'New Venue')}`,
-                placeId: alt.id || originalStep.placeId
+                websiteUrl: alt.website || null, // FIX: Update the website URL for the new venue
+                placeId: alt.id || originalStep.placeId,
+                search_term: `${alt.name} ${alt.address}` // Update search term for UI buttons
             };
 
             steps[activeSwitchIndex] = newStep;

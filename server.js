@@ -357,37 +357,51 @@ app.post('/api/nearby-alternatives', async (req, res) => {
         
         const query = `${type?.replace('_', ' ') || 'place'} ${salt} near this location`;
         
-        // Standard Places API (Old) - Text Search
-        const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=${lat},${lng}&radius=${Math.min(cleanRadius, 40000)}&key=${GOOGLE_API_KEY}`;
-        const response = await axios.get(searchUrl);
-        let places = response.data?.results || [];
+        // --- NEW PLACES API (v1) SEARCH ---
+        const searchResponse = await axios.post(
+            'https://places.googleapis.com/v1/places:searchText',
+            {
+                textQuery: query,
+                locationBias: {
+                    circle: {
+                        center: centerCoords,
+                        radius: Math.min(cleanRadius, 40000)
+                    }
+                },
+                maxResultCount: 15
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': GOOGLE_API_KEY,
+                    'X-Goog-FieldMask': 'places.id,places.name,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.location,places.photos,places.websiteUri,places.shortFormattedAddress'
+                }
+            }
+        );
 
-        // Fallback Stage 2
-        if (places.length < 3) {
-            const fallbackUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(`${type?.replace('_', ' ') || 'place'} in this area`)}&location=${lat},${lng}&radius=15000&key=${GOOGLE_API_KEY}`;
-            const fallbackResponse = await axios.get(fallbackUrl);
-            const fallbackPlaces = fallbackResponse.data?.results || [];
-            places = [...places, ...fallbackPlaces.filter(fp => !places.find(p => p.place_id === fp.place_id))];
-        }
+        let rawPlaces = searchResponse.data?.places || [];
 
-        const filtered = places
-            .filter(p => p.place_id !== currentPlaceId)
+        // Formatting results
+        const filtered = rawPlaces
+            .filter(p => p.id !== currentPlaceId)
             .map(p => {
-                const priceSymbols = p.price_level ? '$'.repeat(p.price_level) : '$$';
-                const ratingInfo = p.rating ? `${p.rating} ⭐ (${(p.user_ratings_total || 0).toLocaleString()} reviews)` : 'Newly discovered gem';
-                
+                const pLevel = p.priceLevel ? (p.priceLevel === 'PRICE_LEVEL_VERY_EXPENSIVE' ? 4 : p.priceLevel === 'PRICE_LEVEL_EXPENSIVE' ? 3 : p.priceLevel === 'PRICE_LEVEL_MODERATE' ? 2 : 1) : 2;
+                const priceSymbols = '$'.repeat(pLevel);
+                const ratingInfo = p.rating ? `${p.rating}★` : 'Highly rated';
+
                 return {
-                    id: p.place_id,
-                    name: p.name || 'Venue',
-                    address: p.formatted_address,
+                    id: p.id,
+                    name: p.name?.displayName?.text || 'Venue',
+                    address: p.shortFormattedAddress || p.formattedAddress,
                     rating: p.rating,
-                    userRatingCount: p.user_ratings_total,
+                    userRatingCount: p.userRatingCount,
                     priceLevel: priceSymbols,
-                    location: { latitude: p.geometry?.location?.lat, longitude: p.geometry?.location?.lng },
+                    location: { latitude: p.location?.latitude, longitude: p.location?.longitude },
                     description: `${ratingInfo}. This ${priceSymbols} spot is a highly-recommended alternative for your date!`,
-                    searchUrl: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
-                    photo: p.photos?.[0]?.photo_reference 
-                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${p.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` 
+                    website: p.websiteUri || null,
+                    searchUrl: `https://www.google.com/maps/place/?q=place_id:${p.id}`,
+                    photo: p.photos?.[0]?.name 
+                        ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxwidth=400&key=${GOOGLE_API_KEY}` 
                         : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80'
                 };
             });

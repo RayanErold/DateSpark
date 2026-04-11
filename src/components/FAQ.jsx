@@ -9,7 +9,7 @@ const FAQ = () => {
         },
         {
             question: "How do you approach safety?",
-            answer: "We focus on well-reviewed, established venues in busy areas of New York and North Jersey. You should always use your own judgment, share your plans with someone you trust, and follow venue and local guidance. Tips in itineraries are suggestions, not professional safety advice."
+            answer: "We focus on well-reviewed, established venues in busy areas of New York and New Jersey. You should always use your own judgment, share your plans with someone you trust, and follow venue and local guidance. Tips in itineraries are suggestions, not professional safety advice."
         },
         {
             question: "Who can I contact if I have an issue with a booking?",
@@ -17,7 +17,7 @@ const FAQ = () => {
         },
         {
             question: "Can I use DateSpark outside of NYC and NJ?",
-            answer: "We are currently hyper-focused on providing the best experience in New York City and Northern New Jersey. We are expanding soon—join our waitlist to be notified when we launch in your city!"
+            answer: "We are currently hyper-focused on providing the best experience in New York City and New Jersey. We are expanding soon—join our waitlist to be notified when we launch in your city!"
         },
         {
             question: "Do I need to download an app?",
