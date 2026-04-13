@@ -374,7 +374,7 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Goog-Api-Key': GOOGLE_API_KEY,
-                    'X-Goog-FieldMask': 'places.id,places.name,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.location,places.photos,places.websiteUri,places.shortFormattedAddress'
+                    'X-Goog-FieldMask': 'places.id,places.name,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.location,places.photos,places.websiteUri,places.shortFormattedAddress'
                 }
             }
         );
@@ -391,7 +391,7 @@ app.post('/api/nearby-alternatives', async (req, res) => {
 
                 return {
                     id: p.id,
-                    name: p.name?.displayName?.text || 'Venue',
+                    name: p.name?.displayName?.text || p.displayName?.text || 'Venue',
                     address: p.shortFormattedAddress || p.formattedAddress,
                     rating: p.rating,
                     userRatingCount: p.userRatingCount,
@@ -400,8 +400,8 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                     description: `${ratingInfo}. This ${priceSymbols} spot is a highly-recommended alternative for your date!`,
                     website: p.websiteUri || null,
                     searchUrl: `https://www.google.com/maps/place/?q=place_id:${p.id}`,
-                    photo: p.photos?.[0]?.name 
-                        ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxwidth=400&key=${GOOGLE_API_KEY}` 
+                    photo: (p.photos && p.photos.length > 0)
+                        ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${GOOGLE_API_KEY}` 
                         : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80'
                 };
             });
