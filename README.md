@@ -4,7 +4,8 @@
 [![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node%20%7C%20Supabase-blue)](https://datespark.live)
 [![AI Powered](https://img.shields.io/badge/AI-Google%20Gemini-pink)](https://datespark.live)
 
-DateSpark is a social discovery platform focused on helping people create meaningful connections through curated real-life experiences(Available in NYC & NJ now).
+**DateSpark** is a social discovery platform focused on helping people create meaningful connections through curated real-life experiences.
+Supported in NYC & NJ Now
 ---
 
 ## 👋 The Experience
