@@ -4,8 +4,7 @@
 [![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node%20%7C%20Supabase-blue)](https://datespark.live)
 [![AI Powered](https://img.shields.io/badge/AI-Google%20Gemini-pink)](https://datespark.live)
 
-**DateSpark** is the "Million Dollar" itinerary engine designed for high-intent couples in **New York City** and **Northern New Jersey**. It transforms the stress of planning into the magic of connection using state-of-the-art AI, real-time venue data, and a flawless mobile-first interface.
-
+DateSpark is a social discovery platform focused on helping people create meaningful connections through curated real-life experiences.
 ---
 
 ## 👋 The Experience
