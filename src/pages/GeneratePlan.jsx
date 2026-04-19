@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';import { isLocationInServiceArea } from '../lib/geo';
 import { supabase } from '../lib/supabase';
-import { useJsApiLoader } from '@react-google-maps/api';
+import { useGoogleMaps } from '../lib/googleMaps';
 import BottomNav from '../components/BottomNav';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 import PremiumExperienceModal from '../components/PremiumExperienceModal';
 import { setFlashMessage } from '../lib/flashMessage';
 
-const LIBRARIES = ['places'];
 
 /** Must match server.js `/api/user-usage` defaults until fetch completes */
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
@@ -55,11 +54,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
     const [limits, setLimits] = useState({ ...SERVER_DEFAULT_LIMITS });
 
     // Google Maps Autocomplete states
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-        libraries: LIBRARIES,
-    });
+    const { isLoaded } = useGoogleMaps();
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [autocompleteService, setAutocompleteService] = useState(null);
@@ -731,7 +726,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                         location: formData.location,
                         budget: formData.budget || '$$',
                         itinerary: {
-                            steps: guestPlan.plan_content,
+                            steps: guestPlan.itinerary?.steps || [],
                             metadata: {
                                 isPreviewPlan: false,
                                 planDate: formData.date
@@ -818,11 +813,11 @@ const GeneratePlan = ({ isGuestMode = false }) => {
             
             <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <Link to="/dashboard" className="flex items-center gap-2 text-navy hover:text-coral transition-all font-black text-sm group">
+                    <Link to={isGuestMode ? '/signup' : '/dashboard'} className="flex items-center gap-2 text-navy hover:text-coral transition-all font-black text-sm group">
                         <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-coral/10 group-hover:scale-110 transition-all">
                             <ArrowLeft className="w-4 h-4" />
                         </div>
-                        Back
+                        {isGuestMode ? 'Sign Up Free' : 'Back'}
                     </Link>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-coral/20 to-pink-500/20 rounded-xl p-[1px]">
@@ -832,8 +827,8 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                         </div>
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
                     </div>
-                    {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
-                    {(import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
+                    {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) — never shown to guests */}
+                    {(!isGuestMode && import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
                         <div className="hidden md:flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button

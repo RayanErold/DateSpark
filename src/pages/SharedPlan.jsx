@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard } from 'lucide-react';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
+import { useGoogleMaps } from '../lib/googleMaps';
 import { supabase } from '../lib/supabase';
 
 const darkMapStyle = [
@@ -25,6 +26,16 @@ const darkMapStyle = [
   { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
 ];
 
+// Generates a self-contained SVG pin with a number label — no external URL needed
+const makeSvgPin = (label, fill, isSelected) => {
+    const size = isSelected ? 44 : 34;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size * 1.4}" viewBox="0 0 34 48">
+        <path d="M17 0C7.6 0 0 7.6 0 17c0 12.3 17 31 17 31S34 29.3 34 17C34 7.6 26.4 0 17 0z" fill="#${fill}" stroke="white" stroke-width="2"/>
+        <text x="17" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="900" fill="white">${label}</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
 const SharedPlan = () => {
     const { id } = useParams();
     const [plan, setPlan] = useState(null);
@@ -45,6 +56,21 @@ const SharedPlan = () => {
         mapRef.current = map;
     }, []);
 
+    // Fit map to show all markers once steps are loaded
+    const fitMapBounds = useCallback((map, steps) => {
+        if (!map || !steps || steps.length === 0) return;
+        const validSteps = steps.filter(s => s.lat && s.lng);
+        if (validSteps.length === 0) return;
+        if (validSteps.length === 1) {
+            map.setCenter({ lat: parseFloat(validSteps[0].lat), lng: parseFloat(validSteps[0].lng) });
+            map.setZoom(15);
+            return;
+        }
+        const bounds = new window.google.maps.LatLngBounds();
+        validSteps.forEach(s => bounds.extend({ lat: parseFloat(s.lat), lng: parseFloat(s.lng) }));
+        map.fitBounds(bounds, { top: 60, right: 40, bottom: 40, left: 40 });
+    }, []);
+
     const focusStep = useCallback((idx, step) => {
         if (!step.lat || !step.lng) return;
         setSelectedMarker(idx);
@@ -54,10 +80,7 @@ const SharedPlan = () => {
         }
     }, []);
 
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
-    });
+    const { isLoaded } = useGoogleMaps();
 
     useEffect(() => {
         const fetchPlan = async () => {
@@ -115,29 +138,45 @@ const SharedPlan = () => {
         );
     }
 
-    const itinerarySteps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
+    const itinerarySteps = Array.isArray(plan.itinerary) 
+        ? plan.itinerary 
+        : (plan.itinerary?.steps || plan.plan_content || []);
+
     const mapCenter = itinerarySteps.length > 0
         ? { lat: itinerarySteps[0].lat, lng: itinerarySteps[0].lng }
         : { lat: 0, lng: 0 }; // Default neutral
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Header / Free Marketing */}
+            {/* Header */}
             <header className="bg-white border-b border-gray-100 sticky top-0 z-30 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                    {/* Logo */}
                     <Link to="/" className="flex items-center gap-2 group">
                         <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-8 h-8 rounded-lg shadow-md object-cover bg-white group-hover:scale-105 transition-transform" />
                         <span className="text-lg font-black text-navy tracking-tight">DateSpark</span>
                     </Link>
-                    {isLoggedIn ? (
-                        <Link to="/dashboard" className="hidden sm:flex items-center gap-2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 transition-all">
-                            <LayoutDashboard className="w-4 h-4" /> Back to Dashboard
-                        </Link>
-                    ) : (
-                        <Link to="/" className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-violet-200 hover:-translate-y-0.5 transition-all">
-                            <Sparkles className="w-4 h-4" /> Create your own date
-                        </Link>
-                    )}
+
+                    {/* Right side nav:
+                        - demo-preview: ALWAYS show guest CTAs (never trust isLoggedIn for this route)
+                        - other shared plans: show Dashboard if logged in, else Sign Up
+                    */}
+                    <div className="flex items-center gap-3">
+                        {(isLoggedIn && id !== 'demo-preview') ? (
+                            <Link to="/dashboard" className="flex items-center gap-2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 transition-all">
+                                <LayoutDashboard className="w-4 h-4" /> Dashboard
+                            </Link>
+                        ) : (
+                            <>
+                                <Link to="/login" className="hidden sm:block text-sm font-bold text-navy hover:text-coral transition-colors px-3 py-2">
+                                    Log In
+                                </Link>
+                                <Link to="/signup" className="flex items-center gap-2 bg-gradient-to-r from-coral to-orange-500 text-white px-4 py-2 rounded-xl text-sm font-black shadow-md shadow-coral/30 hover:-translate-y-0.5 hover:shadow-coral/50 transition-all">
+                                    <Sparkles className="w-4 h-4" /> {id === 'demo-preview' ? 'Save This Plan' : 'Sign Up Free'}
+                                </Link>
+                            </>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -174,7 +213,8 @@ const SharedPlan = () => {
                 </div>
 
                 {/* Split View: Timeline + Map */}
-                <div className="w-full bg-transparent md:bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-700 delay-100 border border-gray-100">
+                <div className="w-full min-h-[600px] bg-transparent md:bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-700 delay-100 border border-gray-100">
+
 
                     {/* Left Column: Timeline UI */}
                     <div className="flex-1 md:w-1/2 bg-transparent md:bg-white p-6 sm:p-8 md:p-12 md:max-h-[700px] overflow-y-auto z-10 font-inter">
@@ -321,7 +361,7 @@ const SharedPlan = () => {
                                 mapContainerStyle={{ width: '100%', height: '100%' }}
                                 center={mapCenter}
                                 zoom={14}
-                                onLoad={onMapLoad}
+                                onLoad={(map) => { onMapLoad(map); fitMapBounds(map, itinerarySteps); }}
                                 onClick={() => setSelectedMarker(null)}
                                 options={{
                                     disableDefaultUI: true,
@@ -333,31 +373,35 @@ const SharedPlan = () => {
                                 {itinerarySteps.map((step, idx) => {
                                     const isPreview = plan.itinerary?.metadata?.isPreviewPlan || plan.is_preview || false;
                                     const isLockedStep = isPreview && idx >= 2;
-                                    if (!step.lat || !step.lng) return null;
+                                    const lat = parseFloat(step.lat);
+                                    const lng = parseFloat(step.lng);
+                                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) return null;
 
-                                    const hexColors = ['e67e22', 'f1c40f', '2c3e50', '27ae60', '8e44ad'];
+                                    const hexColors = ['e67e22', 'f1c40f', '1e3a5f', '27ae60', '8e44ad'];
                                     const hex = isLockedStep ? '9ca3af' : hexColors[idx % hexColors.length];
                                     const pinLabel = isLockedStep ? '?' : String(idx + 1);
                                     const isSelected = selectedMarker === idx;
 
+                                    // Use inline SVG pin — no external URL dependency
                                     const pinIcon = {
-                                        url: `https://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=${pinLabel}|${hex}|ffffff`,
-                                        scaledSize: new window.google.maps.Size(isSelected ? 42 : 32, isSelected ? 60 : 46),
+                                        url: makeSvgPin(pinLabel, hex, isSelected),
+                                        scaledSize: new window.google.maps.Size(isSelected ? 44 : 34, isSelected ? 62 : 48),
+                                        anchor: new window.google.maps.Point(isSelected ? 22 : 17, isSelected ? 62 : 48),
                                     };
 
-                                    const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${step.lat},${step.lng}`;
+                                    const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
                                     return (
                                         <Marker
                                             key={idx}
-                                            position={{ lat: step.lat, lng: step.lng }}
+                                            position={{ lat, lng }}
                                             icon={pinIcon}
                                             opacity={isLockedStep ? 0.5 : 1}
-                                            onClick={() => !isLockedStep && setSelectedMarker(idx)}
+                                            onClick={() => !isLockedStep && setSelectedMarker(idx === selectedMarker ? null : idx)}
                                         >
                                             {isSelected && (
                                                 <InfoWindow
-                                                    position={{ lat: step.lat, lng: step.lng }}
+                                                    position={{ lat, lng }}
                                                     onCloseClick={() => setSelectedMarker(null)}
                                                 >
                                                     <div style={{ fontFamily: 'Inter, sans-serif', minWidth: '220px', maxWidth: '260px', padding: '4px' }}>

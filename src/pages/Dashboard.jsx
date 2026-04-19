@@ -56,7 +56,8 @@ import {
     TrendingUp,
     Navigation
 } from 'lucide-react';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, Marker } from '@react-google-maps/api';
+import { useGoogleMaps } from '../lib/googleMaps';
 import { loadStripe } from '@stripe/stripe-js';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import BottomNav from '../components/BottomNav';
@@ -95,7 +96,6 @@ const darkMapStyle = [
     { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
 ];
 
-const GOOGLE_MAPS_LIBRARIES = ['places'];
 
 const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
     const [photoIndex, setPhotoIndex] = useState(0);
@@ -830,11 +830,7 @@ const Dashboard = () => {
             console.error('[Sync] Network error during premium sync:', err);
         }
     };
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-        libraries: GOOGLE_MAPS_LIBRARIES
-    });
+    const { isLoaded } = useGoogleMaps();
 
     const mapContainerStyle = {
         width: '100%',
