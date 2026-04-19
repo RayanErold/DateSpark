@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';import { isLocationInServiceArea } from '../lib/geo';
 import { supabase } from '../lib/supabase';
 import { useJsApiLoader } from '@react-google-maps/api';
 import BottomNav from '../components/BottomNav';
@@ -14,7 +14,7 @@ const LIBRARIES = ['places'];
 /** Must match server.js `/api/user-usage` defaults until fetch completes */
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
-const GeneratePlan = () => {
+const GeneratePlan = ({ isGuestMode = false }) => {
     const navigate = useNavigate();
     const [user, setUser] = React.useState(null);
     const [, setAuthLoading] = React.useState(true);
@@ -80,6 +80,11 @@ const GeneratePlan = () => {
     // Initialize Auth Session
     React.useEffect(() => {
         const initAuth = async () => {
+            if (isGuestMode) {
+                setUser(null);
+                setAuthLoading(false);
+                return;
+            }
             try {
                 const { data: { user: currentUser } } = await supabase.auth.getUser();
                 setUser(currentUser);
@@ -114,6 +119,24 @@ const GeneratePlan = () => {
                         setUsage(prev => ({ ...prev, ...data.usage }));
                         setLimits(prev => ({ ...prev, ...data.limits }));
                     }
+
+                    // ✨ Load Vibe Profile — pre-fill vibe & budget for personalized defaults
+                    const { data: profileData } = await supabase
+                        .from('profiles')
+                        .select('vibe_profile')
+                        .eq('id', currentUser.id)
+                        .single();
+
+                    if (profileData?.vibe_profile) {
+                        const vp = profileData.vibe_profile;
+                        setVibeProfile(vp);
+                        setFormData(prev => ({
+                            ...prev,
+                            vibe: vp.primaryVibe || prev.vibe,
+                            budget: vp.budget || prev.budget,
+                        }));
+                        setAiBudget(vp.budget || '');
+                    }
                 }
             } catch (err) {
                 console.error('GeneratePlan initAuth error:', err);
@@ -123,7 +146,7 @@ const GeneratePlan = () => {
         };
 
         initAuth();
-
+        if (isGuestMode) return;
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             const newUser = session?.user || null;
             setUser(newUser);
@@ -302,7 +325,9 @@ const GeneratePlan = () => {
     const [selectedConceptIndex, setSelectedConceptIndex] = useState(null);
     const [refinementCount, setRefinementCount] = useState(0);
     const [aiBudget, setAiBudget] = useState('');
-    const [customRadius, setCustomRadius] = useState(8046); 
+    const [customRadius, setCustomRadius] = useState(8046);
+    // Vibe profile from onboarding — used to personalize generation
+    const [vibeProfile, setVibeProfile] = useState(null);
 
     // Classic Form states
     const [formData, setFormData] = useState({
@@ -329,36 +354,6 @@ const GeneratePlan = () => {
     const [waitlistLoading, setWaitlistLoading] = useState(false);
     const [waitlistSuccess, setWaitlistSuccess] = useState(false);
     const [waitlistError, setWaitlistError] = useState(null);
-
-    const isLocationInServiceArea = (locationStr, lat, lng) => {
-        if (!locationStr && lat === null) return false;
-        
-        // Bounding box for NYC + New Jersey (Roughly 38.9 to 41.4 Lat, -75.6 to -73.7 Lng)
-        // covers the state of NJ and all of NYC
-        const isWithinCoords = lat >= 38.9 && lat <= 41.4 && lng >= -75.6 && lng <= -73.7;
-        if (lat !== null && lng !== null) return isWithinCoords;
-
-        // Fallback to string check for common service area identifiers
-        const serviceKeywords = [
-            'new york', 'brooklyn', 'queens', 'bronx', 'staten island', 'manhattan', 'ny', 
-            'nj', 'new jersey', 'jersey city', 'hoboken', 'newark', 'weehawken', 'union city',
-            'bayonne', 'edgewater', 'fort lee', 'north bergen', 'guttenberg', 'princeton',
-            'trenton', 'atlantic city', 'morristown', 'montclair', 'paramus', 'asbury park'
-        ];
-        const zipPrefixes = [
-            '100', '101', '102', '103', '104', '110', '111', '112', '113', '114', '116', // NYC
-            '07', '08' // NJ
-        ];
-        
-        const lowerLoc = (locationStr || '').toLowerCase().trim();
-        const hasKeyword = serviceKeywords.some(kw => lowerLoc.includes(kw));
-        const hasZip = zipPrefixes.some(prefix => {
-            const regex = new RegExp(`(^|\\s|\\W)${prefix}\\d{2}($|\\s|\\W)`);
-            return regex.test(lowerLoc);
-        });
-
-        return hasKeyword || hasZip;
-    };
 
     const handlePreciseLocation = () => {
         if (!navigator.geolocation) {
@@ -674,17 +669,98 @@ const GeneratePlan = () => {
         const performGenerate = async (retryCount = 0) => {
             setIsGenerating(true);
             try {
+                if (!isOnline) throw new Error('You appear to be offline. Check your connection.');
+
+                if (isGuestMode) {
+                    // Check if demo was used within the last 24 hours
+                    const demoTimestamp = localStorage.getItem('datespark_demo_ts');
+                    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+                    const alreadyUsed = demoTimestamp && (Date.now() - parseInt(demoTimestamp, 10)) < TWENTY_FOUR_HOURS;
+
+                    if (alreadyUsed) {
+                        setIsGenerating(false);
+                        setError("You've already used your free demo today. Sign up free to generate unlimited plans!");
+                        setLimitType('classic');
+                        setShowPremiumModal(true);
+                        return;
+                    }
+
+                    // Clear any expired flags
+                    if (demoTimestamp && !alreadyUsed) {
+                        localStorage.removeItem('datespark_demo_ts');
+                        localStorage.removeItem('datespark_demo_plan');
+                    }
+                    
+                    const response = await fetch('/api/guest-generate-date', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            location: formData.location,
+                            date: formData.date,
+                            time: formData.time,
+                            vibe: formData.vibe,
+                            budget: formData.budget,
+                            lat: formData.lat,
+                            lng: formData.lng,
+                            duration: 4,
+                            usePreciseLocation: formData.usePreciseLocation
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const result = await response.json();
+                        if (response.status === 429) {
+                            // Backend rate limit hit — show sign-up modal
+                            setIsGenerating(false);
+                            setError(result.error || 'Daily demo limit reached.');
+                            setLimitType('classic');
+                            setShowPremiumModal(true);
+                            // Stamp the timestamp so frontend also blocks future attempts
+                            localStorage.setItem('datespark_demo_ts', Date.now().toString());
+                            return;
+                        }
+                        throw new Error(result.error || 'Failed to generate plan.');
+                    }
+
+                    const data = await response.json();
+                    const guestPlan = data[0]; 
+                    
+                    const simulatedRecord = {
+                        id: 'demo-preview',
+                        vibe: formData.vibe,
+                        location: formData.location,
+                        budget: formData.budget || '$$',
+                        itinerary: {
+                            steps: guestPlan.plan_content,
+                            metadata: {
+                                isPreviewPlan: false,
+                                planDate: formData.date
+                            }
+                        },
+                        created_at: new Date().toISOString()
+                    };
+
+                    // Stamp the 24h timestamp so they can't generate again today
+                    localStorage.setItem('datespark_demo_plan', JSON.stringify(simulatedRecord));
+                    localStorage.setItem('datespark_demo_ts', Date.now().toString());
+                    // Keep backward compat key
+                    localStorage.setItem('datespark_demo_used', 'true');
+                    setFlashMessage('Plan ready! Opening preview...');
+                    navigate('/shared/demo-preview');
+                    return;
+                }
+
                 const currentUser = user || (await supabase.auth.getUser()).data.user;
                 if (!currentUser) throw new Error('You must be logged in.');
-
-                if (!isOnline) throw new Error('You appear to be offline. Check your connection.');
 
                 const response = await fetch('/api/generate-date', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         userId: currentUser.id,
-                        ...formData
+                        ...formData,
+                        // Send vibe profile so the server can personalize venue queries
+                        vibeProfile: vibeProfile || null,
                     })
                 });
 
@@ -704,12 +780,19 @@ const GeneratePlan = () => {
                     throw new Error(result.error || 'Failed to generate plan.');
                 }
 
+                const createdPlans = await response.json();
+                const firstPlanId = Array.isArray(createdPlans) ? createdPlans[0]?.id : null;
+
                 if (!isPremium) {
                     setUsage(prev => ({ ...prev, classic: prev.classic + 1 }));
                 }
 
-                setFlashMessage('Plan saved — opening your itinerary.');
-                navigate('/dashboard');
+                setFlashMessage('Plan ready — opening your itinerary!');
+                if (firstPlanId) {
+                    navigate(`/shared/${firstPlanId}`);
+                } else {
+                    navigate('/dashboard');
+                }
             } catch (err) {
                 setError(err.message === 'Failed to fetch' ? 'Network error. We will save your data so you can retry!' : err.message);
                 setIsGenerating(false);
@@ -1329,67 +1412,73 @@ const GeneratePlan = () => {
                                     type="button"
                                     onClick={handleSubmitClassic}
                                     disabled={isGenerating}
-                                    className="sm:col-span-2 w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group"
+                                    className={`w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group ${!isGuestMode ? 'sm:col-span-2' : ''}`}
                                 >
-                                    {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" /> Generate Itineraries</>}
+                                    {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" />{isGuestMode ? 'Generate Free Demo' : 'Generate Itineraries'}</>}
                                 </button>
 
-                                <div className="sm:col-span-2 flex items-center gap-3 px-4 py-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
-                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative flex items-center p-1 shadow-inner ${formData.is_favorite ? 'bg-coral' : 'bg-gray-300'}`}
-                                    >
-                                        <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.is_favorite ? 'translate-x-6' : 'translate-x-0'}`} />
-                                    </button>
-                                    <span className="text-[14px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
-                                        <Heart className={`w-4 h-4 ${formData.is_favorite ? 'fill-coral text-coral' : 'text-gray-400'}`} />
-                                        Save to Favorites Automatically
-                                    </span>
-                                </div>
+                                {!isGuestMode && (
+                                    <>
+                                        <div className="sm:col-span-2 flex items-center gap-3 px-4 py-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
+                                                className={`w-12 h-6 rounded-full transition-all duration-300 relative flex items-center p-1 shadow-inner ${formData.is_favorite ? 'bg-coral' : 'bg-gray-300'}`}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.is_favorite ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            </button>
+                                            <span className="text-[14px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
+                                                <Heart className={`w-4 h-4 ${formData.is_favorite ? 'fill-coral text-coral' : 'text-gray-400'}`} />
+                                                Save to Favorites Automatically
+                                            </span>
+                                        </div>
+                                        
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any', budget: '$200' }));
+                                                handleSubmitClassic({ preventDefault: () => { } });
+                                            }}
+                                            className="w-full bg-white text-coral border-2 border-coral/20 hover:border-coral/40 hover:bg-coral/5 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 group"
+                                        >
+                                            <Sparkles className="w-4 h-4 text-coral opacity-50 group-hover:opacity-100" /> Surprise Me!
+                                        </button>
+                                        
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/dashboard')}
+                                            className="w-full bg-gray-100 text-gray-500 hover:bg-gray-200 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </>
+                                )}
 
                                 {/* Smart Loading Overlay */}
                                 {isGenerating && (
-                                    <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
-                                        <div className="relative mb-8">
-                                            <div className="w-24 h-24 border-4 border-coral/20 border-t-coral rounded-full animate-spin"></div>
+                                    <div className="fixed inset-0 bg-white/95 backdrop-blur-xl z-[100] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+                                        <div className="relative mb-10">
+                                            <div className="w-28 h-28 border-[6px] border-coral/10 border-t-coral border-r-coral rounded-full animate-[spin_1.5s_linear_infinite]"></div>
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <Sparkles className="w-8 h-8 text-coral animate-pulse" />
+                                                <Sparkles className="w-10 h-10 text-coral animate-pulse" />
                                             </div>
                                         </div>
-                                        <h2 className="text-2xl font-black text-navy mb-3 tracking-tight">Crafting Your Connection...</h2>
-                                        <p className="text-gray-500 font-bold text-lg animate-pulse min-h-[1.5em] duration-1000">
+                                        <h2 className="text-4xl font-black text-navy mb-4 tracking-tight drop-shadow-sm">Crafting Your Evening</h2>
+                                        <p className="text-coral font-bold text-2xl animate-pulse min-h-[1.5em] duration-1000 max-w-lg mb-2">
                                             {loadingMessages[loadingStage]}
                                         </p>
-                                        <p className="text-gray-400 text-sm font-medium mt-3">Usually finishes in under 30 seconds.</p>
-                                        <div className="mt-12 max-w-xs w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                        <p className="text-gray-400 text-sm font-semibold max-w-sm leading-relaxed">
+                                            {isGuestMode ? 'Analyzing local gems and matching venues... this takes just a few seconds.' : 'We are curating the perfect venues and activities based on your exact preferences.'}
+                                        </p>
+                                        <div className="mt-14 max-w-sm w-full bg-gray-100 h-2.5 rounded-full overflow-hidden shadow-inner">
                                             <div 
-                                                className="h-full bg-coral transition-all duration-1000 ease-out"
+                                                className="h-full bg-gradient-to-r from-coral to-pink-500 transition-all duration-[2000ms] ease-out rounded-full shadow-[0_0_10px_rgba(255,127,80,0.5)]"
                                                 style={{ width: `${((loadingStage + 1) / loadingMessages.length) * 100}%` }}
                                             ></div>
                                         </div>
-                                        <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Step {loadingStage + 1} of 6</p>
+                                        <p className="mt-4 text-[12px] font-black uppercase tracking-widest text-navy/40">Step {loadingStage + 1} of {loadingMessages.length}</p>
                                     </div>
                                 )}
-                                
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any', budget: '$200' }));
-                                        handleSubmitClassic({ preventDefault: () => { } });
-                                    }}
-                                    className="w-full bg-white text-coral border-2 border-coral/20 hover:border-coral/40 hover:bg-coral/5 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 group"
-                                >
-                                    <Sparkles className="w-4 h-4 text-coral opacity-50 group-hover:opacity-100" /> Surprise Me!
-                                </button>
-                                
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/dashboard')}
-                                    className="w-full bg-gray-100 text-gray-500 hover:bg-gray-200 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95"
-                                >
-                                    Cancel
-                                </button>
                             </div>
                         </form>
                     </div>

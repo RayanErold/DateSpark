@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare } from 'lucide-react';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard } from 'lucide-react';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { supabase } from '../lib/supabase';
 
 const darkMapStyle = [
   { elementType: 'geometry', stylers: [{ color: '#111827' }] },
@@ -30,6 +31,28 @@ const SharedPlan = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [appTheme] = useState(() => localStorage.getItem('appTheme') || 'light');
+    const [selectedMarker, setSelectedMarker] = useState(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const mapRef = useRef(null);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setIsLoggedIn(!!session?.user);
+        });
+    }, []);
+
+    const onMapLoad = useCallback((map) => {
+        mapRef.current = map;
+    }, []);
+
+    const focusStep = useCallback((idx, step) => {
+        if (!step.lat || !step.lng) return;
+        setSelectedMarker(idx);
+        if (mapRef.current) {
+            mapRef.current.panTo({ lat: step.lat, lng: step.lng });
+            mapRef.current.setZoom(16);
+        }
+    }, []);
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -38,6 +61,14 @@ const SharedPlan = () => {
 
     useEffect(() => {
         const fetchPlan = async () => {
+            if (id === 'demo-preview') {
+                const cached = localStorage.getItem('datespark_demo_plan');
+                if (cached) {
+                    setPlan(JSON.parse(cached));
+                    setIsLoading(false);
+                    return;
+                }
+            }
             try {
                 const response = await fetch(`/api/plans/${id}`);
                 if (!response.ok) {
@@ -98,9 +129,15 @@ const SharedPlan = () => {
                         <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-8 h-8 rounded-lg shadow-md object-cover bg-white group-hover:scale-105 transition-transform" />
                         <span className="text-lg font-black text-navy tracking-tight">DateSpark</span>
                     </Link>
-                    <Link to="/" className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-violet-200 hover:-translate-y-0.5 transition-all">
-                        <Sparkles className="w-4 h-4" /> Create your own date
-                    </Link>
+                    {isLoggedIn ? (
+                        <Link to="/dashboard" className="hidden sm:flex items-center gap-2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 transition-all">
+                            <LayoutDashboard className="w-4 h-4" /> Back to Dashboard
+                        </Link>
+                    ) : (
+                        <Link to="/" className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-violet-200 hover:-translate-y-0.5 transition-all">
+                            <Sparkles className="w-4 h-4" /> Create your own date
+                        </Link>
+                    )}
                 </div>
             </header>
 
@@ -155,15 +192,34 @@ const SharedPlan = () => {
                                     const colorIdx = idx % dotColors.length;
 
                                     return (
-                                        <div key={idx} className={`relative pl-8 group ${isLockedStep ? 'blur-[8px] select-none opacity-40 pointer-events-none' : ''}`}>
-                                            {/* Colored Dot */}
-                                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white flex items-center justify-center ${dotColors[colorIdx]}`}>
+                                        <div
+                                            key={idx}
+                                            className={`relative pl-8 group cursor-pointer`}
+                                            onClick={() => !isLockedStep && focusStep(idx, step)}
+                                        >
+                                            {/* Locked state overlay */}
+                                            {isLockedStep && (
+                                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/30 backdrop-blur-[6px] rounded-2xl border border-white/50 shadow-lg p-6 text-center ml-4 mt-2">
+                                                    <div className="w-14 h-14 bg-coral rounded-full flex items-center justify-center mb-4 shadow-xl">
+                                                        <Lock className="w-7 h-7 text-white" />
+                                                    </div>
+                                                    <h4 className="font-black text-navy text-2xl mb-2 mt-2 tracking-tight">Unlock Full Itinerary</h4>
+                                                    <p className="text-sm font-bold text-gray-600 mb-6 max-w-[280px]">Sign up for free to reveal the rest of your personalized date plan.</p>
+                                                    <Link to="/signup" className="pointer-events-auto bg-navy text-white px-8 py-4 rounded-2xl font-black text-[16px] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+                                                        Sign Up Free <ArrowRight className="w-5 h-5" />
+                                                    </Link>
+                                                </div>
+                                            )}
+
+                                            {/* Colored Dot — pulses when selected */}
+                                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white flex items-center justify-center transition-all duration-300 ${dotColors[colorIdx]} ${selectedMarker === idx ? 'scale-150 shadow-lg' : ''}`}>
                                             </div>
 
-                                        <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]} font-inter`}>
-                                            {step.time} • {step.activity}
-                                        </p>
-                                        <h4 className="text-2xl font-black text-navy mb-2 font-inter">{step.venue}</h4>
+                                            <div className={`${isLockedStep ? 'blur-md select-none opacity-40 pointer-events-none' : ''}`}>
+                                                <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]} font-inter`}>
+                                                    {step.time} • {step.activity}
+                                                </p>
+                                                <h4 className="text-2xl font-black text-navy mb-2 font-inter">{step.venue}</h4>
                                         
                                         {/* Per-Stop Community Snippet */}
                                         {plan.reviews?.find(r => r.stop_feedback?.[step.venue]?.comment) && (
@@ -187,16 +243,21 @@ const SharedPlan = () => {
                                         )}
 
                                         <div className="flex flex-wrap items-center gap-2 mt-4">
-                                            {step.directionsUrl && (
-                                                <a
-                                                    href={step.directionsUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-[10px] font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
-                                                >
-                                                    <MapPin className="w-3 h-3" /> Get Directions
-                                                </a>
-                                            )}
+                                            {/* Always show Get Directions — use coords if available, else search by name */}
+                                            <a
+                                                href={
+                                                    step.lat && step.lng
+                                                        ? `https://www.google.com/maps/dir/?api=1&destination=${step.lat},${step.lng}&destination_place_id=${encodeURIComponent(step.venue)}`
+                                                        : step.directionsUrl
+                                                        ? step.directionsUrl
+                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((step.venue || '') + ' ' + (step.address || ''))}`
+                                                }
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-[10px] font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                            >
+                                                <MapPin className="w-3 h-3" /> Get Directions
+                                            </a>
 
                                             {/* Primary Website Button */}
                                             { (step.websiteUrl || step.url) && (
@@ -245,29 +306,100 @@ const SharedPlan = () => {
                                                 </a>
                                             )}
                                         </div>
-                                    </div>
-                                );
+                                            </div>
+                                        </div>
+                                    );
                             })}
                         </div>
                     </div>
                     </div>
 
-                    {/* Right Column: Google Map */}
+                    {/* Right Column: Interactive Google Map */}
                     <div className="absolute inset-0 md:relative md:w-1/2 h-full md:h-auto bg-gray-50 border-t md:border-t-0 md:border-l border-gray-100 z-0">
                         {isLoaded ? (
                             <GoogleMap
                                 mapContainerStyle={{ width: '100%', height: '100%' }}
                                 center={mapCenter}
                                 zoom={14}
-                                options={{ disableDefaultUI: true, styles: appTheme === 'dark' ? darkMapStyle : undefined }}
+                                onLoad={onMapLoad}
+                                onClick={() => setSelectedMarker(null)}
+                                options={{
+                                    disableDefaultUI: true,
+                                    zoomControl: true,
+                                    styles: appTheme === 'dark' ? darkMapStyle : undefined,
+                                    gestureHandling: 'cooperative',
+                                }}
                             >
-                                {itinerarySteps.map((step, idx) => (
-                                    <Marker
-                                        key={idx}
-                                        position={{ lat: step.lat, lng: step.lng }}
-                                        label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
-                                    />
-                                ))}
+                                {itinerarySteps.map((step, idx) => {
+                                    const isPreview = plan.itinerary?.metadata?.isPreviewPlan || plan.is_preview || false;
+                                    const isLockedStep = isPreview && idx >= 2;
+                                    if (!step.lat || !step.lng) return null;
+
+                                    const hexColors = ['e67e22', 'f1c40f', '2c3e50', '27ae60', '8e44ad'];
+                                    const hex = isLockedStep ? '9ca3af' : hexColors[idx % hexColors.length];
+                                    const pinLabel = isLockedStep ? '?' : String(idx + 1);
+                                    const isSelected = selectedMarker === idx;
+
+                                    const pinIcon = {
+                                        url: `https://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=${pinLabel}|${hex}|ffffff`,
+                                        scaledSize: new window.google.maps.Size(isSelected ? 42 : 32, isSelected ? 60 : 46),
+                                    };
+
+                                    const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${step.lat},${step.lng}`;
+
+                                    return (
+                                        <Marker
+                                            key={idx}
+                                            position={{ lat: step.lat, lng: step.lng }}
+                                            icon={pinIcon}
+                                            opacity={isLockedStep ? 0.5 : 1}
+                                            onClick={() => !isLockedStep && setSelectedMarker(idx)}
+                                        >
+                                            {isSelected && (
+                                                <InfoWindow
+                                                    position={{ lat: step.lat, lng: step.lng }}
+                                                    onCloseClick={() => setSelectedMarker(null)}
+                                                >
+                                                    <div style={{ fontFamily: 'Inter, sans-serif', minWidth: '220px', maxWidth: '260px', padding: '4px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: `#${hex}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                <span style={{ color: 'white', fontSize: '11px', fontWeight: '900' }}>{idx + 1}</span>
+                                                            </div>
+                                                            <span style={{ fontSize: '10px', fontWeight: '800', color: `#${hex}`, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                                {step.time} · {step.activity}
+                                                            </span>
+                                                        </div>
+                                                        <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '900', color: '#0f172a', lineHeight: '1.2' }}>
+                                                            {step.venue}
+                                                        </h4>
+                                                        {step.address && (
+                                                            <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#6b7280', fontWeight: '500' }}>
+                                                                {step.address}
+                                                            </p>
+                                                        )}
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                                                            <a href={directionsHref} target="_blank" rel="noopener noreferrer"
+                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
+                                                                🗺️ Directions
+                                                            </a>
+                                                            {(step.websiteUrl || step.url) && (
+                                                                <a href={step.websiteUrl || step.url} target="_blank" rel="noopener noreferrer"
+                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
+                                                                    🌐 Website
+                                                                </a>
+                                                            )}
+                                                            <a href={`https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
+                                                                target="_blank" rel="noopener noreferrer"
+                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#000', color: '#fff', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
+                                                                🚗 Uber
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </InfoWindow>
+                                            )}
+                                        </Marker>
+                                    );
+                                })}
                             </GoogleMap>
                         ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center bg-gray-100/50">

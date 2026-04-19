@@ -10,6 +10,7 @@ import { Resend } from 'resend';
 import Stripe from 'stripe';
 import nodeCron from 'node-cron';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import NodeCache from 'node-cache';
 
 dotenv.config();
 
@@ -38,6 +39,32 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 
 app.use(cors());
 app.use(express.json());
+
+// --- SECURITY & CACHING ---
+// rateLimitCache: Tracks guest generations by IP (24h TTL = 1 demo per day per IP)
+const rateLimitCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 });
+// demoCache: Stores generated plans by location+vibe (24h TTL to save API costs)
+const demoCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 });
+
+const GUEST_DAILY_LIMIT = 1; // 1 free demo per IP per 24 hours
+
+const guestRateLimit = (req, res, next) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+    const key = `guest_limit_${ip}`;
+    const currentCount = rateLimitCache.get(key) || 0;
+
+    if (currentCount >= GUEST_DAILY_LIMIT) {
+        console.warn(`[RATE LIMIT] IP ${ip} blocked — daily guest limit reached.`);
+        return res.status(429).json({ 
+            error: 'You have used your free demo for today. Sign up for unlimited access.',
+            code: 'RATE_LIMIT_EXCEEDED',
+            retryAfter: 86400 // seconds until reset
+        });
+    }
+
+    rateLimitCache.set(key, currentCount + 1);
+    next();
+};
 
 // Diagnostic Startup Log - Pointed to organized /logs folder
 const logsDir = path.join(__dirname, 'logs');
@@ -431,15 +458,80 @@ const VIBE_MAPPING = {
     educational: ['museum or historical site', 'informative tour or exhibit', 'quiet library-themed cafe', 'cultural landmark', 'intellectual bookstore', 'museum']
 };
 
-async function generateStandardItinerary(numVariants, vibe, location, calcDuration, targetSteps = 3) {
-    const queries = VIBE_MAPPING[vibe.toLowerCase()] || VIBE_MAPPING['chill'];
-    const selectedQueries = queries.slice(0, targetSteps);
+const ADJECTIVES = ['phenomenal', 'gorgeous', 'highly-rated', 'stunning', 'incredible', 'must-visit', 'top-tier', 'beautiful', 'vibrant', 'charming'];
+const ACTION_PHRASES = ['Enjoy the perfect atmosphere at', 'Get ready for an amazing time at', 'Experience true local culture at', 'Make memories at', 'Treat yourselves to', 'Step into the magic of'];
+
+function getDynamicBlurb(vibe, venue) {
+    const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+    const action = ACTION_PHRASES[Math.floor(Math.random() * ACTION_PHRASES.length)];
+    return `${action} this ${adj} spot. Perfect for your ${vibe.toLowerCase()} date!`;
+}
+
+
+// Maps onboarding activity IDs to venue search terms
+const ACTIVITY_VENUE_MAP = {
+    food_first:     ['fine dining restaurant', 'highly-rated bistro or brasserie'],
+    drinks_vibes:   ['craft cocktail bar', 'speakeasy or rooftop lounge'],
+    music_dance:    ['jazz bar or live music venue', 'dancing venue or music lounge'],
+    outdoor_scenic: ['scenic waterfront or rooftop terrace', 'botanical garden or park'],
+    art_culture:    ['contemporary art gallery', 'cultural museum or creative space'],
+    spontaneous:    ['hidden gem or pop-up experience', 'unique immersive venue'],
+};
+
+// Build a preference-aware list of venue queries from the vibe profile
+function buildPersonalizedQueries(vibe, vibeProfile, targetSteps) {
+    const baseQueries = VIBE_MAPPING[vibe.toLowerCase()] || VIBE_MAPPING['chill'];
+    if (!vibeProfile?.activities?.length) return baseQueries.slice(0, targetSteps);
+
+    // Pull user-preferred venue types from their onboarding activities
+    const preferredVenueTypes = vibeProfile.activities
+        .flatMap(actId => ACTIVITY_VENUE_MAP[actId] || [])
+        .filter(Boolean);
+
+    if (!preferredVenueTypes.length) return baseQueries.slice(0, targetSteps);
+
+    // Merge: preferred types take priority, fill remaining slots with base vibe queries
+    const merged = [...new Set([...preferredVenueTypes, ...baseQueries])];
+    return merged.slice(0, targetSteps);
+}
+
+// Build a human-readable preference string for AI prompt injection
+function buildVibeProfileContext(vibeProfile) {
+    if (!vibeProfile) return '';
+    const activityLabels = {
+        food_first: 'great food',
+        drinks_vibes: 'craft cocktails and bar culture',
+        music_dance: 'live music and dancing',
+        outdoor_scenic: 'outdoor and scenic spots',
+        art_culture: 'art galleries and cultural experiences',
+        spontaneous: 'spontaneous and unique surprises',
+    };
+    const activityStr = (vibeProfile.activities || [])
+        .map(a => activityLabels[a])
+        .filter(Boolean)
+        .join(', ');
+    const atmosphereStr = {
+        moody: 'moody and intimate (candlelit, jazz, speakeasy)',
+        bright: 'bright and minimal (modern, airy, gallery-like)',
+        adventurous: 'bold and adventurous (unique, off-the-beaten-path)',
+        fancy: 'upscale and refined (fine dining, exclusive)',
+    }[vibeProfile.atmosphere] || '';
+
+    const parts = [];
+    if (atmosphereStr) parts.push(`Atmosphere preference: ${atmosphereStr}`);
+    if (activityStr) parts.push(`They enjoy: ${activityStr}`);
+    if (vibeProfile.budget) parts.push(`Budget comfort: ${vibeProfile.budget} (${'budget'===vibeProfile.budget?'under $50':vibeProfile.budget==='moderate'?'$50-120':'$120+'} per person)`);
+    return parts.length ? `\nUSER PREFERENCE PROFILE:\n${parts.join('.\n')}.` : '';
+}
+
+async function generateStandardItinerary(numVariants, vibe, location, calcDuration, targetSteps = 3, vibeProfile = null) {
+    // Use personalized queries if vibe profile exists, otherwise fall back to default
+    const selectedQueries = buildPersonalizedQueries(vibe, vibeProfile, targetSteps);
     const plans = [];
 
     for (let i = 0; i < numVariants; i++) {
         const steps = [];
-        // Generate dynamic times based on duration and targetSteps
-        const startTime = 18; // Default 6 PM
+        const startTime = 18;
         const intervals = Math.floor(calcDuration * 60 / Math.max(1, targetSteps - 1));
         
         for (let j = 0; j < targetSteps; j++) {
@@ -448,8 +540,7 @@ async function generateStandardItinerary(numVariants, vibe, location, calcDurati
             const response = await axios.get(searchUrl);
             const results = response.data?.results || [];
             
-            // Pick a random result offset by variant index to ensure diversity
-            const place = results[(i + j) % Math.max(results.length, 1)] || { name: 'Local Gem', formatted_address: location };
+            const place = results[(i * targetSteps + j) % Math.max(results.length, 1)] || { name: 'Local Gem', formatted_address: location };
 
             let details = {};
             if (place.place_id) {
@@ -459,7 +550,6 @@ async function generateStandardItinerary(numVariants, vibe, location, calcDurati
                 } catch (e) { console.error('[DETAILS ERROR]', e.message); }
             }
 
-            // Calculate timestamp string
             const minutesTotal = (startTime * 60) + (j * intervals);
             const h = Math.floor(minutesTotal / 60) % 24;
             const m = minutesTotal % 60;
@@ -471,7 +561,7 @@ async function generateStandardItinerary(numVariants, vibe, location, calcDurati
                 time: timeStr,
                 venue: place.name,
                 activity: selectedQueries[j].split(' or ')[0],
-                description: `Experience the best ${vibe} vibes at this highly-rated local spot! Perfect for a memorable sequence in ${location}.`,
+                description: getDynamicBlurb(vibe, place.name),
                 search_term: place.name,
                 sub_headline: j === 0 ? "The Perfect Start" : j === targetSteps - 1 ? "Ending on a High Note" : "Continuing the Spark",
                 vibe_score: 9,
@@ -497,10 +587,10 @@ async function generateStandardItinerary(numVariants, vibe, location, calcDurati
     return { plans };
 }
 
-// GENERATOR
 // GENERATOR (Classic & Aliases)
 app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) => {
-    const { userId, vibe, location, duration, time, endTime, budget, planDate, customization } = req.body;
+    // vibeProfile comes from the user's onboarding quiz stored in Supabase
+    const { userId, vibe, location, duration, time, endTime, budget, planDate, customization, vibeProfile } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
     try {
@@ -511,7 +601,6 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
         const isPremium = !!usageCheck.isPremium;
         const numVariants = isPremium ? 3 : 2;
 
-        // Calculate hours if time/endTime provided
         let calcDuration = duration || 4;
         if (time && endTime) {
             const start = parseInt(time.split(':')[0]);
@@ -519,24 +608,33 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
             calcDuration = end > start ? end - start : (24 - start) + end;
         }
 
-        // --- DYNAMIC STEPS CALCULATION ---
-        // 1-3 hrs: 3 steps | 4 hrs+: 4-5 steps
         const targetSteps = Math.max(3, Math.min(5, Math.ceil(calcDuration / 1.2)));
         const stepsPerPlan = targetSteps; 
 
+        // Build the preference context string for AI routes
+        const profileContext = buildVibeProfileContext(vibeProfile);
+        const effectiveBudget = vibeProfile?.budget || budget || 'moderate';
+        const effectiveVibe = vibeProfile?.primaryVibe || vibe;
+
         let rawPlans = [];
 
-        // --- FORK: Guided Builder (Places API) vs Custom (AI) ---
+        // --- FORK: Guided Builder (Places API + Profile) vs Custom (AI + Profile) ---
         if (!customization?.prompt) {
-            console.log(`[GENERATOR] Guided Builder: Using Places API Template for ${vibe} in ${location} (${targetSteps} steps)`);
-            const data = await generateStandardItinerary(numVariants, vibe, location, calcDuration, targetSteps);
+            console.log(`[GENERATOR] Guided Builder: ${effectiveVibe} in ${location} (${targetSteps} steps) [Profile: ${!!vibeProfile}]`);
+            // Pass vibeProfile so queries are personalized from onboarding preferences
+            const data = await generateStandardItinerary(numVariants, effectiveVibe, location, calcDuration, targetSteps, vibeProfile);
             rawPlans = data.plans || [];
         } else {
-            console.log(`[GENERATOR] Custom AI: Using Gemini 2.5 Flash for Prompt: "${customization.prompt}" (${targetSteps} steps)`);
+            console.log(`[GENERATOR] Custom AI: "${customization.prompt}" [Profile: ${!!vibeProfile}]`);
             const model = genAI.getGenerativeModel({ model: GEMINI_MODEL }); 
-            const prompt = `Create ${numVariants} distinct ${vibe} date itinerary variations in ${location} for ${budget || 'moderate'} budget. User request: "${customization.prompt}".
-            Return JSON object: { "plans": [ { "vibe_variant": "string", "steps": [ { "time": "string", "venue": "string", "activity": "string", "description": "string", "search_term": "string", "sub_headline": "string (viral catchphrase, max 6 words)", "vibe_score": number, "rating": number, "user_rating_count": number } ] } ] }
-            Generate EXACTLY ${targetSteps} chronological sequence-flow steps per plan based on a ${calcDuration}-hour window. Do NOT use all uppercase for sub_headlines. Use realistic ratings (4.5-4.9) and review counts (100-3000). Date: ${planDate}.`;
+            // Inject the full profile context into the AI prompt
+            const prompt = `You are a luxury boutique date concierge. Create ${numVariants} distinct date itinerary variations in ${location} for a ${effectiveBudget} budget.
+            User's vibe: ${effectiveVibe}. User request: "${customization.prompt}".${profileContext}
+            CRITICAL RULES:
+            1. Generate venues that match BOTH the user's atmosphere preference AND their activity interests above.
+            2. Do NOT suggest venues that conflict with their preferences (e.g. do not suggest arcades for an upscale/fancy user).
+            3. Return JSON only: { "plans": [ { "vibe_variant": "string", "steps": [ { "time": "string", "venue": "string", "activity": "string", "description": "string", "search_term": "string", "sub_headline": "string (viral catchphrase, max 6 words)", "vibe_score": number, "rating": number, "user_rating_count": number } ] } ] }
+            Generate EXACTLY ${targetSteps} chronological steps per plan across a ${calcDuration}-hour window. Use realistic ratings (4.5-4.9). Date: ${planDate}.`;
 
             const result = await model.generateContent(prompt);
             const response = await result.response;
@@ -572,7 +670,7 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
                         websiteUrl: details.website || null,
                         photoUrl: place?.photos?.[0]?.photo_reference ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
                     };
-                } catch { return step; }
+                } catch (e) { return step; }
             }));
 
             const isCurrentPreview = !isPremium && pIdx >= 1;
@@ -600,6 +698,130 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
     } catch (err) {
         logError('[GEN ERROR]', err);
         res.status(500).json({ error: 'Failed to generate itinerary.' });
+    }
+});
+
+// GUEST GENERATOR (Lead Magnet Demo)
+// This strictly maps to "Simulation Mode". We don't save to db, and we only generate 1 variant.
+app.post('/api/guest-generate-date', guestRateLimit, async (req, res) => {
+    // For demo purposes, we will expect: { vibe: "Chill", location: "New York, NY", duration: 4 }
+    const { vibe, location, duration, time, planDate } = req.body;
+
+    if (!location) return res.status(400).json({ error: 'Location is required for the demo' });
+
+    // --- CACHE CHECK (Approved Token Conservation) ---
+    const cacheKey = `demo_${location.toLowerCase().trim()}_${(vibe || 'chill').toLowerCase()}`;
+    const cachedPlan = demoCache.get(cacheKey);
+    if (cachedPlan) {
+        console.log(`[GUEST GENERATOR] Cache Hit: ${cacheKey}`);
+        return res.json([cachedPlan]);
+    }
+
+    try {
+        let calcDuration = duration || 4;
+        if (time) {
+            // Very rough calculation for demo if only start time given
+            calcDuration = 4;
+        }
+
+        const targetSteps = Math.max(3, Math.min(5, Math.ceil(calcDuration / 1.2)));
+        const effectiveVibe = vibe || 'Chill';
+
+        console.log(`[GUEST GENERATOR] Demo: ${effectiveVibe} in ${location} (${targetSteps} steps)`);
+
+        // We only want 1 variation for the teaser
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL }); 
+        const prompt = `You are a luxury boutique date concierge. Create 1 date itinerary variation in ${location} for a moderate budget.
+        User's vibe: ${effectiveVibe}.
+        CRITICAL RULES:
+        1. Generate venues that strongly match the ${effectiveVibe} atmosphere.
+        2. Return JSON only: { "plans": [ { "vibe_variant": "Demo", "steps": [ { "time": "string", "venue": "string", "activity": "string", "description": "string", "search_term": "string", "sub_headline": "string (viral catchphrase, max 6 words)", "vibe_score": number, "rating": number, "user_rating_count": number } ] } ] }
+        Generate EXACTLY ${targetSteps} chronological steps across a ${calcDuration}-hour window. Use realistic ratings (4.5-4.9). Date: ${planDate || 'Soon'}.`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const data = JSON.parse(response.text().match(/\{.*\}/s)?.[0] || '{ "plans": [] }');
+        let rawPlans = data.plans || [];
+
+        // Hydrate steps with real places API data so the demo looks amazing
+        const demoPlan = rawPlans[0];
+        if (!demoPlan || !demoPlan.steps) {
+            return res.status(500).json({ error: 'Failed to generate demo steps.' });
+        }
+
+        const enhancedSteps = await Promise.all(demoPlan.steps.map(async (step) => {
+            try {
+                const searchRes = await axios.get('https://maps.googleapis.com/maps/api/place/textsearch/json?query=' + encodeURIComponent((step.venue || step.activity) + ' near ' + location) + '&key=' + GOOGLE_API_KEY);
+                const place = (searchRes.data && searchRes.data.results) ? searchRes.data.results[0] : null;
+                let details = {};
+                
+                if (place && place.place_id) {
+                    const detailsRes = await axios.get('https://maps.googleapis.com/maps/api/place/details/json?place_id=' + place.place_id + '&fields=website,url,reviews&key=' + GOOGLE_API_KEY);
+                    details = (detailsRes.data && detailsRes.data.result) ? detailsRes.data.result : {};
+                }
+
+                // reviews extraction
+                const reviews = [];
+                if (details.reviews) {
+                    const topReviews = details.reviews.slice(0, 3);
+                    for (let i = 0; i < topReviews.length; i++) {
+                        const r = topReviews[i];
+                        reviews.push({
+                            author: r.author_name,
+                            rating: r.rating,
+                            text: r.text
+                        });
+                    }
+                }
+
+                const placeIdStr = (place && place.place_id) ? place.place_id : '';
+                const finalSearchUrl = details.url || ('https://www.google.com/maps/place/?q=place_id:' + placeIdStr);
+                const photoRef = (place && place.photos && place.photos.length > 0) ? place.photos[0].photo_reference : null;
+                const finalPhotoUrl = photoRef 
+                    ? ('https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=' + photoRef + '&key=' + GOOGLE_API_KEY)
+                    : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+
+                return {
+                    ...step,
+                    placeId: (place && place.place_id) ? place.place_id : null,
+                    address: (place && place.formatted_address) ? place.formatted_address : location,
+                    lat: (place && place.geometry && place.geometry.location) ? place.geometry.location.lat : null,
+                    lng: (place && place.geometry && place.geometry.location) ? place.geometry.location.lng : null,
+                    rating: (place && place.rating) ? place.rating : (step.rating || 4.7),
+                    userRatingCount: (place && place.user_ratings_total) ? place.user_ratings_total : (step.user_rating_count || 450),
+                    reviews: reviews,
+                    searchUrl: finalSearchUrl,
+                    websiteUrl: details.website || null,
+                    photoUrl: finalPhotoUrl
+                };
+            } catch (e) { 
+                return step; 
+            }
+        }));
+
+        const resultPlan = {
+            vibe: effectiveVibe,
+            location: location,
+            itinerary: {
+                steps: enhancedSteps,
+                metadata: {
+                    totalSteps: targetSteps,
+                    isDemoPlan: true,
+                    lat: enhancedSteps[0]?.lat,
+                    lng: enhancedSteps[0]?.lng
+                }
+            }
+        };
+
+        // --- CACHE RESULT BEFORE SENDING ---
+        demoCache.set(cacheKey, resultPlan);
+        console.log(`[GUEST GENERATOR] Cache SET: ${cacheKey}`);
+
+        res.json([resultPlan]);
+
+    } catch (err) {
+        logError('[GUEST GEN ERROR]', err);
+        res.status(500).json({ error: 'Failed to generate demo itinerary.' });
     }
 });
 

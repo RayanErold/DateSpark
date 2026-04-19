@@ -16,6 +16,7 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
+const VibeOnboarding = lazy(() => import('./pages/VibeOnboarding'));
 
 const LoadingScreen = () => (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[9999]">
@@ -45,6 +46,7 @@ function App() {
           <Route path="/cookies" element={<CookiePolicy />} />
 
           {/* Protected Routes */}
+          <Route path="/demo" element={<GeneratePlan isGuestMode={true} />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
@@ -53,6 +55,11 @@ function App() {
           <Route path="/generate" element={
             <ProtectedRoute>
               <GeneratePlan />
+            </ProtectedRoute>
+          } />
+          <Route path="/onboarding" element={
+            <ProtectedRoute>
+              <VibeOnboarding />
             </ProtectedRoute>
           } />
         </Routes>

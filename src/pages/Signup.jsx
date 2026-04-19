@@ -146,7 +146,7 @@ const Signup = () => {
                   .catch(e => console.error('Referral redemption failed:', e));
             }
 
-            navigate('/dashboard');
+            navigate('/onboarding');
         } catch (err) {
             console.error('Full Verification Error:', err);
             setError(err.message || 'Invalid or expired verification code');

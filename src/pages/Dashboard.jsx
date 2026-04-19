@@ -53,7 +53,8 @@ import {
     Copy,
     ThumbsUp,
     Reply,
-    TrendingUp
+    TrendingUp,
+    Navigation
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { loadStripe } from '@stripe/stripe-js';
@@ -129,7 +130,7 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
     const cardTitle = plan.vibe ? `${plan.vibe} Date` : 'Trending Date';
     const cardLocation = plan.location || 'New Rochelle, NY';
     const cardRating = plan.avg_rating ? parseFloat(plan.avg_rating).toFixed(1) : '4.9';
-    const triesCount = plan.total_tries || Math.floor(Math.random() * 150) + 50;
+    const triesCount = plan.boost_count !== undefined ? plan.boost_count : (plan.total_tries || Math.floor(Math.random() * 150) + 50);
     const steps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
     const photos = steps.map(s => s.photoUrl).filter(Boolean);
     const hasPhotos = photos.length > 0;
@@ -353,13 +354,13 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
                         <div className="flex items-center gap-1.5 mb-1">
                             <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
                             <span className={`text-base font-black ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{plan.avg_rating || '4.9'}</span>
-                            <span className="text-xs text-gray-400 font-bold">({plan.total_tries || 75})</span>
+                            <span className="text-xs text-gray-400 font-bold">({plan.boost_count !== undefined ? plan.boost_count : (plan.total_tries || 75)})</span>
                         </div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Overall Rating</span>
                     </div>
                     <div className="flex bg-coral/10 border border-coral/20 px-4 py-2 rounded-2xl items-center gap-2">
                         <Flame className="w-4 h-4 text-coral fill-coral" />
-                        <span className="text-xs font-black text-coral uppercase tracking-widest">{plan.total_tries > 50 ? 'Trending' : 'Rising'}</span>
+                        <span className="text-xs font-black text-coral uppercase tracking-widest">{(plan.boost_count || plan.total_tries || 75) > 50 ? 'Trending' : 'Rising'}</span>
                     </div>
                 </div>
 
@@ -1450,7 +1451,7 @@ const Dashboard = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                setToastMessage(isBoosted ? 'Boost Removed' : 'Plan Boosted! 🚀');
+                setToastMessage(isBoosted ? 'Removed from Tried' : 'Marked as Tried! ✨');
                 setTimeout(() => setToastMessage(''), 2000);
                 
                 // Optimistic UI Update for toggle
@@ -1953,16 +1954,28 @@ const Dashboard = () => {
 
                         <button
                             onClick={(e) => { e.stopPropagation(); handleBoostPlan(plan.id); }}
-                            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-[12px] font-black transition-all group/boost shadow-md active:scale-95 ${
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-black transition-all duration-300 group/boost shadow-md active:scale-95 ${
                                 Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
-                                ? 'bg-orange-100 border-orange-200 text-orange-600 hover:bg-white/50'
+                                ? 'bg-gradient-to-r from-orange-500 via-coral to-pink-500 text-white shadow-lg shadow-coral/30 hover:shadow-xl hover:-translate-y-0.5 border border-white/20'
                                 : appTheme === 'dark'
-                                ? 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
-                                : 'bg-coral/10 border border-coral/20 text-coral hover:bg-coral hover:text-white'
+                                ? 'bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10'
+                                : 'bg-white border border-gray-100 text-gray-500 hover:text-coral hover:bg-coral/5 hover:border-coral/20'
                             }`}
                         >
-                            <Flame className={`w-3.5 h-3.5 ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'fill-orange-500 text-orange-500' : 'fill-coral group-hover/boost:fill-white'} transition-colors ${appTheme === 'dark' && !plan.boosted_by?.includes(user?.id) ? 'opacity-70 group-hover/boost:opacity-100' : ''}`} />
-                            {plan.boost_count || 0}
+                            {Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? (
+                                <div className="flex items-center justify-center w-5 h-5 bg-white/20 rounded-full shadow-inner">
+                                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                                </div>
+                            ) : (
+                                <div className={`flex items-center justify-center w-5 h-5 rounded-full transition-colors ${appTheme === 'dark' ? 'bg-white/10 group-hover/boost:bg-coral/20' : 'bg-gray-50 group-hover/boost:bg-coral/10'}`}>
+                                    <Flame className={`w-3 h-3 transition-colors ${appTheme === 'dark' ? 'opacity-70 group-hover/boost:opacity-100 group-hover/boost:fill-coral text-coral' : 'text-gray-400 group-hover/boost:fill-coral group-hover/boost:text-coral'}`} />
+                                </div>
+                            )}
+                            <span className={`tracking-tight ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'drop-shadow-sm' : ''}`}>
+                                {Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'We Tried This' : 'Tried It?'}
+                            </span>
+                            <span className={`opacity-50 font-black px-0.5 ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'text-white/60' : ''}`}>•</span>
+                            <span className={Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'text-white' : ''}>{plan.boost_count || 0}</span>
                         </button>
                     </div>
                 </div>
@@ -3234,6 +3247,15 @@ const Dashboard = () => {
                                                             className="px-4 py-2 bg-white text-navy border border-gray-200 text-[11px] font-black rounded-xl hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-sm"
                                                         >
                                                             <Search className="w-3.5 h-3.5" /> Search on Google
+                                                        </a>
+
+                                                        <a
+                                                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-white text-[11px] font-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
+                                                        >
+                                                            <Navigation className="w-3.5 h-3.5" /> Get Directions
                                                         </a>
 
                                                         {step.lat && step.lng && (
