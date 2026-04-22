@@ -1,5 +1,6 @@
 import React from 'react';
 import { MapPin, Navigation2, Star, Utensils, Ticket } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const TrustedPartners = () => {
     const partnerNodes = [
@@ -46,7 +47,13 @@ const TrustedPartners = () => {
     ];
 
     return (
-        <section className="py-12 bg-white border-t border-b border-gray-100 overflow-hidden relative">
+        <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.6 }}
+            className="py-12 bg-white border-t border-b border-gray-100 overflow-hidden relative"
+        >
             <style>{`
                 @keyframes scroll {
                     0% { transform: translateX(0); }
@@ -79,7 +86,7 @@ const TrustedPartners = () => {
                     </div>
                 </div>
             </div>
-        </section>
+        </motion.section>
     );
 };
 

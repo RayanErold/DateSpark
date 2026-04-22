@@ -151,429 +151,388 @@ const Hero = () => {
     ];
 
     return (
-        <section className="relative pt-32 pb-20 overflow-hidden bg-white">
-            {/* Background Decor - Enhanced */}
-            <div className="absolute top-0 right-0 -z-10 w-2/3 h-full bg-gradient-to-bl from-violet-100/50 via-soft-pink/30 to-transparent rounded-l-[120px] blur-3xl opacity-70" />
-            <div className="absolute -top-32 -left-32 -z-10 w-[500px] h-[500px] bg-gradient-to-br from-gold/20 via-coral/10 to-transparent rounded-full blur-3xl animate-pulse" />
+        <>
+        <section className="relative min-h-[95vh] flex flex-col justify-center pt-24 pb-20 overflow-hidden bg-[#0a0f1c]">
+            {/* Deep Rich Background Decor */}
+            <div className="absolute top-0 right-0 -z-10 w-full h-[800px] bg-gradient-to-b from-[#1a103c]/80 via-[#0a0f1c] to-[#0a0f1c] opacity-80" />
+            <div className="absolute top-[-20%] left-[-10%] -z-10 w-[800px] h-[800px] bg-coral/20 rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-[10%] right-[-10%] -z-10 w-[600px] h-[600px] bg-violet-600/20 rounded-full blur-[100px]" />
+            <div className="absolute inset-0 -z-10 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-[0.05]" />
 
-            {/* Grid Pattern Overlay */}
-            <div className="absolute inset-0 -z-10 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-[0.03]" />
-
-            <div className="container-custom grid lg:grid-cols-2 gap-12 items-center relative z-10">
-                <div className="text-center lg:text-left space-y-8">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-navy/5 border border-navy/10 text-navy rounded-full text-sm font-bold shadow-sm backdrop-blur-sm">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-coral to-pink-500 text-white">
-                            <Sparkles className="w-3 h-3" />
+            <div className="container-custom grid lg:grid-cols-2 gap-16 items-center relative z-10 w-full">
+                
+                {/* Left Side: Copy and Call to Action */}
+                <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true }}
+                    variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { staggerChildren: 0.2 } }
+                    }}
+                    className="text-center lg:text-left space-y-8 lg:pr-8"
+                >
+                    <motion.div variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: 'spring' } } }} className="inline-flex items-center gap-3 px-5 py-2.5 bg-white/5 border border-white/10 rounded-full text-sm font-bold shadow-2xl backdrop-blur-md">
+                        <div className="relative flex items-center justify-center w-6 h-6">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-coral opacity-40 animate-ping"></span>
+                            <div className="relative flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-coral to-pink-500 text-white">
+                                <Sparkles className="w-3.5 h-3.5" />
+                            </div>
                         </div>
-                        <span className="pl-1">Available now in NYC & NJ</span>
-                    </div>
+                        <span className="text-white/90">Available now in NYC and NJ</span>
+                    </motion.div>
 
-                    <h1 className="text-4xl md:text-7xl lg:text-[76px] font-black text-navy leading-[1.05] tracking-tight">
-                        Stop arguing.<br />Start <span className="text-transparent bg-clip-text bg-gradient-to-r from-coral via-pink-500 to-violet-500 animate-gradient-x">dating.</span>
-                    </h1>
-
-                    <p className="text-xl text-gray-500 max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
-                        The AI date planner that actually works. We use real restaurants and hidden gems to build your perfect, ready-to-go itinerary in seconds in your city.
-                    </p>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5 pt-4">
-                        <Link to="/signup" className="bg-gradient-to-r from-orange-500 via-coral to-pink-500 text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_10px_40px_rgba(249,115,22,0.3)] hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(249,115,22,0.4)] transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 relative overflow-hidden">
-                            <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-                            <span className="relative z-10">Start My Plan for Free</span>
-                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" />
-                        </Link>
-                        <button
-                            onClick={() => window.open('/demo', '_blank')}
-                            className="flex items-center gap-2 text-navy font-bold hover:text-coral transition-colors bg-white border-2 border-gray-200 px-6 py-4 rounded-2xl hover:border-coral group shadow-sm active:scale-95"
+                    {/* H1 — word-by-word stagger reveal */}
+                    <motion.h1
+                        variants={{
+                            hidden: { opacity: 1 },
+                            visible: { opacity: 1, transition: { staggerChildren: 0.09, delayChildren: 0.1 } }
+                        }}
+                        className="font-black text-white leading-[1.02] tracking-tight overflow-hidden"
+                    >
+                        {/* Line 1: each word slides up */}
+                        <span className="block text-[52px] md:text-[68px] lg:text-[78px]">
+                            {['Your', 'next', 'great', 'date,'].map((word, i) => (
+                                <motion.span
+                                    key={i}
+                                    variants={{
+                                        hidden: { y: 80, opacity: 0, rotateX: 30 },
+                                        visible: { y: 0, opacity: 1, rotateX: 0, transition: { duration: 0.75, type: 'spring', bounce: 0.28 } }
+                                    }}
+                                    className="inline-block mr-[0.22em] last:mr-0"
+                                >
+                                    {word}
+                                </motion.span>
+                            ))}
+                        </span>
+                        {/* Line 2: italic gradient — slides in from left */}
+                        <motion.span
+                            variants={{
+                                hidden: { x: -50, opacity: 0, skewX: -4 },
+                                visible: { x: 0, opacity: 1, skewX: 0, transition: { duration: 0.9, type: 'spring', bounce: 0.22, delay: 0.35 } }
+                            }}
+                            className="block text-[52px] md:text-[68px] lg:text-[78px] italic text-transparent bg-clip-text bg-gradient-to-r from-coral via-rose-400 to-pink-400"
                         >
-                            <div className="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center group-hover:border-coral transition-colors bg-navy/5">
-                                <Play className="w-4 h-4 fill-navy group-hover:fill-coral group-hover:text-coral transition-colors" />
-                            </div>
-                            See It In Action
-                        </button>
-                    </div>
+                            already planned.
+                        </motion.span>
+                    </motion.h1>
 
-                    <div className="pt-6 flex items-center justify-center lg:justify-start gap-4">
-                        <div className="flex -space-x-3">
-                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" alt="User" className="w-10 h-10 rounded-full border-2 border-white object-cover shadow-sm" />
-                            <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop" alt="User" className="w-10 h-10 rounded-full border-2 border-white object-cover shadow-sm" />
-                            <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" alt="User" className="w-10 h-10 rounded-full border-2 border-white object-cover shadow-sm" />
-                            <div className="w-10 h-10 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-black text-navy shadow-sm">+5k</div>
-                        </div>
-                        <div className="flex flex-col">
-                            <div className="flex gap-1">
-                                {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />)}
-                            </div>
-                            <span className="text-xs font-bold text-gray-500">Loved by 5,000+ couples</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="relative">
-                    {/* App Mockup Placeholder */}
-                    <div className="relative z-10 bg-white rounded-[40px] shadow-2xl border-8 border-navy/5 overflow-hidden w-full max-w-[420px] mx-auto h-[600px] flex flex-col">
-                        
-                        {/* Mockup Header - High Fidelity Dashboard Style */}
-                        <div className="bg-[#0c1222] text-white flex-shrink-0 relative z-20 shadow-md">
-                            <div className="p-4 border-b border-white/10">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 bg-coral/10 border border-coral/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                                            <Heart className="w-4 h-4 fill-coral text-coral" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="block text-sm font-black leading-tight tracking-tight truncate font-inter">Boutique Romantic Date</span>
-                                            </div>
-                                            <span className="text-[9px] opacity-70 uppercase tracking-widest font-black font-inter">Available in New York City</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <button
-                                            onClick={(e) => { e.preventDefault(); triggerToast("This would let you customize the plan."); }}
-                                            className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-[9px] font-black font-inter"
-                                        >
-                                            <Sparkles className="w-3 h-3" />
-                                            <span>Steal</span>
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.preventDefault(); setShareTooltip(true); setTimeout(() => setShareTooltip(false), 2000); }}
-                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-coral/90 hover:bg-coral border border-coral rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter text-white shadow-md shadow-coral/20 relative"
-                                        >
-                                            <Share2 className="w-3.5 h-3.5 text-white group-hover:scale-110 transition-transform" />
-                                            <span className="hidden sm:inline">Share link</span>
-                                            <span className="sm:hidden">Share</span>
-                                            {shareTooltip && (
-                                                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-navy text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap animate-in fade-in zoom-in-90 tracking-tight z-50 pointer-events-none">Link Copied!</div>
-                                            )}
-                                        </button>
-                                        <button className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-400 hover:text-white rounded-xl transition-all">
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                                {/* Feature Switcher Tabs - Minimal */}
-                                <div className="flex bg-white/5 rounded-xl p-1 justify-between gap-0.5">
-                                    {features.map((f) => (
-                                        <button
-                                            key={f.id}
-                                            type="button"
-                                            onClick={() => setActiveFeature(f.id)}
-                                            className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg transition-all min-w-0 ${activeFeature === f.id
-                                                ? 'bg-white text-navy shadow-sm'
-                                                : 'text-white/40 hover:text-white'
-                                                }`}
-                                        >
-                                            {React.cloneElement(f.icon, { className: 'w-3.5 h-3.5 shrink-0' })}
-                                            <span className="text-[8px] font-black uppercase tracking-wider leading-tight text-center">{f.label}</span>
-                                            {f.comingSoon && (
-                                                <span className="text-[6px] font-black uppercase tracking-tighter text-coral/90">Soon</span>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            {/* Tip Bar */}
-                            <p className="px-3 py-2 text-[10px] sm:text-[11px] text-white/80 font-medium bg-[#0c1222] border-b border-white/10 leading-snug z-20 relative text-center">
-                                Tip: <span className="font-black text-coral/95">Share</span> sends a link your date can open.
+                    {/* Subheadline + description block */}
+                    <motion.div
+                        variants={{
+                            hidden: { opacity: 0, y: 28 },
+                            visible: { opacity: 1, y: 0, transition: { duration: 0.7, delay: 0.55, ease: 'easeOut' } }
+                        }}
+                        className="space-y-5 max-w-xl mx-auto lg:mx-0"
+                    >
+                        {/* Subheadline */}
+                        <div className="space-y-0.5">
+                            <p className="text-xl md:text-2xl font-bold text-white/90 tracking-tight leading-snug">
+                                Skip the scroll. Skip the search.
+                            </p>
+                            <p className="text-xl md:text-2xl font-black italic tracking-tight bg-gradient-to-r from-coral to-rose-400 text-transparent bg-clip-text">
+                                Just show up and enjoy.
                             </p>
                         </div>
 
-                        {/* Expanded Mobile Map view */}
-                        <AnimatePresence>
-                            {showMapMobile && (
-                                <motion.div
-                                    initial={{ y: '100%' }}
-                                    animate={{ y: 0 }}
-                                    exit={{ y: '100%' }}
-                                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                    className="absolute inset-x-0 bottom-0 top-[148px] bg-white z-50 flex flex-col rounded-b-[32px] overflow-hidden shadow-2xl"
-                                >
-                                    <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between shadow-sm z-10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center">
-                                                <MapIcon className="w-5 h-5 text-coral" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-black text-navy leading-tight">Interactive Map</h3>
-                                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">All Date Locations</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setShowMapMobile(false)}
-                                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy rounded-xl font-black text-[11px] transition-all flex items-center gap-2"
-                                        >
-                                            <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                                            Back
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 w-full bg-gray-100 relative">
-                                        {isLoaded ? (
-                                            <GoogleMap
-                                                mapContainerStyle={{ width: '100%', height: '100%' }}
-                                                center={mapCenter}
-                                                zoom={14}
-                                                options={{ disableDefaultUI: true, gestureHandling: 'greedy', styles: customMapStyle }}
-                                            >
-                                                {demoItinerary.map((step) => (
-                                                    <Marker
-                                                        key={step.id}
-                                                        position={{ lat: step.lat, lng: step.lng }}
-                                                        onClick={() => handleStepInteraction(step)}
-                                                        icon={selectedMarkerId === step.id ? undefined : {
-                                                            path: window.google?.maps.SymbolPath.CIRCLE,
-                                                            scale: 8,
-                                                            fillColor: "#f97316",
-                                                            fillOpacity: 0.9,
-                                                            strokeWeight: 2,
-                                                            strokeColor: "white"
-                                                        }}
-                                                    />
-                                                ))}
-                                            </GoogleMap>
-                                        ) : (
-                                            <div className="w-full h-full bg-gray-200" />
-                                        )}
-                                    </div>
-                                    <div className="p-4 bg-white border-t border-gray-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-                                        <button
-                                            onClick={() => setShowMapMobile(false)}
-                                            className="w-full py-3.5 bg-navy text-white rounded-xl font-black text-sm active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2"
-                                        >
-                                            <CheckCircle className="w-4 h-4" />
-                                            Back to Itinerary
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        {/* Animated divider */}
+                        <motion.div
+                            initial={{ scaleX: 0, opacity: 0 }}
+                            whileInView={{ scaleX: 1, opacity: 1, transition: { delay: 0.75, duration: 0.7, ease: 'easeOut' } }}
+                            viewport={{ once: true }}
+                            className="h-px bg-gradient-to-r from-coral/60 via-rose-400/30 to-transparent origin-left"
+                        />
 
-                        {/* Mockup Content Body */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar relative bg-gray-50/50">
-                            {activeFeature === 'itinerary' ? (
-                                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative flex flex-col">
-                                    {/* Small Top Map Integration */}
-                                    <div className="h-[180px] w-full relative z-30 border-b border-gray-100 flex-shrink-0">
-                                        {isLoaded ? (
-                                            <GoogleMap
-                                                mapContainerStyle={{ width: '100%', height: '100%' }}
-                                                center={mapCenter}
-                                                zoom={15}
-                                                options={{ disableDefaultUI: true, gestureHandling: 'none' }}
-                                            >
-                                                {demoItinerary.map((step) => (
-                                                    <Marker
-                                                        key={step.id}
-                                                        position={{ lat: step.lat, lng: step.lng }}
-                                                        icon={selectedMarkerId === step.id ? undefined : {
-                                                            path: window.google?.maps.SymbolPath.CIRCLE,
-                                                            scale: 6,
-                                                            fillColor: "#f97316",
-                                                            fillOpacity: 0.8,
-                                                            strokeWeight: 2,
-                                                            strokeColor: "white"
-                                                        }}
-                                                    />
-                                                ))}
-                                            </GoogleMap>
-                                        ) : (
-                                            <div className="w-full h-full bg-gray-200" />
-                                        )}
-                                        <div className="absolute inset-x-0 bottom-4 z-20 flex justify-center pointer-events-none">
-                                            <button 
-                                                onClick={() => setShowMapMobile(true)}
-                                                className="bg-navy/95 backdrop-blur-md text-white px-5 py-2.5 rounded-full text-xs font-black shadow-2xl flex items-center gap-2 border border-white/20 transform transition-all active:scale-95 cursor-pointer hover:scale-[1.05] font-inter hover:bg-navy pointer-events-auto ring-4 ring-navy/5"
-                                            >
-                                                <MapIcon className="w-4 h-4 text-coral" />
-                                                Expand Map
-                                            </button>
-                                        </div>
-                                    </div>
+                        {/* Body */}
+                        <p className="text-base md:text-lg text-gray-400 leading-relaxed font-medium">
+                            Tell DateSpark your vibe and we handle the rest — hidden gems, perfect timing, a full evening sequenced in seconds.{' '}
+                            <span className="text-gray-200 font-semibold">No Pinterest boards, no group chats, no decision fatigue.</span>{' '}
+                            Just a night you'll actually remember.
+                        </p>
+                    </motion.div>
 
-                                    {/* Itinerary Steps */}
-                                    <div className="p-4 pt-10 relative z-10 mt-[-2rem] bg-white rounded-t-[2rem] space-y-8">
-                                        <div className="relative border-l-2 border-dashed border-gray-200 ml-10 pb-4 space-y-12">
-                                            {demoItinerary.map((step, idx) => {
-                                                const icons = [
-                                                    <Utensils className="w-3.5 h-3.5 text-coral" />,
-                                                    <Compass className="w-3.5 h-3.5 text-gold" />,
-                                                    <Ticket className="w-3.5 h-3.5 text-purple-500" />
-                                                ];
-                                                return (
-                                                    <div key={idx} className="relative pl-6 cursor-pointer group/step" onClick={() => handleStepInteraction(step)}>
-                                                        {/* Left Absolute Time */}
-                                                        <div className="absolute -left-14 top-1 text-[10px] font-black text-gray-400 text-right w-10">
-                                                            <div>{step.time}</div>
-                                                            <div className="text-[8px] opacity-60">PM</div>
-                                                        </div>
-
-                                                        {/* Center Dot */}
-                                                        <div className={`absolute -left-[7px] top-2 w-3 h-3 rounded-full border-2 border-white shadow-sm bg-coral transition-transform group-hover/step:scale-125`} />
-
-                                                        {/* Right Card - High Fidelity */}
-                                                        <div className={`rounded-3xl p-4 flex flex-col gap-3 transition-all ${selectedMarkerId === step.id ? 'bg-white border-2 border-coral/20 shadow-md ring-4 ring-coral/5' : 'bg-white border border-gray-100 shadow-sm hover:shadow-md'}`}>
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
-                                                                    {icons[idx % icons.length]}
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center justify-between gap-1">
-                                                                        <h4 className="text-sm font-black text-navy leading-tight">{step.venue}</h4>
-                                                                        <span className="text-[10px] font-bold text-gray-300">{step.time}</span>
-                                                                    </div>
-                                                                    <p className="text-[9px] text-coral font-bold uppercase tracking-wider">{step.activity}</p>
-                                                                </div>
-                                                            </div>
-                                                            <p className="text-[11px] text-gray-500 leading-relaxed font-medium">{step.description}</p>
-                                                            {step.photoUrl && (
-                                                                <img src={step.photoUrl} alt={step.venue} className="rounded-2xl w-full h-32 object-cover border border-gray-50 shadow-sm" />
-                                                            )}
-
-                                                            {/* Action Buttons - High Fidelity Match */}
-                                                            <div className="flex flex-wrap items-center gap-3 mt-2">
-                                                                <button
-                                                                    onClick={(e) => handleSwitchUp(step.id, e)}
-                                                                    className={`px-4 py-2 text-white text-[11px] font-black rounded-xl hover:shadow-lg transition-all active:scale-95 flex items-center gap-1.5 shadow-md bg-gradient-to-r from-violet-600 to-indigo-600 hover:shadow-indigo-500/30`}
-                                                                >
-                                                                    <Sparkles className="w-3.5 h-3.5" /> Swap This Spot
-                                                                </button>
-                                                                <a
-                                                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDemoToast("This would visit the venue's website.", "info"); }}
-                                                                    href="#"
-                                                                    className="px-4 py-2 bg-white text-navy border border-gray-200 text-[11px] font-black rounded-xl hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-sm"
-                                                                >
-                                                                    <Ticket className="w-3.5 h-3.5 text-coral" /> Visit Website
-                                                                </a>
-                                                                <a
-                                                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDemoToast("This would search for the venue on Google.", "info"); }}
-                                                                    href="#"
-                                                                    className="px-4 py-2 bg-white text-navy border border-gray-200 text-[11px] font-black rounded-xl hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-sm"
-                                                                >
-                                                                    <Search className="w-3.5 h-3.5" /> Search on Google
-                                                                </a>
-                                                                <a
-                                                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDemoToast("This would open Google Maps directions.", "info"); }}
-                                                                    href="#"
-                                                                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-white text-[11px] font-black rounded-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
-                                                                >
-                                                                    <Navigation className="w-3.5 h-3.5" /> Get Directions
-                                                                </a>
-                                                                <a
-                                                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDemoToast("This would open the Uber app to book a ride.", "info"); }}
-                                                                    href="#"
-                                                                    className="px-4 py-2 bg-black text-white text-[11px] font-black rounded-xl hover:bg-gray-900 transition-all flex items-center gap-1.5 shadow-md"
-                                                                >
-                                                                    <Car className="w-3.5 h-3.5" /> Get a Ride
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        {/* Community Feedback & Trending Spots Section */}
-                                        <div className="mt-8 border-t border-gray-100 pt-8 pb-10">
-                                            <div className="flex items-center justify-between mb-5">
-                                                <h3 className="text-xl font-black text-navy flex items-center gap-2">
-                                                    🔥 Trending Spots near you
-                                                </h3>
-                                            </div>
-                                            <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory shrink-0">
-                                                <div className="min-w-[220px] max-w-[220px] bg-white rounded-2xl p-3 border border-gray-100 snap-center shadow-sm hover:shadow-md transition-shadow">
-                                                    <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80" alt="Chelsea Market" className="w-full h-32 object-cover rounded-xl mb-3" />
-                                                    <h4 className="text-sm font-black text-navy leading-tight">Chelsea Market</h4>
-                                                    <p className="text-[10px] text-coral font-bold uppercase tracking-wider mb-1.5 mt-0.5">Artisan Bites</p>
-                                                    <span className="text-[11px] text-gray-500 font-medium line-clamp-2 leading-relaxed">A hot spot for impromptu food dates in the area with tons of vendors.</span>
-                                                </div>
-                                                <div className="min-w-[220px] max-w-[220px] bg-white rounded-2xl p-3 border border-gray-100 snap-center shadow-sm hover:shadow-md transition-shadow">
-                                                    <img src="https://images.unsplash.com/photo-1560624052-449f5ddf0c31?w=800&q=80" alt="Bar Pisellino" className="w-full h-32 object-cover rounded-xl mb-3" />
-                                                    <h4 className="text-sm font-black text-navy leading-tight">Bar Pisellino</h4>
-                                                    <p className="text-[10px] text-coral font-bold uppercase tracking-wider mb-1.5 mt-0.5">Italian Aperitivo</p>
-                                                    <span className="text-[11px] text-gray-500 font-medium line-clamp-2 leading-relaxed">Extremely popular street-style Italian cocktails.</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="p-8">
-                                    {/* Placeholder for other features in mockup */}
-                                </div>
-                            )}
-                        </div>
-
-
-                        {activeFeature === 'sync' && (
-                            <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in zoom-in duration-500 py-10 px-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-violet-600 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">Coming soon</span>
-                                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center shadow-inner">
-                                    <Calendar className="w-10 h-10" />
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-xl font-bold text-navy">Google Calendar Sync</h3>
-                                    <p className="text-sm text-gray-500 px-6">We&apos;re building one-tap calendar export and reminders. Preview of the experience below.</p>
-                                </div>
-                                <label className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm cursor-default opacity-60">
-                                    <div className="w-10 h-6 bg-blue-600 rounded-full relative">
-                                        <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
-                                    </div>
-                                    <span className="font-bold text-sm text-navy">Sync (preview)</span>
-                                </label>
-                            </div>
-                        )}
-
-                        {activeFeature === 'share' && (
-                            <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 py-10 px-4">
-                                <div className="w-20 h-20 bg-soft-pink text-coral rounded-3xl flex items-center justify-center">
-                                    <Share2 className="w-10 h-10" />
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-xl font-bold text-navy">Shareable Itinerary</h3>
-                                    <p className="text-sm text-gray-500 px-6">Share a link from your real plan in the app. Preview links may hide some stops until unlock—exact behavior depends on your plan.</p>
-                                </div>
-                                <div className="w-full bg-white p-4 rounded-2xl border border-dashed border-gray-200 flex items-center justify-between gap-4">
-                                    <span className="text-xs font-mono text-gray-400 truncate">datespark.live/v/x92_s0v...</span>
-                                    <button className="text-coral font-bold text-xs uppercase hover:underline">Copy Link</button>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeFeature === 'budget' && (
-                            <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 py-10 px-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-violet-600 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">Coming soon</span>
-                                <div className="w-20 h-20 bg-gold/10 text-gold rounded-3xl flex items-center justify-center">
-                                    <Wallet className="w-10 h-10" />
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-xl font-bold text-navy">Smart Budget Guard</h3>
-                                    <p className="text-sm text-gray-500 px-6">We&apos;re refining stricter budget tracking across stops. You already set budget in the planner—this screen is a preview.</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 w-full">
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Est. Cost</span>
-                                        <span className="text-lg font-bold text-navy">$118.00</span>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                                        <span className="block text-[10px] font-bold text-gray-400 uppercase overflow-hidden text-ellipsis whitespace-nowrap">Budget Status</span>
-                                        <span className="text-lg font-bold text-green-500">-$32 Left</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <Link to="/signup" className="w-full bg-navy text-white py-5 rounded-2xl font-black text-xl tracking-tight flex items-center justify-center gap-3 mt-8 shadow-[0_20px_40px_rgba(10,25,47,0.3)] hover:scale-[1.02] transition-transform active:scale-95 leading-none relative z-30 group">
-                            <span className="relative z-10">Plan Your Date</span>
-                            <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                    <motion.div variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: 'spring' } } }} className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5 pt-4">
+                        <Link to="/signup" className="w-full sm:w-auto bg-gradient-to-r from-coral to-violet-600 text-white px-8 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-[0_10px_40px_rgba(249,115,22,0.3)] hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(249,115,22,0.5)] transition-all group focus:outline-none relative overflow-hidden">
+                            <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                            <span className="relative z-10">Get Your First Plan</span>
+                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" />
                         </Link>
-                    </div>
-                    <div className="hidden md:flex absolute -left-16 bottom-24 bg-white p-5 rounded-[28px] shadow-2xl flex-col gap-1 items-start z-10 border border-gray-100 group hover:-translate-y-2 transition-transform cursor-default max-w-[240px]">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-coral animate-ping" />
-                            <span className="text-[10px] font-bold text-coral uppercase tracking-widest">Live Updates</span>
+                        <button
+                            onClick={() => setShowDemoModal(true)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-3 text-white font-bold hover:text-coral transition-colors bg-white/5 backdrop-blur-sm border border-white/10 px-8 py-5 rounded-2xl hover:border-coral/50 group shadow-lg active:scale-95"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-coral/20 transition-colors">
+                                <Play className="w-3.5 h-3.5 fill-white group-hover:fill-coral transition-colors ml-0.5" />
+                            </div>
+                            See How It Works
+                        </button>
+                    </motion.div>
+
+                    <motion.div variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: 'spring' } } }} className="pt-8 flex items-center justify-center lg:justify-start gap-4 border-t border-white/10">
+                        <div className="flex -space-x-3">
+                            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop" alt="User" className="w-10 h-10 rounded-full border-2 border-[#0a0f1c] object-cover shadow-sm" />
+                            <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop" alt="User" className="w-10 h-10 rounded-full border-2 border-[#0a0f1c] object-cover shadow-sm" />
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" alt="User" className="w-10 h-10 rounded-full border-2 border-[#0a0f1c] object-cover shadow-sm" />
                         </div>
-                        <div className="font-black text-navy">Nearby secrets active now</div>
-                    </div>
+                        <div className="flex flex-col">
+                            <div className="flex gap-1 mb-1">
+                                {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-coral text-coral" />)}
+                            </div>
+                            <span className="text-xs font-bold text-gray-400"><strong className="text-white">5,000+</strong> dates planned this month</span>
+                        </div>
+                    </motion.div>
+                </motion.div>
+
+                {/* Right Side: Animated Value Props (Exploded Bento Style) */}
+                <div className="relative w-full h-[800px] lg:h-[950px] mt-12 lg:mt-0">
+                    
+                    {/* Floating Stop 1: The High Line */}
+                    <motion.div 
+                        initial={{ opacity: 0, x: 80, rotate: 8 }}
+                        whileInView={{ opacity: 1, x: 0, rotate: -2, transition: { delay: 0.2, duration: 1, type: "spring" } }}
+                        viewport={{ once: true }}
+                        className="absolute top-[5%] right-[2%] w-[320px] md:w-[400px] bg-white rounded-3xl p-4 shadow-2xl z-40 border-4 border-[#0a0f1c] transform transition-transform hover:scale-105 duration-500 hover:rotate-0"
+                    >
+                        {/* Stop badge */}
+                        <div className="absolute -top-3 -left-3 w-9 h-9 rounded-full bg-[#4285F4] border-[3px] border-white shadow-lg flex items-center justify-center z-10">
+                            <span className="text-white font-black text-sm">1</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                            <img src="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400&h=400&fit=crop" alt="Walk" className="w-24 h-24 rounded-2xl object-cover shadow-inner" />
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-tight">Stop 1 • 4:30 PM</span>
+                                </div>
+                                <h4 className="text-navy font-black text-xl leading-tight tracking-tight">The High Line</h4>
+                                <div className="flex items-center gap-1.5 mt-1.5 text-emerald-600 font-bold text-xs">
+                                    <Compass className="w-3.5 h-3.5" /> Scenic Stroll • Free
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Floating Stop 2: Cocktails */}
+                    <motion.div 
+                        initial={{ opacity: 0, x: -80, rotate: -8 }}
+                        whileInView={{ opacity: 1, x: 0, rotate: 3, transition: { delay: 0.4, duration: 1, type: "spring" } }}
+                        viewport={{ once: true }}
+                        className="absolute top-[18%] left-[2%] w-[320px] md:w-[400px] bg-navy rounded-3xl p-4 shadow-[0_20px_60px_rgba(249,115,22,0.3)] z-30 border-4 border-white/10 transform transition-transform hover:scale-105 duration-500 hover:rotate-0"
+                    >
+                        {/* Stop badge */}
+                        <div className="absolute -top-3 -left-3 w-9 h-9 rounded-full bg-[#a855f7] border-[3px] border-[#0a0f1c] shadow-lg flex items-center justify-center z-10">
+                            <span className="text-white font-black text-sm">2</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                            <img src="https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400&h=400&fit=crop" alt="Bar" className="w-24 h-24 rounded-2xl object-cover" />
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase tracking-tight">Stop 2 • 6:00 PM</span>
+                                </div>
+                                <h4 className="text-white font-black text-xl leading-tight tracking-tight">Bar Pisellino</h4>
+                                <div className="flex items-center gap-1.5 mt-1.5 text-white/50 font-bold text-xs">
+                                    <Star className="w-3.5 h-3.5 fill-coral text-coral" /> Top-Rated Aperitivo
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Floating Stop 3: Dinner */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                        whileInView={{ opacity: 1, y: 0, scale: 1, transition: { delay: 0.6, duration: 0.8, type: "spring" } }}
+                        viewport={{ once: true }}
+                        className="absolute top-[40%] left-1/2 -translate-x-1/2 w-[350px] md:w-[480px] bg-white rounded-[3rem] p-5 shadow-[0_50px_100px_rgba(0,0,0,0.6)] z-50 border-[8px] border-[#0a0f1c] hover:scale-[1.02] transition-transform duration-500"
+                    >
+                        {/* Stop 3 badge */}
+                        <div className="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-coral border-[3px] border-[#0a0f1c] shadow-xl flex items-center justify-center z-20">
+                            <span className="text-white font-black text-base">3</span>
+                        </div>
+                        <div className="absolute -top-4 -right-4 bg-[#0a0f1c] text-white font-black text-[10px] px-4 py-2 rounded-full shadow-2xl border-2 border-coral z-10 animate-bounce">
+                            98% VIBE MATCH
+                        </div>
+                        <div className="relative rounded-[2rem] overflow-hidden h-56 mb-4 bg-gray-100">
+                             <img src="https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=800&fit=crop" alt="Dinner" className="w-full h-full object-cover" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                             <div className="absolute bottom-5 left-6 text-white">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black bg-coral/30 backdrop-blur-sm text-white px-2.5 py-1 rounded-full uppercase tracking-wider">Stop 3 • 8:00 PM</span>
+                                </div>
+                                <h4 className="font-black text-2xl leading-none tracking-tighter">L'Artusi • West Village</h4>
+                             </div>
+                        </div>
+                        <div className="flex items-center justify-between px-2">
+                            <div className="flex items-center gap-3">
+                                <div className="flex text-coral">
+                                    {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-current" />)}
+                                </div>
+                                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">4,120 Vetted Reviews</span>
+                            </div>
+                            <div className="px-3 py-1 bg-coral text-white text-[10px] font-black rounded-lg shadow-lg shadow-coral/30">BOOKED 12x TODAY</div>
+                        </div>
+                    </motion.div>
+
+                    {/* The Full Map Visualization Card — Google Maps Style */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 60 }}
+                        whileInView={{ opacity: 1, y: 0, transition: { delay: 0.8, duration: 1, type: "spring" } }}
+                        viewport={{ once: true }}
+                        className="absolute bottom-0 left-0 right-0 h-[380px] bg-white border-4 border-[#0a0f1c] rounded-[3rem] shadow-[0_50px_120px_rgba(0,0,0,0.9)] z-20 overflow-hidden"
+                    >
+                        {/* Google Maps Style Header */}
+                        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-coral to-violet-600 flex items-center justify-center shadow-md">
+                                    <Navigation className="w-4 h-4 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-navy font-black text-sm tracking-tight leading-none">Your Route, Mapped</h3>
+                                    <p className="text-gray-400 text-[10px] font-semibold mt-0.5">All stops within walking distance</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-emerald-700 font-black text-[10px] uppercase tracking-widest">Live</span>
+                            </div>
+                        </div>
+
+                        {/* Google Maps Canvas */}
+                        <div className="relative mx-0 mb-0 overflow-hidden flex-1" style={{ height: '300px', background: '#e8ead3' }}>
+                            {/* Map base — Google Maps color palette */}
+                            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 520 300" preserveAspectRatio="xMidYMid slice">
+                                {/* Water body */}
+                                <rect x="0" y="0" width="520" height="300" fill="#e8ead3" />
+                                <ellipse cx="10" cy="150" rx="60" ry="160" fill="#aadaff" opacity="0.6" />
+                                {/* Parks */}
+                                <rect x="30" y="30" width="120" height="80" rx="8" fill="#c8e6c9" opacity="0.7" />
+                                <rect x="200" y="20" width="80" height="50" rx="6" fill="#c8e6c9" opacity="0.5" />
+                                {/* City blocks */}
+                                <rect x="100" y="40" width="60" height="40" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="170" y="40" width="40" height="40" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="230" y="70" width="70" height="50" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="310" y="40" width="90" height="60" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="410" y="30" width="100" height="70" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="100" y="130" width="80" height="55" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="200" y="140" width="100" height="55" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="320" y="140" width="90" height="55" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="420" y="130" width="90" height="55" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="80" y="220" width="120" height="60" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="220" y="220" width="110" height="60" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                <rect x="350" y="220" width="160" height="60" rx="4" fill="#f5f5f0" stroke="#ddd" strokeWidth="0.5" />
+                                {/* Major roads (yellow) */}
+                                <line x1="0" y1="120" x2="520" y2="115" stroke="#fdd835" strokeWidth="6" />
+                                <line x1="0" y1="200" x2="520" y2="205" stroke="#fdd835" strokeWidth="5" />
+                                {/* Side streets (white) */}
+                                <line x1="0" y1="80" x2="520" y2="78" stroke="white" strokeWidth="3" />
+                                <line x1="0" y1="160" x2="520" y2="162" stroke="white" strokeWidth="2.5" />
+                                <line x1="0" y1="240" x2="520" y2="238" stroke="white" strokeWidth="2.5" />
+                                <line x1="90" y1="0" x2="88" y2="300" stroke="white" strokeWidth="3" />
+                                <line x1="180" y1="0" x2="182" y2="300" stroke="white" strokeWidth="2.5" />
+                                <line x1="310" y1="0" x2="308" y2="300" stroke="white" strokeWidth="2.5" />
+                                <line x1="420" y1="0" x2="422" y2="300" stroke="white" strokeWidth="3" />
+                                {/* Route glow */}
+                                <motion.path
+                                    d="M 65,235 C 120,210 180,195 245,185 C 300,178 370,195 455,188"
+                                    fill="none" stroke="rgba(66,133,244,0.25)" strokeWidth="16" strokeLinecap="round"
+                                    initial={{ pathLength: 0 }}
+                                    whileInView={{ pathLength: 1, transition: { duration: 2.5, delay: 1.0, ease: "easeInOut" } }}
+                                    viewport={{ once: true }}
+                                />
+                                {/* Route line — Google Maps blue */}
+                                <motion.path
+                                    d="M 65,235 C 120,210 180,195 245,185 C 300,178 370,195 455,188"
+                                    fill="none" stroke="#4285F4" strokeWidth="5" strokeLinecap="round"
+                                    initial={{ pathLength: 0 }}
+                                    whileInView={{ pathLength: 1, transition: { duration: 2.5, delay: 1.0, ease: "easeInOut" } }}
+                                    viewport={{ once: true }}
+                                />
+                                {/* Route outline */}
+                                <motion.path
+                                    d="M 65,235 C 120,210 180,195 245,185 C 300,178 370,195 455,188"
+                                    fill="none" stroke="white" strokeWidth="8" strokeLinecap="round" opacity="0.4"
+                                    initial={{ pathLength: 0 }}
+                                    whileInView={{ pathLength: 1, transition: { duration: 2.3, delay: 1.0, ease: "easeInOut" } }}
+                                    viewport={{ once: true }}
+                                />
+                            </svg>
+
+                            {/* Stop 1 Pin — bottom-left, always visible */}
+                            <motion.div
+                                initial={{ scale: 0, y: -20, opacity: 0 }}
+                                whileInView={{ scale: 1, y: 0, opacity: 1, transition: { delay: 1.0, duration: 0.6, type: "spring", bounce: 0.5 } }}
+                                viewport={{ once: true }}
+                                className="absolute"
+                                style={{ left: 'calc(12% - 16px)', top: 'calc(78% - 48px)' }}
+                            >
+                                <div className="flex flex-col items-center">
+                                    <div className="w-8 h-8 rounded-full bg-[#4285F4] border-2 border-white shadow-[0_4px_12px_rgba(66,133,244,0.6)] flex items-center justify-center">
+                                        <span className="text-white font-black text-xs">1</span>
+                                    </div>
+                                    <div className="w-1 h-2 bg-[#4285F4]" />
+                                    <div className="w-2 h-1 bg-[#4285F4] rounded-full" style={{ clipPath: 'polygon(50% 100%, 0% 0%, 100% 0%)' }} />
+                                </div>
+                                <div className="absolute top-0 left-10 bg-white rounded-lg shadow-xl border border-gray-100 px-2.5 py-1.5 whitespace-nowrap">
+                                    <div className="text-navy font-black text-[10px]">The High Line</div>
+                                    <div className="text-gray-400 text-[9px]">4:30 PM • Stop 1</div>
+                                </div>
+                            </motion.div>
+
+                            {/* Stop 2 Pin — center, in lower half */}
+                            <motion.div
+                                initial={{ scale: 0, y: -20, opacity: 0 }}
+                                whileInView={{ scale: 1, y: 0, opacity: 1, transition: { delay: 2.2, duration: 0.6, type: "spring", bounce: 0.5 } }}
+                                viewport={{ once: true }}
+                                className="absolute"
+                                style={{ left: 'calc(46% - 16px)', top: 'calc(60% - 48px)' }}
+                            >
+                                <div className="flex flex-col items-center">
+                                    <div className="w-8 h-8 rounded-full bg-[#a855f7] border-2 border-white shadow-[0_4px_12px_rgba(168,85,247,0.6)] flex items-center justify-center">
+                                        <span className="text-white font-black text-xs">2</span>
+                                    </div>
+                                    <div className="w-1 h-2 bg-[#a855f7]" />
+                                </div>
+                                <div className="absolute top-0 left-10 bg-white rounded-lg shadow-xl border border-gray-100 px-2.5 py-1.5 whitespace-nowrap">
+                                    <div className="text-navy font-black text-[10px]">Bar Pisellino</div>
+                                    <div className="text-gray-400 text-[9px]">6:00 PM • Stop 2</div>
+                                </div>
+                            </motion.div>
+
+                            {/* Stop 3 Pin — right side, lower half, label to the left */}
+                            <motion.div
+                                initial={{ scale: 0, y: -20, opacity: 0 }}
+                                whileInView={{ scale: 1, y: 0, opacity: 1, transition: { delay: 3.2, duration: 0.6, type: "spring", bounce: 0.5 } }}
+                                viewport={{ once: true }}
+                                className="absolute"
+                                style={{ left: 'calc(84% - 16px)', top: 'calc(62% - 48px)' }}
+                            >
+                                <div className="flex flex-col items-center">
+                                    <motion.div
+                                        animate={{ scale: [1, 1.15, 1] }}
+                                        transition={{ repeat: Infinity, duration: 1.8 }}
+                                        className="w-9 h-9 rounded-full bg-coral border-2 border-white shadow-[0_4px_16px_rgba(249,115,22,0.7)] flex items-center justify-center"
+                                    >
+                                        <span className="text-white font-black text-sm">3</span>
+                                    </motion.div>
+                                    <div className="w-1 h-2 bg-coral" />
+                                </div>
+                                {/* Label to the LEFT so it doesn't clip off right edge */}
+                                <div className="absolute top-0 right-11 bg-white rounded-lg shadow-xl border border-coral/20 px-2.5 py-1.5 whitespace-nowrap">
+                                    <div className="text-coral font-black text-[10px]">L'Artusi ★</div>
+                                    <div className="text-gray-400 text-[9px]">8:00 PM • Stop 3</div>
+                                </div>
+                            </motion.div>
+
+                            {/* Distance badge */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                whileInView={{ opacity: 1, y: 0, transition: { delay: 3.8 } }}
+                                viewport={{ once: true }}
+                                className="absolute bottom-3 right-3 bg-white border border-gray-200 shadow-md px-3 py-1.5 rounded-full flex items-center gap-2"
+                            >
+                                <MapPin className="w-3 h-3 text-coral" />
+                                <span className="text-navy text-[10px] font-bold">~0.8 mi • 12 min walk</span>
+                            </motion.div>
+                        </div>
+                    </motion.div>
                 </div>
             </div>
             {/* Interactive Demo Modal */}
@@ -814,6 +773,133 @@ const Hero = () => {
                 </div>
             )}
         </section>
+
+        {/* Trending Spots Section */}
+        <section className="relative bg-[#0a0f1c] py-16 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0a0f1c] via-[#0d1526] to-[#0a0f1c]" />
+            <div className="container-custom relative z-10">
+                {/* Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0, transition: { duration: 0.7 } }}
+                    viewport={{ once: true }}
+                    className="flex items-center justify-between mb-8"
+                >
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-1.5 h-5 bg-coral rounded-full" />
+                            <span className="text-coral font-black text-xs uppercase tracking-widest">Trending Near You</span>
+                        </div>
+                        <h2 className="text-white font-black text-3xl md:text-4xl tracking-tight">
+                            Top Spots <span className="text-transparent bg-clip-text bg-gradient-to-r from-coral to-violet-400">Right Now</span>
+                        </h2>
+                    </div>
+                    <div className="hidden md:flex items-center gap-2 text-gray-500 text-sm font-bold">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Updated live
+                    </div>
+                </motion.div>
+
+                {/* Cards Strip */}
+                <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-none snap-x snap-mandatory">
+                    {[
+                        {
+                            rank: 1, emoji: "🌿", name: "The High Line", type: "Scenic Walk", time: "4:30 PM",
+                            rating: 4.9, reviews: "145K", tag: "TOURIST FAVORITE", tagColor: "bg-blue-500",
+                            img: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=600&q=80",
+                            heat: "🔥 Trending"
+                        },
+                        {
+                            rank: 2, emoji: "🍷", name: "Bar Pisellino", type: "Cocktail Bar", time: "6:00 PM",
+                            rating: 4.7, reviews: "8.2K", tag: "LOCAL'S PICK", tagColor: "bg-violet-500",
+                            img: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80",
+                            heat: "⚡ Hot Tonight"
+                        },
+                        {
+                            rank: 3, emoji: "🍝", name: "L'Artusi", type: "Italian Fine Dining", time: "8:00 PM",
+                            rating: 4.8, reviews: "4.1K", tag: "98% VIBE MATCH", tagColor: "bg-coral",
+                            img: "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=600&q=80",
+                            heat: "🏆 Top Rated"
+                        },
+                        {
+                            rank: 4, emoji: "🌅", name: "Hudson Yards View", type: "Rooftop Terrace", time: "9:30 PM",
+                            rating: 4.6, reviews: "12K", tag: "DATE NIGHT", tagColor: "bg-pink-500",
+                            img: "https://images.unsplash.com/photo-1534430480872-3498386e7856?w=600&q=80",
+                            heat: "✨ New"
+                        },
+                        {
+                            rank: 5, emoji: "☕", name: "Bluestone Lane", type: "Specialty Coffee", time: "10:00 PM",
+                            rating: 4.5, reviews: "6.7K", tag: "AFTER DINNER", tagColor: "bg-amber-500",
+                            img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80",
+                            heat: "🌙 Late Night"
+                        },
+                    ].map((spot, idx) => (
+                        <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                            whileInView={{ opacity: 1, y: 0, scale: 1, transition: { delay: idx * 0.12, duration: 0.6, type: "spring" } }}
+                            viewport={{ once: true }}
+                            whileHover={{ y: -6, transition: { duration: 0.2 } }}
+                            className="flex-shrink-0 w-[260px] snap-start bg-[#111827] rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl cursor-pointer group"
+                        >
+                            {/* Image */}
+                            <div className="relative h-40 overflow-hidden">
+                                <img src={spot.img} alt={spot.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                                {/* Rank badge */}
+                                <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
+                                    <span className="text-white font-black text-xs">#{spot.rank}</span>
+                                </div>
+                                {/* Heat badge */}
+                                <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full">
+                                    <span className="text-white text-[9px] font-bold">{spot.heat}</span>
+                                </div>
+                                {/* Type tag */}
+                                <div className={`absolute bottom-3 left-3 ${spot.tagColor} px-2.5 py-1 rounded-full`}>
+                                    <span className="text-white font-black text-[9px] uppercase tracking-wide">{spot.tag}</span>
+                                </div>
+                            </div>
+
+                            {/* Info */}
+                            <div className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                    <div>
+                                        <h4 className="text-white font-black text-base leading-tight tracking-tight">{spot.name}</h4>
+                                        <p className="text-gray-500 text-xs font-semibold mt-0.5">{spot.type}</p>
+                                    </div>
+                                    <span className="text-2xl">{spot.emoji}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                                        <span className="text-white font-black text-xs">{spot.rating}</span>
+                                        <span className="text-gray-600 text-[10px]">({spot.reviews})</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 bg-white/5 border border-white/8 px-2.5 py-1 rounded-full">
+                                        <Clock className="w-3 h-3 text-coral" />
+                                        <span className="text-gray-400 text-[10px] font-bold">{spot.time}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
+                </div>
+
+                {/* CTA below */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
+                    viewport={{ once: true }}
+                    className="mt-10 text-center"
+                >
+                    <p className="text-gray-500 text-sm mb-4 font-medium">All of these — discovered, sequenced, and booked for you in seconds.</p>
+                    <Link to="/signup" className="inline-flex items-center gap-2 bg-white text-navy font-black text-sm px-8 py-4 rounded-2xl hover:bg-coral hover:text-white transition-all duration-300 shadow-xl hover:shadow-coral/30">
+                        Build My Date Plan <ArrowRight className="w-4 h-4" />
+                    </Link>
+                </motion.div>
+            </div>
+        </section>
+        </>
     );
 };
 

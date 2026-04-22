@@ -1,5 +1,23 @@
 import React from 'react';
 import { Star } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+        opacity: 1,
+        transition: { staggerChildren: 0.15 }
+    }
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+        opacity: 1, 
+        y: 0,
+        transition: { duration: 0.6, ease: "easeOut" }
+    }
+};
 
 const testimonials = [
     {
@@ -40,29 +58,48 @@ const SocialProof = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
                 {/* Header */}
-                <div className="text-center mb-16">
+                <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    variants={itemVariants}
+                    className="text-center mb-16"
+                >
                     <span className="inline-block text-xs font-black text-coral uppercase tracking-[0.2em] bg-coral/10 px-4 py-1.5 rounded-full mb-5">
                         Real Reviews
                     </span>
                     <h2 className="text-4xl md:text-5xl font-black text-navy leading-tight">
                         Loved by couples<br />across NYC.
                     </h2>
-                </div>
+                </motion.div>
 
                 {/* Stats bar */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14">
+                <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    variants={containerVariants}
+                    className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14"
+                >
                     {stats.map((s, i) => (
-                        <div key={i} className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+                        <motion.div variants={itemVariants} key={i} className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-shadow">
                             <div className="text-3xl font-black text-navy">{s.value}</div>
                             <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{s.label}</div>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
 
                 {/* Testimonial cards */}
-                <div className="grid md:grid-cols-3 gap-6">
+                <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    variants={containerVariants}
+                    className="grid md:grid-cols-3 gap-6"
+                >
                     {testimonials.map((t, i) => (
-                        <div
+                        <motion.div
+                            variants={itemVariants}
                             key={i}
                             className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col"
                         >
@@ -88,9 +125,9 @@ const SocialProof = () => {
                                     <div className="text-xs text-gray-400 font-medium">{t.role}</div>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     );

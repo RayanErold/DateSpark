@@ -158,28 +158,28 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
                 else if (info.offset.x < -120) onSwipe('left');
             }}
             whileDrag={{ scale: 1.02 }}
-            className={`absolute inset-0 rounded-[2.5rem] shadow-xl overflow-hidden cursor-grab active:cursor-grabbing border flex flex-col transition-colors duration-300 ${theme === 'dark' ? 'bg-navy border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' :
+            className={`absolute inset-0 rounded-[2rem] shadow-xl overflow-hidden cursor-grab active:cursor-grabbing border flex flex-col transition-colors duration-300 ${theme === 'dark' ? 'bg-navy border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' :
                     theme === 'sunset' ? 'bg-white border-coral/20' :
                         'bg-white border-gray-100 shadow-xl'
                 }`}
         >
 
             {/* HEADER SECTION */}
-            <div className={`p-10 pb-6 z-20 ${theme === 'dark' ? 'bg-gradient-to-b from-navy to-navy/50' : 'bg-transparent'}`}>
+            <div className={`p-6 pb-4 z-20 ${theme === 'dark' ? 'bg-gradient-to-b from-navy to-navy/50' : 'bg-transparent'}`}>
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <div className="bg-gradient-to-r from-coral to-pink-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-xl">TRENDING</div>
-                    <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-full border ${theme === 'dark' ? 'text-white/50 bg-white/5 border-white/5' : 'text-gray-400 bg-gray-50 border-gray-100'
+                    <div className="bg-gradient-to-r from-coral to-pink-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">TRENDING</div>
+                    <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-full border ${theme === 'dark' ? 'text-white/50 bg-white/5 border-white/5' : 'text-gray-500 bg-gray-50 border-gray-200'
                         }`}>
                         <MapPin className="w-3 h-3 text-coral" /> {cardLocation}
                     </div>
                 </div>
-                <h3 className={`text-3xl font-black leading-tight font-outfit drop-shadow-sm ${theme === 'dark' ? 'text-white' : 'text-navy'
+                <h3 className={`text-[28px] font-black leading-tight font-outfit drop-shadow-sm ${theme === 'dark' ? 'text-white' : 'text-navy'
                     }`}>{cardTitle}</h3>
             </div>
 
             {/* IMAGE GALLERY SECTION */}
             <div
-                className={`relative flex-1 mx-6 rounded-[2.5rem] overflow-hidden border pointer-events-auto cursor-pointer mb-6 transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'
+                className={`relative flex-1 mx-4 rounded-[1.5rem] overflow-hidden border pointer-events-auto cursor-pointer mb-4 transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'
                     }`}
                 onClick={handlePhotoTap}
             >
@@ -211,32 +211,32 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
                     </div>
                 )}
                 {/* Image Label Overlay */}
-                <div className="absolute bottom-4 left-4 right-4 z-20">
-                    <div className="bg-navy/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 inline-flex items-center gap-2">
-                        <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">{steps[photoIndex]?.venue || 'Discovery Stop'}</span>
+                <div className="absolute overflow-hidden bottom-3 left-3 right-3 z-20 border border-white/10 rounded-xl">
+                    <div className="bg-black/40 backdrop-blur-md px-4 py-2 w-full flex items-center justify-between">
+                        <span className="text-xs font-black text-white/90 uppercase tracking-widest truncate mr-2">{steps[photoIndex]?.venue || 'Discovery Stop'}</span>
                     </div>
                 </div>
             </div>
 
             {/* FOOTER SECTION */}
-            <div className="px-8 pb-8 pt-2 z-20">
-                <p className={`text-sm font-medium line-clamp-2 leading-snug mb-4 ${theme === 'dark' ? 'text-white/60' : 'text-gray-500'
+            <div className="px-6 pb-6 pt-2 z-20">
+                <p className={`text-sm font-medium line-clamp-2 leading-relaxed mb-4 ${theme === 'dark' ? 'text-white/70' : 'text-gray-600'
                     }`}>{steps[photoIndex]?.activity || plan.vibe} Date</p>
 
-                <div className={`flex items-center justify-between border-t pt-5 ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'
+                <div className={`flex items-center justify-between border-t pt-4 ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'
                     }`}>
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-1.5">
-                                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                                <span className={`font-black text-base ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{cardRating}</span>
+                                <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                                <span className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{cardRating}</span>
                             </div>
-                            <span className="text-[9px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Rating</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Rating</span>
                         </div>
-                        <div className={`w-px h-6 ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`} />
+                        <div className={`w-px h-8 ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'}`} />
                         <div className="flex flex-col">
-                            <span className={`font-black text-base ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{triesCount}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Tries</span>
+                            <span className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{triesCount}</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Tries</span>
                         </div>
                     </div>
 
@@ -2964,12 +2964,21 @@ const Dashboard = () => {
             </main>
 
             {/* View Plan Modal (Sleek Timeline UI) */}
+            <AnimatePresence>
             {selectedPlan && (
-                <div
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center sm:p-4 bg-navy/50 backdrop-blur-sm"
                     style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
                 >
-                    <div className="bg-[#f8f9fa] rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl w-full max-w-5xl h-[95svh] sm:max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
+                    <motion.div 
+                        initial={{ y: "100%", opacity: 0, scale: 0.95 }}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        exit={{ y: "100%", opacity: 0, scale: 0.95 }}
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        className="bg-[#f8f9fa] rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl w-full max-w-5xl h-[95svh] sm:max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative">
                         {/* Desktop Close Button */}
                         <button
                             onClick={() => {
@@ -3087,8 +3096,11 @@ const Dashboard = () => {
                                         const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
                                         const colorIdx = idx % dotColors.length;
                                         return (
-                                            <div
+                                            <motion.div
                                                 key={idx}
+                                                initial={{ opacity: 0, x: -30 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: 0.1 + idx * 0.15, type: 'spring', bounce: 0.3 }}
                                                 className={`relative ${isLockedStep ? 'cursor-pointer group/locked' : ''}`}
                                                 onClick={() => {
                                                     if (isLockedStep) setShowUpgradeModal(true);
@@ -3120,7 +3132,7 @@ const Dashboard = () => {
                                                     )}
                                                 </button>
 
-                                                <div className={`bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 flex flex-col gap-4 shadow-sm transition-all hover:shadow-md ${isLockedStep ? 'blur-[10px] select-none opacity-40 pointer-events-none' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
+                                                <div className={`bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 flex flex-col gap-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-coral/20 ${isLockedStep ? 'blur-[10px] select-none opacity-40 pointer-events-none' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
                                                     <div className="flex items-start gap-4">
                                                         {/* Category Icon */}
                                                         <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-50 border border-gray-100 shadow-sm">
@@ -3339,7 +3351,7 @@ const Dashboard = () => {
                                                         </button>
                                                     </div>
                                                 )}
-                                            </div>
+                                            </motion.div>
                                         );
                                     })}
                                 </div>
@@ -3512,7 +3524,12 @@ const Dashboard = () => {
                         </div>
 
                         {/* Right Column: Embedded Google Map */}
-                        <div className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50 touch-none pointer-events-auto' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}>
+                        <motion.div 
+                            initial={{ x: 50, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            transition={{ delay: 0.3, duration: 0.5, ease: 'easeOut' }}
+                            className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50 touch-none pointer-events-auto' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}
+                        >
                             {showMapMobile && (
                                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 md:hidden">
                                     <button
@@ -3574,10 +3591,11 @@ const Dashboard = () => {
                                     <p className="font-medium">Please add your Google Maps API Key to view the map.</p>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </div>
+                        </motion.div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* UPGRADE MODAL - Premium Experience */}
             <PremiumExperienceModal

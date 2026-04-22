@@ -86,12 +86,24 @@
         transform: scale(1.1);
       }
     }
+
+    @keyframes gradient-x {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   }
 
   /* Utility classes for animations used in Dashboard.jsx */
   .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
   .animate-zoom-in-95 { animation: zoom-in-95 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .animate-gradient-x { animation: gradient-x 15s ease infinite; background-size: 200% 200%; }
+  .animate-spin-slow { animation: spin-slow 8s linear infinite; }
   
   /* Compatibility aliases for 'animate-in' pattern */
   .animate-in.fade-in { animation-name: fade-in; animation-fill-mode: both; }

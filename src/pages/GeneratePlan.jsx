@@ -928,10 +928,10 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                                         <h3 className="text-xs font-black text-violet-500 uppercase tracking-widest pl-1">Get Inspired</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {[
-                                                { icon: "☕", text: "Cozy coffee crawl", prompt: "Plan a cozy evening starting with a specialty coffee crawl." },
-                                                { icon: "🍕", text: "Local adventure", prompt: "High-energy date exploring local spots." },
-                                                { icon: "🎷", text: "Luxury night", prompt: "A sophisticated night out with live music." },
-                                                { icon: "🎮", text: "Fun & Games", prompt: "A playful date featuring a retro arcade." }
+                                                { icon: "🥂", text: "Unforgettable anniversary", prompt: "Plan an unforgettable anniversary night — intimate dinner, a beautiful walk, and a rooftop moment to end the evening." },
+                                                { icon: "🗺️", text: "First date, zero awkwardness", prompt: "It's a first date. Keep it fun, low-pressure, and conversation-friendly — coffee, a stroll, maybe a surprise." },
+                                                { icon: "🌆", text: "Hidden local gems", prompt: "Show me the side of this city most people miss — local bars, underground spots, hole-in-the-wall restaurants only locals know." },
+                                                { icon: "⚡", text: "Spontaneous & electric", prompt: "We have 3 hours, no plan, and want to feel alive. Make it bold, unexpected, and impossible to forget." }
                                             ].map((starter, i) => (
                                                 <button
                                                     key={i}

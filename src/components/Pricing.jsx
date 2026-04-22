@@ -2,6 +2,24 @@ import { Check, ArrowRight, Star, Heart } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+        opacity: 1,
+        transition: { staggerChildren: 0.15 }
+    }
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+        opacity: 1, 
+        y: 0,
+        transition: { duration: 0.6, ease: "easeOut" }
+    }
+};
 
 const Pricing = () => {
     const plans = [
@@ -65,18 +83,30 @@ const Pricing = () => {
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-coral/5 blur-[120px] rounded-full -mr-64 -mt-64" />
             
             <div className="container-custom relative z-10">
-                <div className="text-center max-w-3xl mx-auto mb-16 space-y-6">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.6 }}
+                    className="text-center max-w-3xl mx-auto mb-16 space-y-6"
+                >
                     <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.1]">
                         Plan the perfect date in <span className="text-coral">seconds.</span>
                     </h2>
                     <p className="text-xl text-gray-400 font-medium">
                         Stop stressing. Start connecting. Choose the best way to spark your romance tonight.
                     </p>
-                </div>
+                </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+                <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    variants={containerVariants}
+                    className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch"
+                >
                     {plans.map((sub, idx) => (
-                        <div key={idx} className={`relative p-8 rounded-[40px] border flex flex-col transition-all duration-500 hover:-translate-y-2 ${sub.className}`}>
+                        <motion.div variants={itemVariants} key={idx} className={`relative p-8 rounded-[40px] border flex flex-col transition-all duration-500 hover:-translate-y-2 ${sub.className}`}>
                             {sub.badge && (
                                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-coral text-white px-6 py-2 rounded-full text-[10px] font-black tracking-widest uppercase shadow-xl z-20 whitespace-nowrap animate-bounce">
                                     {sub.badge}
@@ -168,9 +198,9 @@ const Pricing = () => {
                                 <span className="relative z-10">{sub.cta}</span>
                                 <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${sub.highlight ? 'text-white' : 'text-coral'}`} />
                             </button>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
 
                 <div className="mt-16 text-center space-y-4">
                     <div className="flex items-center justify-center -space-x-3 mb-4">

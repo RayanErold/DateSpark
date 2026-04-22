@@ -1,6 +1,24 @@
 import React from 'react';
 import { Sparkles, Zap, MapPin, Rocket, Shield, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+        opacity: 1,
+        transition: { staggerChildren: 0.15 }
+    }
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+        opacity: 1, 
+        y: 0,
+        transition: { duration: 0.6, ease: "easeOut" }
+    }
+};
 
 const Benefits = () => {
     const benefits = [
@@ -47,7 +65,13 @@ const Benefits = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 {/* Header */}
-                <div className="text-center max-w-2xl mx-auto mb-16">
+                <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    variants={itemVariants}
+                    className="text-center max-w-2xl mx-auto mb-16"
+                >
                     <span className="inline-block text-xs font-black text-violet-500 uppercase tracking-[0.2em] bg-violet-50 px-4 py-1.5 rounded-full mb-5">
                         Why DateSpark
                     </span>
@@ -57,12 +81,19 @@ const Benefits = () => {
                     <p className="mt-4 text-gray-500 text-lg font-medium leading-relaxed">
                         We've helped thousands of couples rediscover their city, minus the planning fatigue. Every plan is unique, curated, and ready to go.
                     </p>
-                </div>
+                </motion.div>
 
                 {/* Benefits grid */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    variants={containerVariants}
+                    className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
                     {benefits.map((b, i) => (
-                        <div
+                        <motion.div
+                            variants={itemVariants}
                             key={i}
                             className="group p-7 rounded-3xl border border-gray-100 bg-white hover:border-gray-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-4"
                         >
@@ -71,12 +102,18 @@ const Benefits = () => {
                             </div>
                             <h3 className="font-black text-navy text-lg leading-snug">{b.title}</h3>
                             <p className="text-gray-500 text-sm leading-relaxed">{b.description}</p>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
 
                 {/* CTA strip */}
-                <div className="mt-16 bg-navy rounded-3xl p-10 md:p-14 text-center relative overflow-hidden">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className="mt-16 bg-navy rounded-3xl p-10 md:p-14 text-center relative overflow-hidden"
+                >
                     <div className="absolute top-0 right-0 w-96 h-96 bg-coral/10 rounded-full blur-[100px] pointer-events-none" />
                     <div className="relative z-10">
                         <h3 className="text-3xl md:text-4xl font-black text-white mb-3">
@@ -100,7 +137,7 @@ const Benefits = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </div>
         </section>
     );
