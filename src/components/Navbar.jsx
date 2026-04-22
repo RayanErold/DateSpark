@@ -27,13 +27,10 @@ const Navbar = () => {
 
                 {/* Mobile Menu Toggle & CTA */}
                 <div className="md:hidden flex items-center gap-2">
-                    <a href="/demo" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black text-white bg-gradient-to-r from-violet-600 to-purple-500 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all">
-                        ✨ Demo
-                    </a>
-                    <a href="/signup" className="btn-primary py-1.5 px-3 text-xs rounded-lg hover:text-white transition-all focus:outline-none">Start now</a>
+                    <a href="/signup" className="btn-primary py-1.5 px-4 text-xs rounded-lg hover:text-white transition-all focus:outline-none">Start now</a>
                     <button 
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="p-2 -mr-2 text-gray-600 hover:text-coral transition-colors"
+                        className="p-2 -mr-1 text-gray-600 hover:text-coral transition-colors"
                     >
                         {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                     </button>
