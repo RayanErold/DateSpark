@@ -840,10 +840,10 @@ const Hero = () => {
                             whileInView={{ opacity: 1, y: 0, scale: 1, transition: { delay: idx * 0.12, duration: 0.6, type: "spring" } }}
                             viewport={{ once: true }}
                             whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                            className="flex-shrink-0 w-[260px] snap-start bg-[#111827] rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl cursor-pointer group"
+                            className="flex-shrink-0 w-[185px] sm:w-[240px] snap-start bg-[#111827] rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl cursor-pointer group"
                         >
                             {/* Image */}
-                            <div className="relative h-40 overflow-hidden">
+                            <div className="relative h-28 sm:h-40 overflow-hidden">
                                 <img src={spot.img} alt={spot.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
                                 {/* Rank badge */}

@@ -26,8 +26,11 @@ const Navbar = () => {
                 </div>
 
                 {/* Mobile Menu Toggle & CTA */}
-                <div className="md:hidden flex items-center gap-4">
-                    <a href="/signup" className="btn-primary py-2 px-4 text-sm rounded-xl hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">Start now</a>
+                <div className="md:hidden flex items-center gap-2">
+                    <a href="/demo" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black text-white bg-gradient-to-r from-violet-600 to-purple-500 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all">
+                        ✨ Demo
+                    </a>
+                    <a href="/signup" className="btn-primary py-1.5 px-3 text-xs rounded-lg hover:text-white transition-all focus:outline-none">Start now</a>
                     <button 
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         className="p-2 -mr-2 text-gray-600 hover:text-coral transition-colors"
@@ -44,6 +47,9 @@ const Navbar = () => {
                     <a href="#benefits" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">Why us</a>
                     <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">Pricing</a>
                     <a href="#waitlist" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 border-b border-gray-50 transition-colors">New cities waitlist</a>
+                    <a href="/demo" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 font-black text-lg py-3 border-b border-gray-50 text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-purple-500 transition-colors">
+                        ✨ Try the Demo
+                    </a>
                     <a href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-600 hover:text-coral font-bold text-lg py-3 transition-colors mt-2">Log in to your account</a>
                 </div>
             )}
