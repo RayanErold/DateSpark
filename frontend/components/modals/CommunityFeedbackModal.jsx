@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Star, X, Upload, Loader2, Image as ImageIcon, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 // ─────────────────────────────────────────────────────────────
 // Helper — Get itinerary stops from any plan shape

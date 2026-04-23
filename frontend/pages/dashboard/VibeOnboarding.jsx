@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import {
     Sparkles, Heart, ArrowRight, CheckCircle2, Music, Sunset,
     Wine, Coffee, Zap, TreePine, Palette, Star, Moon, Sun,

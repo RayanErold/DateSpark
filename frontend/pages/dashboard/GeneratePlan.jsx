@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';import { isLocationInServiceArea } from '../lib/geo';
-import { supabase } from '../lib/supabase';
-import { useGoogleMaps } from '../lib/googleMaps';
-import BottomNav from '../components/BottomNav';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';
+import { isLocationInServiceArea } from '../../lib/geo';
+import { supabase } from '../../lib/supabase';
+import { useGoogleMaps } from '../../lib/googleMaps';
+import BottomNav from '../../components/common/BottomNav';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
-import PremiumExperienceModal from '../components/PremiumExperienceModal';
-import { setFlashMessage } from '../lib/flashMessage';
+import PremiumExperienceModal from '../../components/modals/PremiumExperienceModal';
+import { setFlashMessage } from '../../lib/flashMessage';
 
 
 /** Must match server.js `/api/user-usage` defaults until fetch completes */

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Compass, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 const FeedbackBot = () => {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);

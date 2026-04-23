@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { Heart, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const Signup = () => {

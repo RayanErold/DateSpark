@@ -9,9 +9,9 @@
   "scripts": {
     "dev": "concurrently \"npm run frontend\" \"npm run server\"",
     "frontend": "vite",
-    "server": "nodemon server.js",
+    "server": "nodemon backend/index.js",
     "build": "vite build",
-    "start": "node server.js",
+    "start": "node backend/index.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },

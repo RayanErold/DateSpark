@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute = ({ children }) => {

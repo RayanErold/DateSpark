@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, MapPin, Sparkles, Locate, Check, Calendar, ArrowRight, Lock } from 'lucide-react';
 import { useJsApiLoader } from '@react-google-maps/api';
-import { isLocationInServiceArea } from '../lib/geo';
+import { isLocationInServiceArea } from '../../lib/geo';
 import { useNavigate } from 'react-router-dom';
 
 const VIBES = [

@@ -2,8 +2,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard } from 'lucide-react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
-import { useGoogleMaps } from '../lib/googleMaps';
-import { supabase } from '../lib/supabase';
+import { useGoogleMaps } from '../../lib/googleMaps';
+import { supabase } from '../../lib/supabase';
 
 const darkMapStyle = [
   { elementType: 'geometry', stylers: [{ color: '#111827' }] },

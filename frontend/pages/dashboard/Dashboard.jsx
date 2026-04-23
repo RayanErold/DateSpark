@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import {
@@ -57,14 +57,14 @@ import {
     Navigation
 } from 'lucide-react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
-import { useGoogleMaps } from '../lib/googleMaps';
+import { useGoogleMaps } from '../../lib/googleMaps';
 import { loadStripe } from '@stripe/stripe-js';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import BottomNav from '../components/BottomNav';
-import PremiumExperienceModal from '../components/PremiumExperienceModal';
-import UsageBadge from '../components/UsageBadge';
-import { consumeFlashMessage } from '../lib/flashMessage';
-import CommunityFeedbackModal from '../components/CommunityFeedbackModal';
+import BottomNav from '../../components/common/BottomNav';
+import PremiumExperienceModal from '../../components/modals/PremiumExperienceModal';
+import UsageBadge from '../../components/common/UsageBadge';
+import { consumeFlashMessage } from '../../lib/flashMessage';
+import CommunityFeedbackModal from '../../components/modals/CommunityFeedbackModal';
 
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 

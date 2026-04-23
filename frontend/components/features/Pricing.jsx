@@ -1,5 +1,5 @@
 import { Check, ArrowRight, Star, Heart } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 import { motion } from 'framer-motion';

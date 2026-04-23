@@ -1,16 +1,16 @@
 import React from 'react';
-import Navbar from '../components/Navbar';
-import Hero from '../components/Hero';
-import TrustedPartners from '../components/TrustedPartners';
-import HowItWorks from '../components/HowItWorks';
-import ProductDemo from '../components/ProductDemo';
-import Benefits from '../components/Benefits';
-import SocialProof from '../components/SocialProof';
-import Pricing from '../components/Pricing';
-import FAQ from '../components/FAQ';
-import FeatureFeedback from '../components/FeatureFeedback';
-import Waitlist from '../components/Waitlist';
-import Footer from '../components/Footer';
+import Navbar from '../components/common/Navbar';
+import Hero from '../components/landing/Hero';
+import TrustedPartners from '../components/landing/TrustedPartners';
+import HowItWorks from '../components/landing/HowItWorks';
+import ProductDemo from '../components/landing/ProductDemo';
+import Benefits from '../components/landing/Benefits';
+import SocialProof from '../components/landing/SocialProof';
+import Pricing from '../components/features/Pricing';
+import FAQ from '../components/landing/FAQ';
+import FeatureFeedback from '../components/features/FeatureFeedback';
+import Waitlist from '../components/landing/Waitlist';
+import Footer from '../components/common/Footer';
 
 /**
  * LandingPage — conversion-optimized section order:

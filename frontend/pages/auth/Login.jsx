@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { Heart, Loader2, Eye, EyeOff, Mail, RefreshCw } from 'lucide-react';
 
 // Resend Email Confirmation Component with cooldown timer
