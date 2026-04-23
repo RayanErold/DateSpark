@@ -1213,12 +1213,12 @@ app.post('/api/create-portal-session', async (req, res) => {
 
 // --- PRODUCTION SERVING ---
 // Serve static files from the 'dist' directory
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // Handle SPA routing - deliver index.html for all non-API routes
 // Using app.use() as a fallback because Express 5 dropped wildcard '*' support
 app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => console.log(`[SERVER] DateSpark live on ${PORT}`));
