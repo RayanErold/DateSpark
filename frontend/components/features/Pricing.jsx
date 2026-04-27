@@ -1,4 +1,5 @@
-import { Check, ArrowRight, Star, Heart } from 'lucide-react';
+import { useState } from 'react';
+import { Check, ArrowRight, Star, Heart, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
@@ -22,6 +23,7 @@ const itemVariants = {
 };
 
 const Pricing = () => {
+    const [error, setError] = useState(null);
     const plans = [
         {
             name: "The Spark",
@@ -167,7 +169,8 @@ const Pricing = () => {
                                     try {
                                         const { data: { user } } = await supabase.auth.getUser();
                                         if (!user) {
-                                            alert("Please log in to upgrade your plan!");
+                                            setError("Please log in to upgrade your plan!");
+                                            setTimeout(() => setError(null), 5000);
                                             return;
                                         }
 
@@ -186,7 +189,8 @@ const Pricing = () => {
                                         }
                                     } catch (err) {
                                         console.error('Pricing Payment Error:', err);
-                                        alert("Connection error. Please try again later.");
+                                        setError("Connection error. Please try again later.");
+                                        setTimeout(() => setError(null), 5000);
                                     }
                                 }}
                                 className={`w-full py-5 rounded-2xl font-black text-center flex items-center justify-center gap-2 transition-all group overflow-hidden relative ${
@@ -198,6 +202,17 @@ const Pricing = () => {
                                 <span className="relative z-10">{sub.cta}</span>
                                 <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${sub.highlight ? 'text-white' : 'text-coral'}`} />
                             </button>
+
+                            {error && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-500 text-xs font-bold"
+                                >
+                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                    <span>{error}</span>
+                                </motion.div>
+                            )}
                         </motion.div>
                     ))}
                 </motion.div>

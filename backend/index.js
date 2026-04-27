@@ -27,6 +27,14 @@ const GOOGLE_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const NEXT_PUBLIC_BASE_URL = process.env.VITE_APP_URL || 'http://localhost:5173';
+const TICKETMASTER_API_KEY = process.env.TICKETMASTER_API_KEY;
+
+// Sanity Check
+if (!TICKETMASTER_API_KEY) {
+    console.warn('⚠️ TICKETMASTER_API_KEY is missing from process.env');
+} else {
+    console.log(`✅ Ticketmaster Key Loaded: ${TICKETMASTER_API_KEY.slice(0, 4)}...`);
+}
 
 // Clients
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -55,7 +63,7 @@ const guestRateLimit = (req, res, next) => {
 
     if (currentCount >= GUEST_DAILY_LIMIT) {
         console.warn(`[RATE LIMIT] IP ${ip} blocked — daily guest limit reached.`);
-        return res.status(429).json({ 
+        return res.status(429).json({
             error: 'You have used your free demo for today. Sign up for unlimited access.',
             code: 'RATE_LIMIT_EXCEEDED',
             retryAfter: 86400 // seconds until reset
@@ -77,8 +85,8 @@ const errorLogPath = path.join(logsDir, 'error_log.txt');
 fs.writeFileSync(startupLogPath, `[STARTUP] Server booting at ${new Date().toISOString()}\n`);
 
 function logError(tag, err) {
-    const errorMsg = err.response?.data 
-        ? JSON.stringify(err.response.data) 
+    const errorMsg = err.response?.data
+        ? JSON.stringify(err.response.data)
         : (err.raw?.message || err.message || 'Unknown error');
     const msg = `[${new Date().toISOString()}] ${tag}: ${errorMsg}\n`;
     fs.appendFileSync(errorLogPath, msg);
@@ -89,7 +97,7 @@ function logError(tag, err) {
 async function checkAndIncrementUsage(userId, type) {
     try {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
-        if (!profile) return { allowed: true, isPremium: false }; 
+        if (!profile) return { allowed: true, isPremium: false };
 
         const isPremium = !!profile.is_premium;
         if (isPremium) return { allowed: true, isPremium, profile };
@@ -104,7 +112,7 @@ async function checkAndIncrementUsage(userId, type) {
         const limits = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
         const now = new Date();
         const lastUpdate = usage ? new Date(usage.updated_at || usage.created_at) : null;
-        
+
         // Cooldown: 24h for standard, 7 days for weekly types
         const cooldownMs = type.endsWith('_weekly') ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
         const isCooldownActive = lastUpdate && (now - lastUpdate < cooldownMs);
@@ -126,7 +134,7 @@ async function checkAndIncrementUsage(userId, type) {
         return { allowed: true, isPremium, profile };
     } catch (err) {
         console.error('[Usage Error]', err);
-        return { allowed: true, isPremium: false }; 
+        return { allowed: true, isPremium: false };
     }
 }
 
@@ -137,15 +145,15 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 app.get('/api/user-premium/:userId', async (req, res) => {
     try {
         const { data } = await supabase.from('profiles').select('*').eq('id', req.params.userId).single();
-        res.json({ 
-            isPremium: !!data?.is_premium, 
-            premium_expiry: data?.premium_expiry, 
-            referral_code: data?.referral_code, 
-            referral_count: data?.referral_count 
+        res.json({
+            isPremium: !!data?.is_premium,
+            premium_expiry: data?.premium_expiry,
+            referral_code: data?.referral_code,
+            referral_count: data?.referral_count
         });
-    } catch (err) { 
+    } catch (err) {
         logError('[PREMIUM SYNC ERROR]', err);
-        res.status(500).json({ error: 'DB Connection Error' }); 
+        res.status(500).json({ error: 'DB Connection Error' });
     }
 });
 
@@ -171,23 +179,297 @@ app.post('/api/increment-save-usage', async (req, res) => {
         res.status(500).json({ error: 'Failed to update save usage' });
     }
 });
+const routeCache = new Map();
+const CACHE_TTL = 1000 * 60 * 15; // 15 minutes
+
+const getCached = (key) => {
+    const cached = routeCache.get(key);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.data;
+    return null;
+};
+
+const setCache = (key, data) => routeCache.set(key, { data, timestamp: Date.now() });
 
 // POPULAR DISCOVERY & TRENDING
 app.get('/api/trending-plans', async (req, res) => {
+    const cacheKey = 'trending-plans';
+    const cached = getCached(cacheKey);
+    if (cached) return res.json(cached);
+
     try {
         const { data } = await supabase
             .from('plans')
             .select('*')
             .is('deleted_at', null)
+            .not('itinerary', 'is', null)
             .order('boost_count', { ascending: false })
             .limit(20);
-        
+
         // High Quality venues only (Frontend further filters as needed)
-        res.json(data);
+        if (data) setCache(cacheKey, data);
+        res.json(data || []);
     } catch (err) { res.status(500).json({ error: 'DB Error fetching trending' }); }
 });
 
-// BULLETPROOF AVATAR UPLOAD PROXY
+// GLOBAL SEARCH — always filters from the same trending pool used by the app
+app.get('/api/search', async (req, res) => {
+    const { q } = req.query;
+    if (!q) return res.json([]);
+
+    const searchKey = `search-${q.toLowerCase()}`;
+    const cached = getCached(searchKey);
+    if (cached) return res.json(cached);
+
+    try {
+        // 1. Try the trending cache first (same pool as Trending Spots in the app)
+        const trendingCache = getCached('trending-plans');
+        if (trendingCache && trendingCache.length > 0) {
+            const ql = q.toLowerCase();
+            const results = trendingCache.filter(plan =>
+                (plan.location || '').toLowerCase().includes(ql) ||
+                (plan.vibe || '').toLowerCase().includes(ql)
+            );
+            if (results.length > 0) {
+                setCache(searchKey, results);
+                return res.json(results);
+            }
+        }
+
+        // 2. Cache miss — query DB but still use the same quality criteria as trending
+        const { data } = await supabase
+            .from('plans')
+            .select('*')
+            .is('deleted_at', null)
+            .not('itinerary', 'is', null)
+            .or(`location.ilike.%${q}%,vibe.ilike.%${q}%`)
+            .order('boost_count', { ascending: false })
+            .limit(20);
+
+        if (data) setCache(searchKey, data);
+        res.json(data || []);
+    } catch (err) {
+        logError('[SEARCH ERROR]', err);
+        res.status(500).json({ error: 'DB Error fetching search results' });
+    }
+});
+
+// ─── TICKETMASTER LIVE EVENTS ────────────────────────────────────────────────
+// GET /api/events?city=New+York&category=music&date=2026-05-10
+// Proxies Ticketmaster Discovery API v2 with 30-min cache per city+category combo
+const EVENTS_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+
+const CATEGORY_SEGMENT_MAP = {
+    'music': 'Music',
+    'arts': 'Arts & Theatre',
+    'sports': 'Sports',
+    'film': 'Film',
+    'food': 'Miscellaneous',
+    'nightlife': 'Music',
+    'theater': 'Arts & Theatre',
+    'comedy': 'Arts & Theatre'
+};
+
+// ─── DEMO DATA FALLBACK ──────────────────────────────────────────────────────
+const DEMO_EVENTS = [
+    {
+        id: 'demo-1',
+        name: 'Late Night Comedy: Best of NYC',
+        url: 'https://www.ticketmaster.com',
+        image: 'https://images.unsplash.com/photo-1585647347483-22b66260dfff?q=80&w=800',
+        date: new Date().toISOString().split('T')[0],
+        time: '21:00',
+        segment: 'Arts & Theatre',
+        genre: 'Comedy',
+        venueName: 'Gotham Comedy Club',
+        venueCity: 'New York',
+        address: '208 W 23rd St',
+        priceMin: 25,
+        priceMax: 45,
+        currency: 'USD',
+        isDemo: true
+    },
+    {
+        id: 'demo-2',
+        name: 'Jazz in the Park',
+        url: 'https://www.ticketmaster.com',
+        image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800',
+        date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        time: '19:30',
+        segment: 'Music',
+        genre: 'Jazz',
+        venueName: 'Central Park',
+        venueCity: 'New York',
+        address: 'Rumsey Playfield',
+        priceMin: 0,
+        priceMax: 0,
+        currency: 'USD',
+        isDemo: true
+    },
+    {
+        id: 'demo-3',
+        name: 'The Lion King on Broadway',
+        url: 'https://www.ticketmaster.com',
+        image: 'https://images.unsplash.com/photo-1503095396549-807a8bc3667c?q=80&w=800',
+        date: new Date(Date.now() + 172800000).toISOString().split('T')[0],
+        time: '20:00',
+        segment: 'Arts & Theatre',
+        genre: 'Musical',
+        venueName: 'Minskoff Theatre',
+        venueCity: 'New York',
+        address: '200 W 45th St',
+        priceMin: 89,
+        priceMax: 250,
+        currency: 'USD',
+        isDemo: true
+    }
+];
+
+// --- API LOGIC ---
+
+/**
+ * Normalizes Ticketmaster Events
+ */
+async function fetchTicketmasterEvents(city, category, size) {
+    const cleanKey = process.env.TICKETMASTER_API_KEY?.trim();
+    if (!cleanKey || cleanKey.includes('YOUR_')) return [];
+
+    const segmentName = CATEGORY_SEGMENT_MAP[category];
+    let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${cleanKey}&city=${encodeURIComponent(city)}&size=${size}&sort=date,asc`;
+    if (segmentName) url += `&segmentName=${encodeURIComponent(segmentName)}`;
+
+    try {
+        const res = await axios.get(url, { timeout: 8000 });
+        const raw = res.data?._embedded?.events || [];
+        return raw.map(evt => {
+            const venue = evt._embedded?.venues?.[0];
+            return {
+                id: `tm-${evt.id}`,
+                source: 'Ticketmaster',
+                name: evt.name,
+                url: evt.url,
+                image: evt.images?.find(i => i.ratio === '16_9' && i.width > 400)?.url || evt.images?.[0]?.url,
+                date: evt.dates?.start?.localDate,
+                time: evt.dates?.start?.localTime?.slice(0, 5),
+                venueName: venue?.name,
+                venueCity: venue?.city?.name || city,
+                address: venue?.address?.line1,
+                priceMin: evt.priceRanges?.[0]?.min,
+                priceMax: evt.priceRanges?.[0]?.max,
+                currency: evt.priceRanges?.[0]?.currency || 'USD'
+            };
+        });
+    } catch (err) {
+        console.warn('[Ticketmaster Error]', err.message);
+        return [];
+    }
+}
+
+/**
+ * Normalizes SeatGeek Events
+ */
+async function fetchSeatGeekEvents(city, category, size) {
+    const clientId = process.env.SEATGEEK_CLIENT_ID?.trim();
+    if (!clientId || clientId.includes('YOUR_')) return [];
+
+    // Map internal categories to SeatGeek taxonomies
+    const SEATGEEK_TAXONOMY_MAP = {
+        'music': 'concert',
+        'sports': 'sports',
+        'theater': 'theater',
+        'comedy': 'comedy',
+        'family': 'family'
+    };
+
+    const taxonomy = SEATGEEK_TAXONOMY_MAP[category.toLowerCase()];
+    let url = `https://api.seatgeek.com/2/events?client_id=${clientId}&venue.city=${encodeURIComponent(city)}&per_page=${size}&sort=datetime_local.asc`;
+    
+    if (taxonomy) {
+        url += `&taxonomies.name=${taxonomy}`;
+    }
+
+    try {
+        const res = await axios.get(url, { timeout: 8000 });
+        const raw = res.data?.events || [];
+        return raw.map(evt => ({
+            id: `sg-${evt.id}`,
+            source: 'SeatGeek',
+            name: evt.title,
+            url: evt.url,
+            image: evt.performers?.[0]?.image || evt.venue?.image,
+            date: evt.datetime_local?.split('T')[0],
+            time: evt.datetime_local?.split('T')[1]?.slice(0, 5),
+            venueName: evt.venue?.name,
+            venueCity: evt.venue?.city || city,
+            address: evt.venue?.address,
+            priceMin: evt.stats?.lowest_price,
+            priceMax: evt.stats?.highest_price,
+            currency: 'USD'
+        }));
+    } catch (err) {
+        console.warn('[SeatGeek Error]', err.message);
+        return [];
+    }
+}
+
+/**
+ * Internal helper to fetch and merge events for the Generator
+ */
+async function getLiveEventsInternal(city, category, size = 10) {
+    try {
+        const [tmEvents, sgEvents] = await Promise.all([
+            fetchTicketmasterEvents(city, category, size),
+            fetchSeatGeekEvents(city, category, size)
+        ]);
+        
+        let combined = [...tmEvents, ...sgEvents];
+        const seen = new Set();
+        
+        return combined.filter(evt => {
+            // Create a "Strict Identity" key
+            // Normalize name: lowercase, remove punctuation, remove common filler words
+            const cleanName = (evt.name || '')
+                .toLowerCase()
+                .replace(/[^\w\s]/g, '')
+                .replace(/\b(the|vs|at|presents|with|and)\b/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+                
+            const date = evt.date || 'no-date';
+            const venue = (evt.venueName || '').toLowerCase().trim();
+            
+            // The key is FULL name + date + venue (first 15 chars to handle naming variants)
+            const dedupeKey = `${cleanName}|${date}|${venue.substring(0, 15)}`;
+            
+            if (seen.has(dedupeKey)) return false;
+            seen.add(dedupeKey);
+            return true;
+        }).sort((a, b) => new Date(a.date) - new Date(b.date));
+    } catch (err) {
+        console.error('[EVENT ENGINE ERROR]', err);
+        return [];
+    }
+}
+
+app.get('/api/events', async (req, res) => {
+    const city = req.query.city || 'New York';
+    const category = (req.query.category || 'all').toLowerCase();
+    const size = Math.min(parseInt(req.query.size || '15', 10), 30);
+    const cacheKey = `dual-events-${city.toLowerCase()}-${category}-${size}`;
+
+    const cached = getCached(cacheKey);
+    if (cached) return res.json(cached);
+
+    const events = await getLiveEventsInternal(city, category, size);
+    
+    if (events.length > 0) {
+        setCache(cacheKey, events);
+        res.json(events);
+    } else {
+        res.json(DEMO_EVENTS);
+    }
+});
+
+
 // Uses Service Role Key to bypass all RLS / Policy issues
 app.post('/api/upload-avatar', express.raw({ type: 'image/*', limit: '10mb' }), async (req, res) => {
     const userId = req.headers['x-user-id'];
@@ -199,7 +481,7 @@ app.post('/api/upload-avatar', express.raw({ type: 'image/*', limit: '10mb' }), 
 
     try {
         console.log(`[Proxy Upload] Starting avatar upload for user: ${userId} (${contentType})`);
-        
+
         if (!req.body || req.body.length === 0) {
             throw new Error('No file data received in request body');
         }
@@ -291,7 +573,7 @@ app.post('/api/plans/:id/try', async (req, res) => {
     try {
         const { data: current } = await supabase.from('plans').select('total_tries').eq('id', id).single();
         const newCount = (current?.total_tries || 0) + 1;
-        
+
         const { data, error } = await supabase
             .from('plans')
             .update({ total_tries: newCount })
@@ -311,7 +593,7 @@ app.post('/api/plans/:id/try', async (req, res) => {
 app.post('/api/plans/:id/boost', async (req, res) => {
     const { id } = req.params;
     const { userId } = req.body;
-    
+
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
     try {
@@ -325,7 +607,7 @@ app.post('/api/plans/:id/boost', async (req, res) => {
 
         const boostedBy = Array.isArray(plan.boosted_by) ? plan.boosted_by : [];
         const alreadyBoosted = boostedBy.includes(userId);
-        
+
         let newCount;
         let newBoostedBy;
 
@@ -341,7 +623,7 @@ app.post('/api/plans/:id/boost', async (req, res) => {
 
         const { data, error } = await supabase
             .from('plans')
-            .update({ 
+            .update({
                 boost_count: newCount,
                 boosted_by: newBoostedBy
             })
@@ -361,7 +643,7 @@ app.post('/api/plans/:id/boost', async (req, res) => {
 app.post('/api/nearby-alternatives', async (req, res) => {
     let { lat, lng, type, radius, budget, currentPlaceId, userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
-    
+
     try {
         const usageCheck = await checkAndIncrementUsage(userId, 'swap');
         if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', type: 'LIMIT_REACHED' });
@@ -381,9 +663,9 @@ app.post('/api/nearby-alternatives', async (req, res) => {
         const centerCoords = { latitude: Number(lat), longitude: Number(lng) };
         const salts = ['trending', 'top rated', 'hidden gem', 'popular', 'best'];
         const salt = salts[Math.floor(Math.random() * salts.length)];
-        
+
         const query = `${type?.replace('_', ' ') || 'place'} ${salt} near this location`;
-        
+
         // --- NEW PLACES API (v1) SEARCH ---
         const searchResponse = await axios.post(
             'https://places.googleapis.com/v1/places:searchText',
@@ -428,7 +710,7 @@ app.post('/api/nearby-alternatives', async (req, res) => {
                     website: p.websiteUri || null,
                     searchUrl: `https://www.google.com/maps/place/?q=place_id:${p.id}`,
                     photo: (p.photos && p.photos.length > 0)
-                        ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${GOOGLE_API_KEY}` 
+                        ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxWidthPx=400&key=${GOOGLE_API_KEY}`
                         : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80'
                 };
             });
@@ -470,12 +752,12 @@ function getDynamicBlurb(vibe, venue) {
 
 // Maps onboarding activity IDs to venue search terms
 const ACTIVITY_VENUE_MAP = {
-    food_first:     ['fine dining restaurant', 'highly-rated bistro or brasserie'],
-    drinks_vibes:   ['craft cocktail bar', 'speakeasy or rooftop lounge'],
-    music_dance:    ['jazz bar or live music venue', 'dancing venue or music lounge'],
+    food_first: ['fine dining restaurant', 'highly-rated bistro or brasserie'],
+    drinks_vibes: ['craft cocktail bar', 'speakeasy or rooftop lounge'],
+    music_dance: ['jazz bar or live music venue', 'dancing venue or music lounge'],
     outdoor_scenic: ['scenic waterfront or rooftop terrace', 'botanical garden or park'],
-    art_culture:    ['contemporary art gallery', 'cultural museum or creative space'],
-    spontaneous:    ['hidden gem or pop-up experience', 'unique immersive venue'],
+    art_culture: ['contemporary art gallery', 'cultural museum or creative space'],
+    spontaneous: ['hidden gem or pop-up experience', 'unique immersive venue'],
 };
 
 // Build a preference-aware list of venue queries from the vibe profile
@@ -520,7 +802,7 @@ function buildVibeProfileContext(vibeProfile) {
     const parts = [];
     if (atmosphereStr) parts.push(`Atmosphere preference: ${atmosphereStr}`);
     if (activityStr) parts.push(`They enjoy: ${activityStr}`);
-    if (vibeProfile.budget) parts.push(`Budget comfort: ${vibeProfile.budget} (${'budget'===vibeProfile.budget?'under $50':vibeProfile.budget==='moderate'?'$50-120':'$120+'} per person)`);
+    if (vibeProfile.budget) parts.push(`Budget comfort: ${vibeProfile.budget} (${'budget' === vibeProfile.budget ? 'under $50' : vibeProfile.budget === 'moderate' ? '$50-120' : '$120+'} per person)`);
     return parts.length ? `\nUSER PREFERENCE PROFILE:\n${parts.join('.\n')}.` : '';
 }
 
@@ -529,17 +811,55 @@ async function generateStandardItinerary(numVariants, vibe, location, calcDurati
     const selectedQueries = buildPersonalizedQueries(vibe, vibeProfile, targetSteps);
     const plans = [];
 
+    // --- NEW: FETCH LIVE EVENTS FOR INJECTION ---
+    const liveEvents = await getLiveEventsInternal(location, vibe, 10);
+
     for (let i = 0; i < numVariants; i++) {
         const steps = [];
         const startTime = 18;
         const intervals = Math.floor(calcDuration * 60 / Math.max(1, targetSteps - 1));
-        
+
         for (let j = 0; j < targetSteps; j++) {
+            // INJECTION LOGIC: Try to use a real event for the second step if possible
+            const isEventStep = j === 1 && liveEvents.length > i;
+            
+            if (isEventStep) {
+                const evt = liveEvents[i];
+                steps.push({
+                    time: (() => {
+                        const minutesTotal = (startTime * 60) + (j * intervals);
+                        const h = Math.floor(minutesTotal / 60) % 24;
+                        const m = minutesTotal % 60;
+                        const displayH = h % 12 || 12;
+                        return `${displayH}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+                    })(),
+                    venue: evt.venueName,
+                    activity: evt.name,
+                    category: evt.name.toLowerCase().includes('comedy') ? 'comedy' : 
+                              evt.name.toLowerCase().includes('sport') || evt.name.toLowerCase().includes('game') ? 'sports' :
+                              evt.name.toLowerCase().includes('concert') || evt.name.toLowerCase().includes('music') || evt.name.toLowerCase().includes('show') ? 'music' : 'event',
+                    description: `Catch this live event! ${evt.name} at ${evt.venueName}. A perfect highlight for your ${vibe.toLowerCase()} evening.`,
+                    search_term: evt.name,
+                    sub_headline: "Live Experience Highlight",
+                    vibe_score: 10,
+                    placeId: null,
+                    address: evt.address,
+                    lat: null, // Frontend will geocode or use venue name
+                    lng: null,
+                    rating: 4.9,
+                    userRatingCount: 1200,
+                    searchUrl: evt.url,
+                    websiteUrl: evt.url,
+                    photoUrl: evt.image || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80'
+                });
+                continue;
+            }
+
             const query = `${selectedQueries[j]} near ${location}`;
             const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}`;
             const response = await axios.get(searchUrl);
             const results = response.data?.results || [];
-            
+
             const place = results[(i * targetSteps + j) % Math.max(results.length, 1)] || { name: 'Local Gem', formatted_address: location };
 
             let details = {};
@@ -557,10 +877,18 @@ async function generateStandardItinerary(numVariants, vibe, location, calcDurati
             const displayH = h % 12 || 12;
             const timeStr = `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
 
+            const queryTerm = selectedQueries[j].toLowerCase();
+            const category = queryTerm.includes('restaurant') || queryTerm.includes('bistro') || queryTerm.includes('dining') || queryTerm.includes('food') ? 'food' :
+                             queryTerm.includes('bar') || queryTerm.includes('lounge') || queryTerm.includes('cocktail') || queryTerm.includes('wine') || queryTerm.includes('speakeasy') ? 'drinks' :
+                             queryTerm.includes('gallery') || queryTerm.includes('museum') || queryTerm.includes('art') ? 'art' :
+                             queryTerm.includes('park') || queryTerm.includes('garden') || queryTerm.includes('scenic') || queryTerm.includes('view') ? 'scenic' :
+                             queryTerm.includes('arcade') || queryTerm.includes('game') || queryTerm.includes('bowling') || queryTerm.includes('climbing') ? 'activity' : 'general';
+
             steps.push({
                 time: timeStr,
                 venue: place.name,
                 activity: selectedQueries[j].split(' or ')[0],
+                category: category,
                 description: getDynamicBlurb(vibe, place.name),
                 search_term: place.name,
                 sub_headline: j === 0 ? "The Perfect Start" : j === targetSteps - 1 ? "Ending on a High Note" : "Continuing the Spark",
@@ -569,19 +897,19 @@ async function generateStandardItinerary(numVariants, vibe, location, calcDurati
                 address: place.formatted_address,
                 lat: place.geometry?.location?.lat,
                 lng: place.geometry?.location?.lng,
-                rating: place.rating || (4.5 + (Math.random() * 0.4)), 
-                userRatingCount: place.user_ratings_total || Math.floor(Math.random() * 800) + 200, 
+                rating: place.rating || (4.5 + (Math.random() * 0.4)),
+                userRatingCount: place.user_ratings_total || Math.floor(Math.random() * 800) + 200,
                 searchUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
                 websiteUrl: details.website || null,
-                photoUrl: place.photos?.[0]?.photo_reference 
-                    ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` 
+                photoUrl: place.photos?.[0]?.photo_reference
+                    ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}`
                     : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
             });
         }
         const capitalizedVibe = vibe.charAt(0).toUpperCase() + vibe.slice(1).toLowerCase();
-        plans.push({ 
-            vibe_variant: i === 0 ? `The Ultimate ${capitalizedVibe} Experience` : `A Curated ${capitalizedVibe} Evening`, 
-            steps 
+        plans.push({
+            vibe_variant: i === 0 ? `The Ultimate ${capitalizedVibe} Experience` : `A Curated ${capitalizedVibe} Evening`,
+            steps
         });
     }
     return { plans };
@@ -609,7 +937,7 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
         }
 
         const targetSteps = Math.max(3, Math.min(5, Math.ceil(calcDuration / 1.2)));
-        const stepsPerPlan = targetSteps; 
+        const stepsPerPlan = targetSteps;
 
         // Build the preference context string for AI routes
         const profileContext = buildVibeProfileContext(vibeProfile);
@@ -626,14 +954,24 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
             rawPlans = data.plans || [];
         } else {
             console.log(`[GENERATOR] Custom AI: "${customization.prompt}" [Profile: ${!!vibeProfile}]`);
-            const model = genAI.getGenerativeModel({ model: GEMINI_MODEL }); 
-            // Inject the full profile context into the AI prompt
+            
+            // --- NEW: FETCH LIVE EVENTS CONTEXT ---
+            const liveEvents = await getLiveEventsInternal(location, effectiveVibe, 10);
+            const eventContext = liveEvents.length > 0 
+                ? `\nREAL-TIME LIVE EVENTS IN ${location}:\n${liveEvents.map(e => `- ${e.name} at ${e.venueName} (Source: ${e.source}, URL: ${e.url})`).join('\n')}`
+                : '';
+
+            const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
             const prompt = `You are a luxury boutique date concierge. Create ${numVariants} distinct date itinerary variations in ${location} for a ${effectiveBudget} budget.
-            User's vibe: ${effectiveVibe}. User request: "${customization.prompt}".${profileContext}
+            User's vibe: ${effectiveVibe}. User request: "${customization.prompt}".${profileContext}${eventContext}
+            
+            REAL-TIME DATA RULE:
+            If there are "REAL-TIME LIVE EVENTS" listed above that match the user's vibe (Music, Comedy, Sports, etc.), you MUST prioritize including at least one of them as a primary stop in at least one of the plan variations. Use the exact venue and Ticket/URL provided.
+
             CRITICAL RULES:
             1. Generate venues that match BOTH the user's atmosphere preference AND their activity interests above.
-            2. Do NOT suggest venues that conflict with their preferences (e.g. do not suggest arcades for an upscale/fancy user).
-            3. Return JSON only: { "plans": [ { "vibe_variant": "string", "steps": [ { "time": "string", "venue": "string", "activity": "string", "description": "string", "search_term": "string", "sub_headline": "string (viral catchphrase, max 6 words)", "vibe_score": number, "rating": number, "user_rating_count": number } ] } ] }
+            2. Do NOT suggest venues that conflict with their preferences.
+            3. Return JSON only: { "plans": [ { "vibe_variant": "string", "steps": [ { "time": "string", "venue": "string", "activity": "string", "category": "string (one of: food, drinks, music, sports, comedy, art, scenic, activity)", "description": "string", "search_term": "string", "sub_headline": "string (viral catchphrase, max 6 words)", "vibe_score": number, "rating": number, "user_rating_count": number, "booking_url": "string (only if live event)" } ] } ] }
             Generate EXACTLY ${targetSteps} chronological steps per plan across a ${calcDuration}-hour window. Use realistic ratings (4.5-4.9). Date: ${planDate}.`;
 
             const result = await model.generateContent(prompt);
@@ -666,8 +1004,8 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
                             rating: r.rating,
                             text: r.text
                         })),
-                        searchUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
-                        websiteUrl: details.website || null,
+                        searchUrl: step.booking_url || details.url || `https://www.google.com/maps/place/?q=place_id:${place?.place_id}`,
+                        websiteUrl: step.booking_url || details.website || null,
                         photoUrl: place?.photos?.[0]?.photo_reference ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}` : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
                     };
                 } catch (e) { return step; }
@@ -675,20 +1013,20 @@ app.post(['/api/generate-date', '/api/itinerary-generator'], async (req, res) =>
 
             const isCurrentPreview = !isPremium && pIdx >= 1;
             const { data: newPlan } = await supabase.from('plans').insert([{
-                user_id: userId, 
-                vibe: pData.vibe_variant || vibe, 
-                location, 
-                budget, 
-                itinerary: { 
-                    steps: enhancedSteps, 
-                    metadata: { 
-                        planDate, type, time, endTime, 
-                        totalSteps: stepsPerPlan, 
-                        isPremiumGenerated: isPremium, 
+                user_id: userId,
+                vibe: pData.vibe_variant || vibe,
+                location,
+                budget,
+                itinerary: {
+                    steps: enhancedSteps,
+                    metadata: {
+                        planDate, type, time, endTime,
+                        totalSteps: stepsPerPlan,
+                        isPremiumGenerated: isPremium,
                         isPreviewPlan: isCurrentPreview,
-                        lat: enhancedSteps[0]?.lat, 
-                        lng: enhancedSteps[0]?.lng 
-                    } 
+                        lat: enhancedSteps[0]?.lat,
+                        lng: enhancedSteps[0]?.lng
+                    }
                 }
             }]).select().single();
             return newPlan;
@@ -730,7 +1068,7 @@ app.post('/api/guest-generate-date', guestRateLimit, async (req, res) => {
         console.log(`[GUEST GENERATOR] Demo: ${effectiveVibe} in ${location} (${targetSteps} steps)`);
 
         // We only want 1 variation for the teaser
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL }); 
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
         const prompt = `You are a luxury boutique date concierge. Create 1 date itinerary variation in ${location} for a moderate budget.
         User's vibe: ${effectiveVibe}.
         CRITICAL RULES:
@@ -754,7 +1092,7 @@ app.post('/api/guest-generate-date', guestRateLimit, async (req, res) => {
                 const searchRes = await axios.get('https://maps.googleapis.com/maps/api/place/textsearch/json?query=' + encodeURIComponent((step.venue || step.activity) + ' near ' + location) + '&key=' + GOOGLE_API_KEY);
                 const place = (searchRes.data && searchRes.data.results) ? searchRes.data.results[0] : null;
                 let details = {};
-                
+
                 if (place && place.place_id) {
                     const detailsRes = await axios.get('https://maps.googleapis.com/maps/api/place/details/json?place_id=' + place.place_id + '&fields=website,url,reviews&key=' + GOOGLE_API_KEY);
                     details = (detailsRes.data && detailsRes.data.result) ? detailsRes.data.result : {};
@@ -777,7 +1115,7 @@ app.post('/api/guest-generate-date', guestRateLimit, async (req, res) => {
                 const placeIdStr = (place && place.place_id) ? place.place_id : '';
                 const finalSearchUrl = details.url || ('https://www.google.com/maps/place/?q=place_id:' + placeIdStr);
                 const photoRef = (place && place.photos && place.photos.length > 0) ? place.photos[0].photo_reference : null;
-                const finalPhotoUrl = photoRef 
+                const finalPhotoUrl = photoRef
                     ? ('https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=' + photoRef + '&key=' + GOOGLE_API_KEY)
                     : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
 
@@ -794,8 +1132,8 @@ app.post('/api/guest-generate-date', guestRateLimit, async (req, res) => {
                     websiteUrl: details.website || null,
                     photoUrl: finalPhotoUrl
                 };
-            } catch (e) { 
-                return step; 
+            } catch (e) {
+                return step;
             }
         }));
 
@@ -825,6 +1163,82 @@ app.post('/api/guest-generate-date', guestRateLimit, async (req, res) => {
     }
 });
 
+// --- ELITE ARCHITECT: STREAMING CHAT ---
+app.post('/api/architect-stream', async (req, res) => {
+    const { messages, userId, location, budget, radius } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+    try {
+        const usageCheck = await checkAndIncrementUsage(userId, 'guided');
+        if (!usageCheck.allowed) return res.status(403).json({ error: 'Limit reached', code: 'LIMIT_REACHED' });
+
+        // Set headers for streaming
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+        // System instruction to keep the AI in character
+        const systemPrompt = `You are 'Sparky', an elite, punchy date concierge. 
+        Location: ${location || 'NYC'}, Budget: ${budget || 'flexible'}, Search Radius: ${radius ? (radius / 1609.34).toFixed(1) + ' miles' : '5 miles'}.
+        
+        RULES:
+        1. BE ULTRA-SHORT. Maximum 1-2 sentences. No fluff. 
+        2. DO NOT overcomplicate. Ask EXACTLY ONE question to narrow down the vibe for place search.
+        3. YOU MUST PROVIDE OPTIONS: Every single time you ask a question, provide 3 clickable options for the user at the very end using this exact format:
+           [OPTIONS: Option 1 | Option 2 | Option 3]
+        4. If you have enough info, output 'READY' on a new line, followed by a JSON summary of 3 concepts.
+        
+        Current conversation follows:`;
+
+        let formattedHistory = messages.slice(0, -1).map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }],
+        }));
+
+        // Gemini requires the history to start with a 'user' role.
+        if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+            formattedHistory.unshift({
+                role: 'user',
+                parts: [{ text: 'Hi, I need help planning a date.' }]
+            });
+        }
+
+        const lastMessage = messages[messages.length - 1].content;
+        const isFirstUserTurn = messages.filter(m => m.role === 'user').length === 1;
+        const fullPrompt = isFirstUserTurn ? `${systemPrompt}\nUser: ${lastMessage}` : lastMessage;
+
+        let result;
+        try {
+            const chat = model.startChat({
+                history: formattedHistory,
+                generationConfig: { maxOutputTokens: 500 },
+            });
+            result = await chat.sendMessageStream(fullPrompt);
+        } catch (error) {
+            console.warn('[ARCHITECT STREAM WARN] Primary model failed, falling back to gemini-1.5-flash-latest', error.message);
+            const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+            const chat = fallbackModel.startChat({
+                history: formattedHistory,
+                generationConfig: { maxOutputTokens: 500 },
+            });
+            result = await chat.sendMessageStream(fullPrompt);
+        }
+
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+        }
+
+        res.write('data: [DONE]\n\n');
+        res.end();
+    } catch (err) {
+        logError('[ARCHITECT STREAM ERROR]', err);
+        res.status(500).json({ error: err.message, stack: err.stack });
+    }
+});
+
 // AI GUIDED BUILDER: SUGGEST CONCEPTS
 app.post('/api/suggest-date-concepts', async (req, res) => {
     const { conversationHistory, location, userId, budget } = req.body;
@@ -836,7 +1250,7 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
 
         const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
         const historyText = conversationHistory.map(h => `${h.role}: ${h.text}`).join('\n');
-        
+
         const prompt = `System: You are an elite, punchy boutique concierge.
         Context: ${historyText}
         Location: ${location}, Budget: ${budget || 'any'}.
@@ -847,13 +1261,13 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
         2. DESCRIPTIONS: Be hyper-local and specific. Name real venues (e.g. "Devoción", "Lilia").
         3. BREVITY: Max 25 words per description. No generic fluff.
         4. FORMAT: Return ONLY a JSON object: { "concepts": [{ "title": "string", "description": "string" }], "questions": ["string", "string", "string"] }`;
-        
+
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
         const jsonMatch = text.match(/\{.*\}/s);
         const data = JSON.parse(jsonMatch ? jsonMatch[0] : '{"concepts":[], "questions":[]}');
-        
+
         res.json(data);
     } catch (err) {
         logError('[SUGGEST ERROR]', err);
@@ -861,9 +1275,8 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
     }
 });
 
-// AI GUIDED BUILDER: GENERATE CUSTOM DATE
 app.post('/api/generate-custom-date', async (req, res) => {
-    const { userId, concept, date, budget, location } = req.body;
+    const { userId, concept, date, budget, location, radius, lat, lng } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
     try {
@@ -877,13 +1290,14 @@ app.post('/api/generate-custom-date', async (req, res) => {
         const numSteps = 3; // Always 3 steps to maintain structure
 
         const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-        const prompt = `System: You are a luxury date planner. Build a precise 3-step itinerary for: "${concept.title} - ${concept.description}". Location: ${location}.
+        const prompt = `System: You are a luxury date planner. Build a precise 3-step itinerary for: "${concept.title} - ${concept.description}". Location: ${location}. Budget: ${budget || 'flexible'}.
         RULES:
         1. VENUES: Must be specific, real-world locations.
         2. DESCRIPTIONS: Punchy, experiential, and max 15 words per step.
-        3. FORMAT: Return JSON array of steps: [{time, venue, activity, description, search_term, rating, user_rating_count}].
-        4. Generate EXACTLY ${numSteps} steps. Use realistic ratings (4.5-4.9) and review counts.`;
-        
+        3. FORMAT: Return JSON array of steps: [{time, venue, activity, category, description, search_term, rating, user_rating_count}].
+        4. CATEGORY: Must be one of (food, drinks, music, sports, comedy, art, scenic, activity).
+        5. Generate EXACTLY ${numSteps} steps. Use realistic ratings (4.5-4.9) and review counts.`;
+
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
@@ -892,7 +1306,15 @@ app.post('/api/generate-custom-date', async (req, res) => {
 
         const enhancedSteps = await Promise.all(rawSteps.map(async (step) => {
             try {
-                const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent((step.venue || step.activity) + ' in ' + location)}&key=${GOOGLE_API_KEY}`;
+                let searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent((step.venue || step.activity) + ' in ' + location)}&key=${GOOGLE_API_KEY}`;
+                
+                // Use precise lat/lng bias if available
+                if (lat && lng && radius) {
+                    searchUrl += `&location=${lat},${lng}&radius=${radius}`;
+                } else if (radius) {
+                    searchUrl += `&locationbias=circle:${radius}@${location}`;
+                }
+
                 const searchRes = await axios.get(searchUrl);
                 const place = searchRes.data?.results?.[0];
                 let details = {};
@@ -921,21 +1343,21 @@ app.post('/api/generate-custom-date', async (req, res) => {
         }));
 
         const { data: newPlan, error: insertError } = await supabase.from('plans').insert([{
-            user_id: userId, 
-            vibe: concept.title, 
-            location, 
-            budget: budget || 'moderate', 
-            itinerary: { 
-                steps: enhancedSteps, 
-                metadata: { 
-                    planDate: date, 
-                    type: 'guided', 
-                    totalSteps: numSteps, 
-                    isPremiumGenerated: isPremium, 
+            user_id: userId,
+            vibe: concept.title,
+            location,
+            budget: budget || 'moderate',
+            itinerary: {
+                steps: enhancedSteps,
+                metadata: {
+                    planDate: date,
+                    type: 'guided',
+                    totalSteps: numSteps,
+                    isPremiumGenerated: isPremium,
                     isPreviewPlan,
                     lat: enhancedSteps[0]?.lat,
                     lng: enhancedSteps[0]?.lng
-                } 
+                }
             }
         }]).select().single();
 
@@ -1119,25 +1541,25 @@ app.post('/api/feedback', async (req, res) => {
 // STRIPE
 app.post('/api/create-checkout-session', async (req, res) => {
     const { planType, userId, email } = req.body;
-    
+
     if (!STRIPE_SECRET_KEY) {
         logError('[STRIPE ERROR]', new Error('STRIPE_SECRET_KEY is missing in .env'));
         return res.status(500).json({ error: 'Server configuration error: Stripe key missing.' });
     }
 
     try {
-        const priceIds = { 
-            '24H': process.env.STRIPE_PRICE_PASS, 
-            'ELITE': process.env.STRIPE_PRICE_ELITE 
+        const priceIds = {
+            '24H': process.env.STRIPE_PRICE_PASS,
+            'ELITE': process.env.STRIPE_PRICE_ELITE
         };
         const priceId = priceIds[planType];
-        
+
         if (!priceId) {
             return res.status(400).json({ error: `Invalid plan type: ${planType}. Ensure STRIPE_PRICE_PASS/ELITE are set in .env` });
         }
 
         const isSubscription = planType === 'ELITE';
-        
+
         const sessionParams = {
             customer_email: email || undefined,
             line_items: [{ price: priceId, quantity: 1 }],
@@ -1153,20 +1575,20 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
         const session = await stripe.checkout.sessions.create(sessionParams);
         res.json({ id: session.id, url: session.url });
-    } catch (err) { 
+    } catch (err) {
         logError('[STRIPE ERROR]', err);
-        const userMsg = err.type === 'StripeInvalidRequestError' 
-            ? `Stripe Error: ${err.message}` 
+        const userMsg = err.type === 'StripeInvalidRequestError'
+            ? `Stripe Error: ${err.message}`
             : 'Payment initialization failed. Please check your Stripe dashboard prices.';
-        res.status(500).json({ error: userMsg }); 
+        res.status(500).json({ error: userMsg });
     }
 });
 
 app.post('/api/update-premium-status', async (req, res) => {
     const { userId, isPremium } = req.body;
     try {
-        const expiryDate = isPremium 
-            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() 
+        const expiryDate = isPremium
+            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
             : null;
 
         const { error } = await supabase.from('profiles').update({

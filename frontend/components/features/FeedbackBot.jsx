@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Compass, X, Loader2 } from 'lucide-react';
+import { Compass, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { supabase } from '../../lib/supabase';
 
@@ -8,8 +9,8 @@ const FeedbackBot = () => {
     const [feedbackText, setFeedbackText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     const [user, setUser] = useState(null);
+    const [status, setStatus] = useState({ type: null, message: '' });
 
-    // Draggable State Hook
     const [position, setPosition] = useState({ x: 0, y: 0 }); // Defer initialization to layout effect
     const [isDragging, setIsDragging] = useState(false);
     const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0, hasMoved: false });
@@ -140,12 +141,16 @@ const FeedbackBot = () => {
                 userId: user?.id,
                 email: user?.email
             });
-            alert("Feedback sent! Thank you for helping us improve DateSpark.");
+            setStatus({ type: 'success', message: "Feedback sent! Thank you for helping us improve DateSpark." });
             setFeedbackText('');
-            setShowFeedbackModal(false);
+            setTimeout(() => {
+                setShowFeedbackModal(false);
+                setStatus({ type: null, message: '' });
+            }, 3000);
         } catch (err) {
             console.error("Feedback error:", err);
-            alert("Failed to send feedback. Please try again later.");
+            setStatus({ type: 'error', message: "Failed to send feedback. Please try again later." });
+            setTimeout(() => setStatus({ type: null, message: '' }), 5000);
         } finally {
             setIsSubmittingFeedback(false);
         }
@@ -207,15 +212,39 @@ const FeedbackBot = () => {
 
                             <button
                                 type="submit"
-                                disabled={isSubmittingFeedback || !feedbackText.trim()}
-                                className="w-full bg-coral text-white py-3.5 rounded-xl font-black shadow-lg shadow-coral/20 flex justify-center items-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                                disabled={isSubmittingFeedback || !feedbackText.trim() || status.type === 'success'}
+                                className="w-full bg-coral text-white py-3.5 rounded-xl font-black shadow-lg shadow-coral/20 flex justify-center items-center gap-2 active:scale-[0.98] disabled:opacity-50 transition-all"
                             >
                                 {isSubmittingFeedback ? (
                                     <><Loader2 className="w-5 h-5 animate-spin" /> Sending...</>
+                                ) : status.type === 'success' ? (
+                                    <><CheckCircle2 className="w-5 h-5" /> Received!</>
                                 ) : (
                                     'Submit Proposal'
                                 )}
                             </button>
+
+                            <AnimatePresence>
+                                {status.type && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className={`mt-4 p-4 rounded-xl flex items-center gap-3 text-sm font-bold ${
+                                            status.type === 'success' 
+                                                ? 'bg-green-50 text-green-600 border border-green-100' 
+                                                : 'bg-red-50 text-red-500 border border-red-100'
+                                        }`}
+                                    >
+                                        {status.type === 'success' ? (
+                                            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                                        ) : (
+                                            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                        )}
+                                        <span>{status.message}</span>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </form>
                     </div>
                 </div>

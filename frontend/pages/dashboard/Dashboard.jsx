@@ -54,7 +54,11 @@ import {
     ThumbsUp,
     Reply,
     TrendingUp,
-    Navigation
+    Navigation,
+    Trophy,
+    Mic2,
+    Music,
+    ShoppingBag
 } from 'lucide-react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { useGoogleMaps } from '../../lib/googleMaps';
@@ -65,6 +69,7 @@ import PremiumExperienceModal from '../../components/modals/PremiumExperienceMod
 import UsageBadge from '../../components/common/UsageBadge';
 import { consumeFlashMessage } from '../../lib/flashMessage';
 import CommunityFeedbackModal from '../../components/modals/CommunityFeedbackModal';
+import EventsTab from '../../components/dashboard/EventsTab';
 
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
@@ -95,6 +100,20 @@ const darkMapStyle = [
     { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4b5563' }] },
     { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
 ];
+
+const CATEGORY_THEMES = {
+    'Food & Drink': { icon: <Utensils className="w-4 h-4" />, color: 'bg-orange-500', text: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-100' },
+    'Entertainment': { icon: <Sparkles className="w-4 h-4" />, color: 'bg-violet-500', text: 'text-violet-500', bg: 'bg-violet-50', border: 'border-violet-100' },
+    'Outdoors': { icon: <Compass className="w-4 h-4" />, color: 'bg-emerald-500', text: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+    'Art & Culture': { icon: <Sparkles className="w-4 h-4" />, color: 'bg-fuchsia-500', text: 'text-fuchsia-500', bg: 'bg-fuchsia-50', border: 'border-fuchsia-100' },
+    'Sports': { icon: <Trophy className="w-4 h-4" />, color: 'bg-blue-600', text: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+    'Comedy': { icon: <Mic2 className="w-4 h-4" />, color: 'bg-yellow-500', text: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
+    'Music': { icon: <Music className="w-4 h-4" />, color: 'bg-indigo-500', text: 'text-indigo-500', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+    'Shopping': { icon: <ShoppingBag className="w-4 h-4" />, color: 'bg-pink-500', text: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-200' },
+    'Relaxation': { icon: <Heart className="w-4 h-4" />, color: 'bg-teal-500', text: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-200' },
+};
+
+const getTheme = (category) => CATEGORY_THEMES[category] || { icon: <Clock className="w-4 h-4" />, color: 'bg-coral', text: 'text-coral', bg: 'bg-white/10', border: 'border-white/10' };
 
 
 const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
@@ -388,7 +407,7 @@ const Dashboard = () => {
     const [swipeIndex, setSwipeIndex] = useState(0);
     const [swipeDirection, setSwipeDirection] = useState(null);
     const [showMapMobile, setShowMapMobile] = useState(false);
-    const [currentTab, setCurrentTab] = useState('home'); // 'home', 'plans', 'discovery', 'account'
+    const [currentTab, setCurrentTab] = useState('discovery'); // 'home', 'plans', 'discovery', 'account'
     const [accountSubView, setAccountSubView] = useState('menu'); // 'menu', 'personal', 'billing', 'preferences', 'trash'
 
     // --- SETTINGS STATE ---
@@ -618,38 +637,9 @@ const Dashboard = () => {
         });
     };
 
-    useEffect(() => {
-        const initData = async () => {
-            if (!user) return;
-            try {
-                const [premRes, usageRes] = await Promise.all([
-                    fetch(`/api/user-premium/${user.id}`),
-                    fetch(`/api/user-usage/${user.id}`)
-                ]);
+    // Consolidate redundant initialization hooks into the main fetchUserData useEffect below.
+    // Removed old fetchUserData useEffect (L640-671) to prevent double-fetching and race conditions.
 
-                if (premRes.ok) {
-                    const { isPremium: dbStatus } = await premRes.json();
-                    if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
-                        const manualChoice = localStorage.getItem('isPremium');
-                        if (manualChoice !== null) setIsPremium(manualChoice === 'true');
-                        else setIsPremium(dbStatus);
-                    } else {
-                        setIsPremium(dbStatus);
-                        localStorage.setItem('isPremium', dbStatus ? 'true' : 'false');
-                    }
-                }
-
-                if (usageRes.ok) {
-                    const data = await usageRes.json();
-                    setUsage(prev => ({ ...prev, ...data.usage }));
-                    setLimits(prev => ({ ...prev, ...data.limits }));
-                }
-            } catch (err) {
-                console.error('Error syncing dashboard data:', err);
-            }
-        };
-        initData();
-    }, [user]);
 
     const handleBuyPass = async (planType) => {
         try {
@@ -671,7 +661,8 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('Checkout error:', err);
-            alert(`Payment failed: ${err.response?.data?.error || err.message}`);
+            setToastMessage(`Payment failed: ${err.response?.data?.error || err.message}`);
+            setTimeout(() => setToastMessage(''), 4000);
         }
     };
 
@@ -690,31 +681,20 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('Portal error:', err);
-            alert('Failed to open subscription management. Please try again.');
+            setToastMessage('Failed to open subscription management. Please try again.');
+            setTimeout(() => setToastMessage(''), 4000);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleCancelManual = async () => {
-        if (!confirm('Are you sure you want to cancel your Premium status? You will lose access to all Plus features immediately.')) return;
-        try {
-            setIsLoading(true);
-            const response = await fetch('/api/cancel-manual-subscription', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user?.id })
-            });
-
-            if (response.ok) {
-                setToastMessage('Subscription canceled! 🚀');
-                setTimeout(() => window.location.reload(), 2000);
-            }
-        } catch (err) {
-            console.error('Error canceling manual:', err);
-        } finally {
-            setIsLoading(false);
-        }
+    const handleCancelManual = () => {
+        setConfirmModal({ 
+            isOpen: true, 
+            plan: { id: 'subscription' }, 
+            type: 'cancel_subscription', 
+            isBatch: false 
+        });
     };
 
     const handleSignOut = async () => {
@@ -732,6 +712,7 @@ const Dashboard = () => {
     };
 
     const handleAvatarUpload = async (e) => {
+        if (!user) return;
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -761,10 +742,12 @@ const Dashboard = () => {
                 user_metadata: { ...prev.user_metadata, avatar_url: publicUrl }
             }));
 
-            alert('Profile photo updated successfully!');
+            setToastMessage('Profile photo updated successfully!');
+            setTimeout(() => setToastMessage(''), 3000);
         } catch (err) {
             console.error('Avatar upload error:', err);
-            alert(`Upload failed: ${err.message}`);
+            setToastMessage(`Upload failed: ${err.message}`);
+            setTimeout(() => setToastMessage(''), 4000);
         } finally {
             setIsUploading(false);
         }
@@ -791,10 +774,12 @@ const Dashboard = () => {
                 }
             }));
 
-            alert('Profile updated successfully!');
+            setToastMessage('Profile updated successfully!');
+            setTimeout(() => setToastMessage(''), 3000);
         } catch (err) {
             console.error('Update profile error:', err);
-            alert(`Update failed: ${err.message}`);
+            setToastMessage(`Update failed: ${err.message}`);
+            setTimeout(() => setToastMessage(''), 4000);
         } finally {
             setIsSavingProfile(false);
         }
@@ -907,7 +892,13 @@ const Dashboard = () => {
                 ]);
 
                 if (premRes.ok) {
-                    const data = await premRes.ok ? await premRes.json() : { isPremium: false };
+                    const data = await premRes.json();
+                    const { isPremium: dbStatus, premium_expiry, referral_code, referral_count } = data;
+
+                    // Calculate final status: boolean flag OR active expiry date
+                    const now = new Date();
+                    const hasActivePass = premium_expiry && new Date(premium_expiry) > now;
+                    const finalStatus = dbStatus || hasActivePass;
 
                     // Admin Special Logic: Sync with DB but respect manual toggle for testing
                     if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
@@ -915,16 +906,22 @@ const Dashboard = () => {
                         if (manualChoice !== null) {
                             setIsPremium(manualChoice === 'true');
                         } else {
-                            setIsPremium(data.isPremium);
+                            setIsPremium(finalStatus);
                         }
                     } else {
-                        setIsPremium(data.isPremium);
-                        localStorage.setItem('isPremium', data.isPremium ? 'true' : 'false');
+                        setIsPremium(finalStatus);
+                        localStorage.setItem('isPremium', finalStatus ? 'true' : 'false');
+                    }
+
+                    if (premium_expiry) {
+                        localStorage.setItem('premiumExpiry', premium_expiry);
+                    } else {
+                        localStorage.removeItem('premiumExpiry');
                     }
 
                     setReferralDetails({
-                        code: data.referral_code || '',
-                        count: data.referral_count || 0
+                        code: referral_code || '',
+                        count: referral_count || 0
                     });
                 }
 
@@ -940,40 +937,6 @@ const Dashboard = () => {
                         last_name: user.user_metadata?.last_name || '',
                         email: user.email || ''
                     });
-
-                    // Sync premium status from DB to local state using secure backend proxy to bypass UUID/400 errors
-                    try {
-                        const response = await fetch(`/api/user-premium/${user.id}`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            const { isPremium: dbStatus, premium_expiry, referral_code, referral_count } = data;
-
-                            // Check if premium via boolean OR via active expiry
-                            const now = new Date();
-                            const hasActivePass = premium_expiry && new Date(premium_expiry) > now;
-                            const finalStatus = dbStatus || hasActivePass;
-
-                            // Admin Special Logic: Sync with DB but respect manual toggle for testing
-                            if (import.meta.env.DEV && user?.email === 'rayanerold@gmail.com') {
-                                const manualChoice = localStorage.getItem('isPremium');
-                                if (manualChoice !== null) {
-                                    setIsPremium(manualChoice === 'true');
-                                } else {
-                                    setIsPremium(finalStatus);
-                                }
-                            } else {
-                                setIsPremium(finalStatus);
-                                localStorage.setItem('isPremium', finalStatus ? 'true' : 'false');
-                            }
-                            if (premium_expiry) {
-                                localStorage.setItem('premiumExpiry', premium_expiry);
-                            } else {
-                                localStorage.removeItem('premiumExpiry');
-                            }
-                        }
-                    } catch (syncErr) {
-                        console.error('Dashboard Premium Sync Error:', syncErr);
-                    }
 
                     const fetchPlans = async () => {
                         try {
@@ -1012,12 +975,11 @@ const Dashboard = () => {
     // NEW: Fetch trending plans if user has no plans
     useEffect(() => {
         const fetchTrending = async () => {
-            // Only fetch trending if user is loaded and they have no plans of their own yet
-            // Ensure globalTrendingPlans is not already set and trendingPlans is not already set
-            if (user && plans.length === 0 && globalTrendingPlans.length === 0) {
+            // Fetch trending plans if we don't have them yet
+            if (user && globalTrendingPlans.length === 0) {
                 setIsTrendingLoading(true);
                 try {
-                    console.log('[Trending] Fetching community favorites for new user experience...');
+                    console.log('[Trending] Fetching community favorites...');
                     const response = await fetch('/api/trending-plans');
                     if (response.ok) {
                         const data = await response.json();
@@ -1026,14 +988,14 @@ const Dashboard = () => {
                     }
                 } catch (err) {
                     console.error('Failed to fetch trending plans:', err);
-                    setGlobalTrendingPlans([]); // Reset to empty on failure to stop loading spinners
+                    setGlobalTrendingPlans([]); 
                 } finally {
                     setIsTrendingLoading(false);
                 }
             }
         };
         fetchTrending();
-    }, [user, plans.length, globalTrendingPlans.length]);
+    }, [user, globalTrendingPlans.length]);
 
     const handleForceReload = async () => {
         setIsLoading(true);
@@ -1046,9 +1008,9 @@ const Dashboard = () => {
             const data = await response.json();
             const userPlans = data || [];
             setPlans(userPlans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
-            alert(`Found ${data?.length} total plans. ${userPlans.length} for you.`);
+            setToastMessage(`Found ${data?.length} total plans. ${userPlans.length} for you.`);
         } catch (err) {
-            alert('Reload failed: ' + err.message);
+            setToastMessage('Reload failed: ' + err.message);
         } finally {
             setIsLoading(false);
         }
@@ -1067,11 +1029,11 @@ const Dashboard = () => {
             // If they bought a daily pass, set 24h expiry (simplified for MVP)
             const twentyFourHours = 24 * 60 * 60 * 1000;
             localStorage.setItem('premiumExpiry', (Date.now() + twentyFourHours).toString()); // Persist local testing flag
-            alert('🎉 Payment Successful! You are now a Premium Member.');
+            setToastMessage('🎉 Payment Successful! You are now a Premium Member.');
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
         } else if (stripePayment === 'canceled') {
-            alert('Payment Canceled.');
+            setToastMessage('Payment Canceled.');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }, [user]);
@@ -1110,7 +1072,7 @@ const Dashboard = () => {
                         })
                     });
                     if (!response.ok) throw new Error('Proxy batch trash failed');
-                    setPlans(plans.map(p => ids.includes(p.id) ? { ...p, deleted_at: now } : p));
+                    setPlans(prev => prev.map(p => ids.includes(p.id) ? { ...p, deleted_at: now } : p));
                 } else {
                     const response = await fetch('/api/delete-plan', {
                         method: 'POST',
@@ -1118,7 +1080,7 @@ const Dashboard = () => {
                         body: JSON.stringify({ planId: plan.id, isBatch: true })
                     });
                     if (!response.ok) throw new Error('Proxy delete failed');
-                    setPlans(plans.filter(p => !ids.includes(p.id)));
+                    setPlans(prev => prev.filter(p => !ids.includes(p.id)));
                 }
                 setSelectedPlanIds([]);
                 setIsSelectMode(false);
@@ -1139,14 +1101,37 @@ const Dashboard = () => {
                     if (selectedPlan?.id === plan.id) {
                         setSelectedPlan(prev => ({ ...prev, is_favorite: newStatus }));
                     }
-                    setFeedbackMessage(newStatus ? 'Saved to Favorites! 💖' : 'Removed from Favorites.');
-                    setTimeout(() => setFeedbackMessage(''), 3000);
+                    setToastMessage(newStatus ? 'Saved to Favorites! 💖' : 'Removed from Favorites.');
+                    setTimeout(() => setToastMessage(''), 3000);
                     if (newStatus) {
                         setTimeout(() => setCurrentTab('favorites'), 600);
                     }
                 } catch (err) {
                     console.error('Error toggling favorite:', err.message);
-                    alert(`Failed to update favorite status: ${err.message}`);
+                    setToastMessage(`Failed to update favorite status: ${err.message}`);
+                    setTimeout(() => setToastMessage(''), 4000);
+                }
+            } else if (type === 'cancel_subscription') {
+                try {
+                    setIsLoading(true);
+                    const response = await fetch('/api/cancel-manual-subscription', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user?.id })
+                    });
+                    if (response.ok) {
+                        setToastMessage('Subscription canceled! 🚀');
+                        setTimeout(() => window.location.reload(), 2000);
+                        return; // Modal will be closed by reload, but return to be safe
+                    } else {
+                        throw new Error('Failed to cancel subscription');
+                    }
+                } catch (err) {
+                    console.error('Error canceling manual:', err);
+                    setToastMessage('Failed to cancel subscription. Please try again.');
+                    setTimeout(() => setToastMessage(''), 4000);
+                } finally {
+                    setIsLoading(false);
                 }
             } else {
                 // Single plan trash/delete
@@ -1161,7 +1146,7 @@ const Dashboard = () => {
                         })
                     });
                     if (!response.ok) throw new Error('Proxy trash failed');
-                    setPlans(plans.map(p => p.id === plan.id ? { ...p, deleted_at: now } : p));
+                    setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, deleted_at: now } : p));
                 } else {
                     const response = await fetch('/api/delete-plan', {
                         method: 'POST',
@@ -1169,13 +1154,14 @@ const Dashboard = () => {
                         body: JSON.stringify({ planId: plan.id, isBatch: false })
                     });
                     if (!response.ok) throw new Error('Proxy delete failed');
-                    setPlans(plans.filter(p => p.id !== plan.id));
+                    setPlans(prev => prev.filter(p => p.id !== plan.id));
                 }
             }
             setConfirmModal({ isOpen: false, plan: null, type: 'trash', isBatch: false });
         } catch (err) {
             console.error('Operation execution error:', err.message);
-            alert(`Operation failed: ${err.message}`);
+            setToastMessage(`Operation failed: ${err.message}`);
+            setTimeout(() => setToastMessage(''), 4000);
         }
     };
 
@@ -1192,7 +1178,7 @@ const Dashboard = () => {
     };
 
     const handleRestorePlan = async (planId, e) => {
-        e.stopPropagation();
+        if (e && e.stopPropagation) e.stopPropagation();
         try {
             const response = await fetch('/api/update-plan', {
                 method: 'PATCH',
@@ -1203,11 +1189,13 @@ const Dashboard = () => {
                 })
             });
             if (!response.ok) throw new Error('Proxy restore failed');
-            setPlans(plans.map(p => p.id === planId ? { ...p, deleted_at: null } : p));
-            alert('Plan restored to your dashboard!');
+            setPlans(prev => prev.map(p => p.id === planId ? { ...p, deleted_at: null } : p));
+            setToastMessage('Plan restored to your dashboard!');
+            setTimeout(() => setToastMessage(''), 3000);
         } catch (err) {
             console.error('Error restoring plan:', err.message);
-            alert(`Restore failed: ${err.message}`);
+            setToastMessage(`Restore failed: ${err.message}`);
+            setTimeout(() => setToastMessage(''), 4000);
         }
     };
 
@@ -1266,9 +1254,9 @@ const Dashboard = () => {
             setSelectedPlan({ ...data, isPartiallyLocked: false }); 
             
             if (!isAutomatic) {
-                setFeedbackMessage('Plan saved to your dashboard! 🚀');
+                setToastMessage('Plan saved to your dashboard! 🚀');
                 setCurrentTab('home'); 
-                setTimeout(() => setFeedbackMessage(''), 4000);
+                setTimeout(() => setToastMessage(''), 4000);
             }
             return data;
         } catch (err) {
@@ -1336,7 +1324,8 @@ const Dashboard = () => {
             syncPlanState({ id: plan.id, is_favorite: newStatus });
         } catch (err) {
             console.error('Error toggling favorite:', err.message);
-            alert(`Failed to update favorite status: ${err.message}`);
+            setToastMessage(`Failed to update favorite status: ${err.message}`);
+            setTimeout(() => setToastMessage(''), 4000);
         }
     };
 
@@ -1377,9 +1366,11 @@ const Dashboard = () => {
         } else {
             try {
                 await navigator.clipboard.writeText(`${text}\n${shareLink}`);
-                alert('Detailed DateSpark link copied to clipboard!');
+                setToastMessage('Link copied to clipboard! 📋');
+                setTimeout(() => setToastMessage(''), 3000);
             } catch (err) {
-                alert('Failed to copy to clipboard.');
+                setToastMessage('Failed to copy to clipboard.');
+                setTimeout(() => setToastMessage(''), 3000);
             }
         }
     };
@@ -1503,7 +1494,7 @@ const Dashboard = () => {
             setPendingCustomizeAction(null);
         } catch (err) {
             console.error('Customize failed in confirm handler:', err);
-            alert('Something went wrong during customization. Please try again.');
+            setToastMessage('Something went wrong during customization. Please try again.');
         } finally {
             setIsCustomizing(false);
         }
@@ -1593,7 +1584,8 @@ const Dashboard = () => {
             }
         } catch (err) {
             console.error('[SwitchUp] Critical Failure:', err.response?.data || err.message);
-            alert('Failed to find nearby alternatives. Please try again.');
+            setToastMessage('Failed to find nearby alternatives. Please try again.');
+            setTimeout(() => setToastMessage(''), 4000);
         } finally {
             setIsSwitchingUp(false);
         }
@@ -1667,7 +1659,8 @@ const Dashboard = () => {
                 setLimitType('swap');
                 setShowUpgradeModal(true);
             } else {
-                alert(`Failed to update the plan: ${error.message}. Please try again.`);
+                setToastMessage(`Failed to update the plan: ${error.message}. Please try again.`);
+                setTimeout(() => setToastMessage(''), 4000);
             }
         }
     };
@@ -1773,13 +1766,16 @@ const Dashboard = () => {
         const isLockedPlan = enforceLocked || false; // Whole-card lock disabled for now as per "1 Full + 1 Preview" rule
         const isPartiallyLocked = !isPremium && isPreview; // Only 2nd+ plans are partially locked for free users
 
+        const itinerarySteps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
+        const coverImage = itinerarySteps[0]?.photoUrl || itinerarySteps[0]?.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+
         return (
             <div
                 key={plan.id}
                 className={`rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-full sm:max-w-none snap-start premium-shadow premium-shadow-hover ${
                     appTheme === 'dark' 
-                    ? 'bg-navy/40 backdrop-blur-md border-white/10 hover:bg-navy/60 hover:border-white/20' 
-                    : 'bg-white border-navy/5 shadow-sm'
+                    ? 'border-white/10 hover:border-white/20' 
+                    : 'border-navy/5 shadow-sm'
                 } ${isCompact ? 'p-3' : 'p-4 sm:p-6'} ${isLockedPlan ? 'cursor-not-allowed grayscale-[0.5] opacity-80' : ''}`}
                 onClick={() => {
                     if (isLockedPlan) {
@@ -1787,6 +1783,20 @@ const Dashboard = () => {
                     }
                 }}
             >
+                {/* Cinematic Background Image */}
+                <div className="absolute inset-0 z-0">
+                    <img 
+                        src={coverImage} 
+                        alt="Plan Cover" 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                    />
+                    {/* Multi-layer Gradient Overlay for readability */}
+                    <div className={`absolute inset-0 z-1 ${
+                        appTheme === 'dark'
+                        ? 'bg-gradient-to-b from-navy/60 via-navy/40 to-navy/95'
+                        : 'bg-gradient-to-b from-black/40 via-black/20 to-black/80'
+                    }`} />
+                </div>
                 {/* Selection Checkbox */}
                 {isSelectMode && (
                     <div
@@ -1828,18 +1838,18 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-2 sm:gap-5 mb-4 sm:mb-6 relative">
+                <div className="flex flex-col gap-2 sm:gap-5 mb-4 sm:mb-6 relative z-10">
                     {/* 🗓️ Planned For - TOP Minimalist Badge */}
                     <div className="flex items-center justify-between gap-4">
                         {(plan.itinerary?.metadata?.planDate || plan.created_at) && (
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border ${
-                                appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border backdrop-blur-md ${
+                                appTheme === 'dark' ? 'bg-white/10 border-white/10' : 'bg-black/20 border-white/20'
                             }`}>
                                 <Calendar className={`w-3.5 h-3.5 ${appTheme === 'dark' ? 'text-white/60' : 'text-coral'}`} />
                                 <p className={`text-[10px] font-black uppercase tracking-widest font-outfit ${
-                                    appTheme === 'dark' ? 'text-white/60' : 'text-navy/40'
+                                    appTheme === 'dark' ? 'text-white/60' : 'text-white/70'
                                 }`}>
-                                    Scheduled for: <span className={appTheme === 'dark' ? 'text-white' : 'text-navy'}>
+                                    Scheduled for: <span className={appTheme === 'dark' ? 'text-white' : 'text-white'}>
                                         {new Date((plan.itinerary?.metadata?.planDate || plan.created_at) + (plan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
                                     </span>
                                 </p>
@@ -1848,22 +1858,22 @@ const Dashboard = () => {
                     </div>
 
                     <div className="space-y-1">
-                        <h3 className={`text-2xl font-black leading-tight font-outfit line-clamp-2 ${
-                            appTheme === 'dark' ? 'text-white' : 'text-navy'
+                        <h3 className={`text-2xl font-black leading-tight font-outfit line-clamp-2 drop-shadow-lg ${
+                            appTheme === 'dark' ? 'text-white' : 'text-white'
                         }`}>
                             {plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + " Date" : "Perfect Date Plan")}
                         </h3>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${
-                                appTheme === 'dark' ? 'bg-white/5 text-white/70' : 'bg-navy/5 text-navy/60'
+                            <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-md border ${
+                                appTheme === 'dark' ? 'bg-white/10 border-white/10 text-white' : 'bg-black/20 border-white/20 text-white'
                             }`}>
                                 <MapPin className="w-3 h-3 text-coral" /> {plan.location}
                             </div>
                             {plan.budget && (
-                                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${
-                                    appTheme === 'dark' ? 'bg-white/5 text-white/70' : 'bg-navy/5 text-navy/60'
+                                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-md border ${
+                                    appTheme === 'dark' ? 'bg-white/10 border-white/10 text-white' : 'bg-black/20 border-white/20 text-white'
                                 }`}>
-                                    <CreditCard className="w-3 h-3 text-emerald-500" /> {plan.budget}
+                                    <CreditCard className="w-3 h-3 text-emerald-400" /> {plan.budget}
                                 </div>
                             )}
                         </div>
@@ -1872,27 +1882,32 @@ const Dashboard = () => {
 
                 {!isCompact && (
                     <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-8">
-                        {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.slice(0, 2).map((step, idx) => (
-                            <div key={idx} className="flex items-center gap-4 relative group/step">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all ${
-                                    appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-coral/5 border-coral/10 text-coral group-hover/step:bg-coral group-hover/step:text-white group-hover/step:border-coral'
-                                }`}>
-                                    <Clock className="w-4.5 h-4.5" />
+                        {itinerarySteps.slice(0, 2).map((step, idx) => {
+                            const theme = getTheme(step.category);
+                            return (
+                                <div key={idx} className="flex items-center gap-4 relative group/step z-10">
+                                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all backdrop-blur-md ${
+                                        appTheme === 'dark' 
+                                        ? `${theme.bg} ${theme.border} ${theme.text}` 
+                                        : `bg-white/20 border-white/20 text-white group-hover/step:${theme.bg} group-hover/step:${theme.text} group-hover/step:${theme.border}`
+                                    }`}>
+                                        {theme.icon}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-[14px] font-black leading-none mb-1 font-outfit drop-shadow-md ${appTheme === 'dark' ? 'text-white' : 'text-white'}`}>{step.time}</p>
+                                        <p className={`text-[12px] font-bold truncate font-outfit drop-shadow-md ${appTheme === 'dark' ? 'text-white/60' : 'text-white/80'}`}>
+                                            {step.activity}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-[14px] font-black leading-none mb-1 font-outfit ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>{step.time}</p>
-                                    <p className={`text-[12px] font-bold truncate font-outfit ${appTheme === 'dark' ? 'text-white/50' : 'text-navy/70'}`}>
-                                        {step.activity}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
-                        {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.length > 2 && (
-                            <div className="flex items-center gap-3 pl-15">
-                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${
-                                    appTheme === 'dark' ? 'bg-white/5 text-white/30' : 'bg-coral/5 text-coral/80'
+                            );
+                        })}
+                        {itinerarySteps.length > 2 && (
+                            <div className="flex items-center gap-3 pl-15 relative z-10">
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg backdrop-blur-md ${
+                                    appTheme === 'dark' ? 'bg-white/10 text-white/50' : 'bg-white/20 text-white/80'
                                 }`}>
-                                    + {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps)?.length - 2} ADDED STOPS
+                                    + {itinerarySteps.length - 2} ADDED STOPS
                                 </span>
                             </div>
                         )}
@@ -1900,14 +1915,14 @@ const Dashboard = () => {
                 )}
 
                 {/* Modern Social Action Bar */}
-                <div className={`flex items-center justify-between gap-2 py-4 mb-5 border-t ${appTheme === 'dark' ? 'border-white/5' : 'border-gray-50'}`}>
+                <div className={`flex items-center justify-between gap-2 py-4 mb-5 border-t relative z-10 ${appTheme === 'dark' ? 'border-white/10' : 'border-white/20'}`}>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-0.5">
                             {[1, 2, 3, 4, 5].map((s) => (
                                 <Star key={s} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
                             ))}
                         </div>
-                        <span className={`text-xs font-black ${appTheme === 'dark' ? 'text-white/80' : 'text-navy/80'}`}>{plan.avg_rating || '4.9'}</span>
+                        <span className={`text-xs font-black drop-shadow-md ${appTheme === 'dark' ? 'text-white/80' : 'text-white/90'}`}>{plan.avg_rating || '4.9'}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -1982,16 +1997,16 @@ const Dashboard = () => {
                         if (isLockedPlan) setShowUpgradeModal(true);
                         else setSelectedPlan({ ...plan, isPartiallyLocked });
                     }}
-                    className={`w-full py-4.5 text-[15px] font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg ${
+                    className={`w-full py-4.5 text-[15px] font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg relative z-10 ${
                         isLockedPlan 
-                        ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-gray-100 text-gray-400 border-gray-200") 
+                        ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-white/10 text-white/20 border-white/10") 
                         : isPartiallyLocked 
                         ? (appTheme === 'dark' 
                             ? "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral" 
-                            : "bg-navy text-white border-navy hover:bg-coral hover:border-coral")
+                            : "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral")
                         : (appTheme === 'dark'
                             ? "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral"
-                            : "bg-navy text-white border-navy hover:bg-coral hover:border-coral")
+                            : "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral")
                     }`}
                 >
                     {isLockedPlan ? (
@@ -2013,14 +2028,21 @@ const Dashboard = () => {
     const renderOverview = () => (
 
         <div className="animate-in fade-in duration-500 pt-6 sm:pt-4">
-            {/* Sleek New Plan Button */}
-            <div className="mb-4 px-1 flex flex-col items-center justify-center">
+            {/* Sleek New Plan Button Group */}
+            <div className="mb-8 px-4 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-2xl mx-auto">
                 <Link
                     to="/generate"
-                    className="w-full sm:w-auto h-14 sm:h-12 flex items-center justify-center gap-3 px-8 bg-[#FF7F50] rounded-2xl sm:rounded-xl shadow-xl shadow-coral/20 active:scale-[0.98] transition-all hover:brightness-105 no-underline"
+                    className="w-full sm:flex-1 h-16 sm:h-14 flex items-center justify-center gap-3 px-8 bg-white border-2 border-gray-100 text-navy rounded-[1.25rem] shadow-xl shadow-gray-200/20 active:scale-[0.98] transition-all hover:border-coral hover:text-coral no-underline group"
                 >
-                    <Plus className="w-5 h-5 text-white shrink-0" />
-                    <span className="text-[15px] font-black tracking-tight text-white whitespace-nowrap">Start New Plan</span>
+                    <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                    <span className="text-[15px] font-black tracking-tight whitespace-nowrap">Guided Builder</span>
+                </Link>
+                <Link
+                    to="/generate?mode=ai"
+                    className="w-full sm:flex-1 h-16 sm:h-14 flex items-center justify-center gap-3 px-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-[1.25rem] shadow-xl shadow-violet-500/20 active:scale-[0.98] transition-all hover:brightness-110 no-underline group"
+                >
+                    <Sparkles className="w-5 h-5 text-white animate-pulse" />
+                    <span className="text-[15px] font-black tracking-tight text-white whitespace-nowrap">Create My Own</span>
                 </Link>
             </div>
 
@@ -2087,16 +2109,53 @@ const Dashboard = () => {
                             </div>
                         ) : null;
                     })()}
-                    <div className="flex items-center justify-between mb-2 px-4 gap-4">
-                        <div className="min-w-0 flex-1">
-                            <h3 className={`text-xl font-black border-l-4 border-coral pl-4 ${
-                                appTheme === 'dark' ? 'text-white' : 'text-navy'
-                            }`}>Your Date Plans</h3>
-                            <p className={`text-xs font-medium mt-1 pl-4 border-l-4 border-transparent ${appTheme === 'dark' ? 'text-white/50' : 'text-gray-500'}`}>
-                                Your saved itineraries — open a card for the full timeline, map, and share link.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
+                    {/* Grouped Plans by Vibe */}
+                    {(() => {
+                        const activePlans = plans.filter(p => !p.deleted_at && !p.is_favorite);
+                        if (activePlans.length === 0) return null;
+
+                        const grouped = activePlans.reduce((acc, p) => {
+                            const vibe = p.vibe || 'Other';
+                            if (!acc[vibe]) acc[vibe] = [];
+                            acc[vibe].push(p);
+                            return acc;
+                        }, {});
+
+                        return Object.entries(grouped).map(([vibe, vibePlans]) => (
+                            <div key={vibe} className="space-y-4">
+                                <div className="flex items-center justify-between px-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-1 h-6 bg-coral rounded-full" />
+                                        <h3 className={`text-lg font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
+                                            {vibe} Dates
+                                        </h3>
+                                        <span className="px-2 py-0.5 bg-gray-100 rounded-lg text-[10px] font-black text-gray-400 uppercase">
+                                            {vibePlans.length}
+                                        </span>
+                                    </div>
+                                    {vibePlans.length > 3 && (
+                                        <button onClick={() => setCurrentTab('plans')} className="text-xs font-black text-coral uppercase tracking-widest hover:underline">
+                                            View All
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 pb-4 scrollbar-hide">
+                                    {vibePlans.slice(0, 5).map((plan, idx) => (
+                                        <div key={plan.id || idx} className="snap-start min-w-[280px] sm:min-w-[320px]">
+                                            {renderPlanCard(plan, idx, false)}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ));
+                    })()}
+
+                    {/* Global View Controls */}
+                    <div className="px-4 pt-4 flex items-center justify-between border-t border-gray-100/50 mt-4">
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${appTheme === 'dark' ? 'text-white/30' : 'text-gray-400'}`}>
+                            Management
+                        </p>
+                        <div className="flex items-center gap-3">
                             <button
                                 onClick={() => {
                                     setIsSelectMode(!isSelectMode);
@@ -2120,73 +2179,14 @@ const Dashboard = () => {
                                     : 'text-coral hover:bg-coral/5'
                                 }`}
                             >
-                                View Full History
+                                Full History
                             </button>
                         </div>
-                    </div>
-                    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory px-4 md:px-0 pb-4 md:pb-0 scrollbar-hide">
-                        {plans
-                            .filter(p => !p.deleted_at && !p.is_favorite)
-                            .slice(0, 3)
-                            .map((plan, idx) => renderPlanCard(plan, idx, false))}
                     </div>
                 </div>
             )}
 
-            {/* Community Trending */}
-            {globalTrendingPlans.length > 0 && (() => {
-                // Smarter City Extraction Helper
-                const getCity = (loc) => {
-                    if (!loc) return 'NYC';
-                    const parts = loc.split(',').map(p => p.trim());
-                    // 1. If "Venue, Borough/City, State" (3 parts), return parts[1]
-                    // 2. If "Borough/City, State" (2 parts), return parts[0]
-                    // 3. Fallback to just the first part normalized
-                    if (parts.length >= 3) return parts[1];
-                    if (parts.length === 2) return parts[0];
-                    return parts[0] || 'NYC';
-                };
 
-                return (
-                    <div className="pt-8">
-                        <div className="flex items-center justify-between mb-8 px-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
-                                    <Sparkles className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className={`text-2xl font-black tracking-tight ${
-                                        appTheme === 'dark' ? 'text-white' : 'text-navy'
-                                    }`}>Trending Spots Now</h3>
-                                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Community ideas from other couples — preview here, or save from Discovery.</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setCurrentTab('discovery')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
-                                Explore All <ChevronRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <div className="flex overflow-x-auto gap-4 md:gap-8 px-4 md:px-0 pb-10 snap-x snap-mandatory scrollbar-hide">
-                            {globalTrendingPlans
-                                .sort((a,b) => (b.boost_count || 0) - (a.boost_count || 0))
-                                .slice(0, 20) // Deep Discovery
-                                .map((plan, idx) => {
-                                    const planCity = getCity(plan.location);
-                                    return (
-                                        <div key={plan.id || idx} className="snap-start">
-                                            <VisualSparkCard 
-                                                plan={plan} 
-                                                onView={setSelectedPlan} 
-                                                theme={appTheme}
-                                                isTopInBorough={idx === 0}
-                                                boroughName={planCity}
-                                            />
-                                        </div>
-                                    );
-                                })}
-                        </div>
-                    </div>
-                );
-            })()}
         </div>
     );
 
@@ -2366,7 +2366,47 @@ const Dashboard = () => {
                         <button onClick={() => setCurrentTab('home')} className="mt-8 px-8 py-3 bg-navy text-white font-black rounded-xl text-xs">Back Home</button>
                     </div>
                 )}
-            </div>
+            {/* Community Trending Feed */}
+            {globalTrendingPlans.length > 0 && (
+                <div className="mt-12 pt-12 border-t border-gray-100/50">
+                    <div className="flex items-center justify-between mb-8 px-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
+                                <Sparkles className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className={`text-2xl font-black tracking-tight ${
+                                    appTheme === 'dark' ? 'text-white' : 'text-navy'
+                                }`}>Trending Spots Now</h3>
+                                <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Curated highlights from the community.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex overflow-x-auto gap-4 md:gap-8 px-4 md:px-0 pb-10 snap-x snap-mandatory scrollbar-hide">
+                        {globalTrendingPlans
+                            .sort((a,b) => (b.boost_count || 0) - (a.boost_count || 0))
+                            .slice(0, 20)
+                            .map((plan, idx) => (
+                                <div key={plan.id || idx} className="snap-start">
+                                    <VisualSparkCard 
+                                        plan={plan} 
+                                        onView={setSelectedPlan} 
+                                        theme={appTheme}
+                                        isTopInBorough={idx === 0}
+                                        boroughName={(() => {
+                                            if (!plan.location) return 'NYC';
+                                            const parts = plan.location.split(',').map(p => p.trim());
+                                            if (parts.length >= 3) return parts[1];
+                                            if (parts.length === 2) return parts[0];
+                                            return parts[0] || 'NYC';
+                                        })()}
+                                    />
+                                </div>
+                            ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 
@@ -2677,7 +2717,8 @@ const Dashboard = () => {
                                         });
                                     } else {
                                         navigator.clipboard.writeText(`${window.location.origin}/signup?ref=${referralDetails.code}`);
-                                        alert('Link copied to clipboard!');
+                                        setToastMessage('Link copied to clipboard! 📋');
+                                        setTimeout(() => setToastMessage(''), 3000);
                                     }
                                 }}
                                 className="w-11 h-11 flex items-center justify-center bg-coral hover:bg-coral/90 rounded-xl transition-all text-white shadow-lg active:scale-95"
@@ -2768,18 +2809,25 @@ const Dashboard = () => {
         </div>
     );
 
+    const renderEvents = () => <EventsTab appTheme={appTheme} userBorough={userBorough} setToastMessage={setToastMessage} />;
+
     const renderHeader = () => {
+
         const tabTitles = {
             home: "Welcome Back",
             favorites: "Your Favorites",
+            plans: "Your Dashboard",
             discovery: "Discovery Mode",
-            account: "Your Account"
+            account: "Your Account",
+            events: "City Events"
         };
         const tabSubtitles = {
             home: "Start your next adventure.",
             favorites: "Hand-picked itineraries you love.",
+            plans: "All your saved experiences in one place.",
             discovery: "Swipe right to save your favorites.",
-            account: "Manage your profile and settings."
+            account: "Manage your profile and settings.",
+            events: "Curated experiences near you."
         };
 
         return (
@@ -2812,16 +2860,6 @@ const Dashboard = () => {
                                 Home
                             </button>
                             <button
-                                onClick={() => setCurrentTab('favorites')}
-                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${
-                                    currentTab === 'favorites' 
-                                        ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm') 
-                                        : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
-                                }`}
-                            >
-                                Favorites
-                            </button>
-                            <button
                                 onClick={() => setCurrentTab('discovery')}
                                 className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${
                                     currentTab === 'discovery' 
@@ -2829,7 +2867,28 @@ const Dashboard = () => {
                                         : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
                                 }`}
                             >
-                                Discovery
+                                Discover
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('events')}
+                                className={`relative px-5 py-2 rounded-xl text-xs font-black transition-all ${
+                                    currentTab === 'events' 
+                                        ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm') 
+                                        : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                }`}
+                            >
+                                Events
+                                <span className="absolute -top-1.5 -right-1 bg-coral text-white text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest leading-none">NEW</span>
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('favorites')}
+                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${
+                                    currentTab === 'favorites' 
+                                        ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm') 
+                                        : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                }`}
+                            >
+                                Saved
                             </button>
                         </nav>
 
@@ -2959,6 +3018,7 @@ const Dashboard = () => {
                         {currentTab === 'plans' && renderMyPlans()}
                         {currentTab === 'discovery' && renderDiscovery()}
                         {currentTab === 'account' && renderAccount()}
+                        {currentTab === 'events' && renderEvents()}
                     </motion.div>
                 </AnimatePresence>
             </main>
@@ -3688,13 +3748,14 @@ const Dashboard = () => {
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
-                        <div className={`p-8 text-center ${confirmModal.type === 'delete' ? 'bg-red-50' : confirmModal.type === 'favorite' ? 'bg-coral/10' : 'bg-coral/5'}`}>
-                            <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg transform -rotate-3 ${confirmModal.type === 'delete' ? 'bg-red-500 text-white' : confirmModal.type === 'favorite' ? 'bg-coral text-white' : 'bg-coral text-white'}`}>
-                                {confirmModal.type === 'favorite' ? <Heart className="w-10 h-10 fill-white" /> : <Trash2 className="w-10 h-10" />}
+                        <div className={`p-8 text-center ${confirmModal.type === 'delete' || confirmModal.type === 'cancel_subscription' ? 'bg-red-50' : confirmModal.type === 'favorite' ? 'bg-coral/10' : 'bg-coral/5'}`}>
+                            <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg transform -rotate-3 ${confirmModal.type === 'delete' || confirmModal.type === 'cancel_subscription' ? 'bg-red-500 text-white' : confirmModal.type === 'favorite' ? 'bg-coral text-white' : 'bg-coral text-white'}`}>
+                                {confirmModal.type === 'favorite' ? <Heart className="w-10 h-10 fill-white" /> : confirmModal.type === 'cancel_subscription' ? <Zap className="w-10 h-10" /> : <Trash2 className="w-10 h-10" />}
                             </div>
                             <h3 className="text-2xl font-black text-navy mb-2 tracking-tight">
                                 {confirmModal.type === 'delete' ? 'Permanently Delete?' :
                                     confirmModal.type === 'favorite' ? 'Move to Favorites?' :
+                                    confirmModal.type === 'cancel_subscription' ? 'Cancel Premium?' :
                                         'Move to Trash?'}
                             </h3>
                             <p className="text-gray-500 font-medium text-[15px] leading-relaxed px-4">
@@ -3702,6 +3763,8 @@ const Dashboard = () => {
                                     ? "This action is final and cannot be undone. Say goodbye to this date forever?"
                                     : confirmModal.type === 'favorite'
                                         ? "This plan will be tucked away in your Favorites tab to keep your dashboard clean."
+                                        : confirmModal.type === 'cancel_subscription'
+                                        ? "Are you sure you want to cancel your Premium status? You will lose access to all Plus features immediately."
                                         : "Don't worry, you can recover this date plan from your settings for up to 7 days."}
                             </p>
                         </div>
@@ -3714,13 +3777,14 @@ const Dashboard = () => {
                             </button>
                             <button
                                 onClick={performDelete}
-                                className={`py-4 rounded-2xl text-[14px] font-black text-white shadow-lg transition-all active:scale-95 uppercase tracking-widest ${confirmModal.type === 'delete' ? 'bg-red-600 shadow-red-500/30' :
+                                className={`py-4 rounded-2xl text-[14px] font-black text-white shadow-lg transition-all active:scale-95 uppercase tracking-widest ${confirmModal.type === 'delete' || confirmModal.type === 'cancel_subscription' ? 'bg-red-600 shadow-red-500/30' :
                                         confirmModal.type === 'favorite' ? 'bg-coral shadow-coral/30' :
                                             'bg-navy shadow-navy/30'
                                     }`}
                             >
                                 {confirmModal.type === 'delete' ? 'Delete' :
                                     confirmModal.type === 'favorite' ? 'Move to Favorites' :
+                                    confirmModal.type === 'cancel_subscription' ? 'Cancel Premium' :
                                         'Confirm'}
                             </button>
                         </div>
@@ -3830,6 +3894,7 @@ const Dashboard = () => {
                  onTabChange={setCurrentTab}
                  avatarUrl={user?.user_metadata?.avatar_url}
                  userInitial={user?.user_metadata?.first_name?.[0] || 'K'}
+                 appTheme={appTheme}
              />
  
              {/* GLOBAL TOAST NOTIFICATION */}

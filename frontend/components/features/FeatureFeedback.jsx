@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Lightbulb, Send, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { Lightbulb, Send, CheckCircle2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
 const FeatureFeedback = () => {
@@ -7,6 +8,7 @@ const FeatureFeedback = () => {
     const [submitted, setSubmitted] = useState(false);
     const [selectedOption, setSelectedOption] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState(null);
 
     const options = [
         "Better restaurant picks",
@@ -35,9 +37,11 @@ const FeatureFeedback = () => {
             setSubmitted(true);
             setFeedback('');
             setSelectedOption('');
+            setError(null);
         } catch (err) {
             console.error("Feedback error:", err);
-            alert("Failed to send feedback. Please try again later.");
+            setError("Failed to send feedback. Please try again later.");
+            setTimeout(() => setError(null), 5000);
         } finally {
             setIsSubmitting(false);
         }
@@ -89,7 +93,7 @@ const FeatureFeedback = () => {
                                     <button
                                         type="submit"
                                         disabled={isSubmitting || (!feedback.trim() && !selectedOption)}
-                                        className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-2 group disabled:opacity-50"
+                                        className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-2 group disabled:opacity-50 transition-all"
                                     >
                                         {isSubmitting ? (
                                             <><Loader2 className="w-5 h-5 animate-spin" /> Sending...</>
@@ -97,6 +101,20 @@ const FeatureFeedback = () => {
                                             <>Send Feedback <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
                                         )}
                                     </button>
+
+                                    <AnimatePresence>
+                                        {error && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -10 }}
+                                                className="mt-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-500 text-sm font-bold"
+                                            >
+                                                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                                <span>{error}</span>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </form>
                             ) : (
                                 <div className="text-center py-12 space-y-4 animate-in zoom-in duration-500">

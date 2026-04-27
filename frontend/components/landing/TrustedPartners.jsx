@@ -47,7 +47,7 @@ const TrustedPartners = () => {
     ];
 
     return (
-        <motion.section 
+        <motion.section
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
@@ -63,7 +63,7 @@ const TrustedPartners = () => {
                     animation: scroll 20s linear infinite;
                 }
             `}</style>
-            
+
             <div className="container-custom">
                 <p className="text-center text-sm font-bold text-gray-400 uppercase tracking-widest mb-8">
                     Powered by real data from trusted partners
@@ -72,12 +72,12 @@ const TrustedPartners = () => {
                 {/* Logo Carousel sliding marquee */}
                 <div className="flex overflow-hidden relative w-full">
                     <div className="flex animate-scroll items-center opacity-60 hover:opacity-100 transition-opacity duration-500 w-max">
-                        
+
                         {/* Track 1 */}
                         <div className="flex items-center space-x-12 md:space-x-24 pr-12 md:pr-24">
                             {partnerNodes}
                         </div>
-                        
+
                         {/* Track 2 for seamless loop layout fits */}
                         <div className="flex items-center space-x-12 md:space-x-24 pr-12 md:pr-24">
                             {partnerNodes}

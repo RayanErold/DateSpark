@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ConceptSkeleton } from '../../components/ui/SkeletonLoader';
+import DateArchitectChat from '../../components/dashboard/DateArchitectChat';
 import { isLocationInServiceArea } from '../../lib/geo';
 import { supabase } from '../../lib/supabase';
 import { useGoogleMaps } from '../../lib/googleMaps';
@@ -22,12 +25,16 @@ const GeneratePlan = ({ isGuestMode = false }) => {
     const [loadingStage, setLoadingStage] = React.useState(0);
     const [isOnline, setIsOnline] = React.useState(navigator.onLine);
     const [isSuggesting, setIsSuggesting] = React.useState(false);
+    const [isArchitectActive, setIsArchitectActive] = useState(false);
 
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
 
     // Core states
-    const [mode, setMode] = useState('classic'); // 'classic' or 'ai_custom'
+    const [searchParams] = useSearchParams();
+    const initialMode = searchParams.get('mode') === 'ai' ? 'ai_custom' : 'classic';
+    const [mode, setMode] = useState(initialMode); // 'classic' or 'ai_custom'
+    const [isSelectionSkipped, setIsSelectionSkipped] = useState(searchParams.get('mode') === 'ai');
     // --- FREEMIUM LOGIC STATE ---
     const [isPremium, setIsPremium] = useState(() => {
         // Admin Override Initialization
@@ -219,7 +226,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
             }
         } catch (err) {
             console.error('Checkout error:', err);
-            alert(`Payment failed: ${err.response?.data?.error || err.message}`);
+            setError(`Payment failed: ${err.response?.data?.error || err.message}`);
         }
     };
 
@@ -468,10 +475,19 @@ const GeneratePlan = ({ isGuestMode = false }) => {
     };
 
 
-    const handleSuggestConcepts = async (e, isRefinement = false) => {
+    const handleSuggestConcepts = async (e) => {
         if (e) e.preventDefault();
-        if (isRefinement && refinementCount >= 2) {
-            setError("Maximum refinements reached for this idea.");
+        
+        if (!initialPrompt.trim()) return;
+        if (!formData.location) {
+            setError("Please select a location first.");
+            return;
+        }
+
+        // GATING: Ensure we are in NYC or Jersey
+        if (!isLocationInServiceArea(formData.location, formData.lat, formData.lng)) {
+            setDetectedCity(formData.location.split(',')[0]);
+            setShowWaitlistModal(true);
             return;
         }
 
@@ -481,86 +497,25 @@ const GeneratePlan = ({ isGuestMode = false }) => {
             return;
         }
 
-        let newHistory = [];
-        if (!isRefinement) {
-            if (!initialPrompt.trim()) return;
-            if (!formData.location) {
-                setError("Please select a location first.");
-                return;
-            }
-
-            // GATING: Ensure we are in NYC or Jersey
-            if (!isLocationInServiceArea(formData.location, formData.lat, formData.lng)) {
-                setDetectedCity(formData.location.split(',')[0]);
-                setShowWaitlistModal(true);
-                return;
-            }
-
-            newHistory = [{ role: 'user', text: initialPrompt }];
-        } else {
-            if (!refinePrompt.trim()) return;
-            newHistory = [...conversationHistory, { role: 'user', text: refinePrompt }];
-        }
-
-        setIsSuggesting(true);
-        setError(null);
-
-        try {
-            const currentUser = user || (await supabase.auth.getUser()).data.user;
-            if (!currentUser) throw new Error('You must be logged in.');
-
-            const response = await fetch('/api/suggest-date-concepts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    conversationHistory: newHistory,
-                    ideaCount: 3,
-                    userId: currentUser.id,
-                    budget: aiBudget,
-                    radius: customRadius,
-                    location: formData.location,
-                    lat: formData.lat,
-                    lng: formData.lng,
-                    usePreciseLocation: formData.usePreciseLocation,
-                    date: formData.date,
-                    time: formData.time
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                if (response.status === 403 || errorData.code === 'LIMIT_REACHED') {
-                    setLimitType('guided');
-                    setShowPremiumModal(true);
-                    return;
-                }
-                throw new Error(errorData.error || 'Failed to generate suggestions.');
-            }
-
-            const data = await response.json();
-            setAiConcepts(data.concepts || []);
-            setAiQuestions(data.questions || []);
-            setConversationHistory([...newHistory, { role: 'ai', text: `Pitched ${data.concepts?.length} ideas.` }]);
-            if (isRefinement) {
-                setRefinePrompt('');
-                setRefinementCount(prev => prev + 1);
-            }
-            setSelectedConceptIndex(null);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setIsSuggesting(false);
-        }
+        // Transition to Architect Chat
+        setIsArchitectActive(true);
+        // We set a dummy concept to trigger the "chat" view if needed, 
+        // but better to just use isArchitectActive in the render logic.
+        setAiConcepts(['INIT']); 
     };
 
-    const handleGenerateCustom = async (e) => {
-        e.preventDefault();
+    const handleGenerateCustom = async (e, forcedConcept = null) => {
+        if (e && e.preventDefault) e.preventDefault();
+        
+        const conceptToUse = forcedConcept || (selectedConceptIndex !== null ? aiConcepts[selectedConceptIndex] : null);
+        if (!conceptToUse) return;
+
         if (!isPremium && usage.guided >= limits.guided) {
             setLimitType('guided');
             setShowPremiumModal(true);
             return;
         }
-        if (selectedConceptIndex === null) return;
+
         setIsGenerating(true);
         setError(null);
 
@@ -568,13 +523,12 @@ const GeneratePlan = ({ isGuestMode = false }) => {
             const currentUser = user || (await supabase.auth.getUser()).data.user;
             if (!currentUser) throw new Error('You must be logged in.');
 
-            const selectedConcept = aiConcepts[selectedConceptIndex];
             const response = await fetch('/api/generate-custom-date', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: currentUser.id,
-                    concept: selectedConcept,
+                    concept: conceptToUse,
                     date: formData.date,
                     budget: aiBudget,
                     radius: customRadius,
@@ -596,12 +550,19 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                 throw new Error(errData.error || 'Failed to build custom itinerary.');
             }
 
+            const createdPlans = await response.json();
+            const firstPlanId = Array.isArray(createdPlans) ? createdPlans[0]?.id : null;
+
             if (!isPremium) {
                 setUsage(prev => ({ ...prev, guided: prev.guided + 1 }));
             }
 
-            setFlashMessage('Plan saved — opening your itinerary.');
-            navigate('/dashboard');
+            setFlashMessage('Plan ready — opening your itinerary.');
+            if (firstPlanId) {
+                navigate(`/shared/${firstPlanId}`);
+            } else {
+                navigate('/dashboard');
+            }
         } catch (err) {
             setError(err.message);
             setIsGenerating(false);
@@ -870,30 +831,35 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                     </p>
                 </div>
 
-                <div className="flex bg-gray-200/50 backdrop-blur-sm p-1 sm:p-1.5 rounded-2xl sm:rounded-[1.5rem] mb-8 sm:mb-12 border border-white shadow-xl shadow-navy/5">
-                    <button
-                        onClick={() => handleModeSwitch('classic')}
-                        className={`flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'classic' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
-                    >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <MapPin className={`w-4 h-4 sm:w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
+                {/* Skip selection if mode is preset via query param */}
+                {!isSelectionSkipped && (
+                    <>
+                        <div className="flex bg-gray-200/50 backdrop-blur-sm p-1 sm:p-1.5 rounded-2xl sm:rounded-[1.5rem] mb-8 sm:mb-12 border border-white shadow-xl shadow-navy/5">
+                            <button
+                                onClick={() => handleModeSwitch('classic')}
+                                className={`flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'classic' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
+                            >
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <MapPin className={`w-4 h-4 sm:w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => handleModeSwitch('ai_custom')}
+                                className={`relative flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'ai_custom' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
+                            >
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
+                                    Create your own
+                                </div>
+                            </button>
                         </div>
-                    </button>
-                    <button
-                        onClick={() => handleModeSwitch('ai_custom')}
-                        className={`relative flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'ai_custom' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
-                    >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
-                            Create your own
-                        </div>
-                    </button>
-                </div>
-                <p className="text-center text-[12px] sm:text-sm text-gray-500 font-medium px-2 -mt-4 mb-6 max-w-xl mx-auto leading-relaxed">
-                    <span className="font-bold text-navy">Guided Builder</span> — step-by-step vibe, budget, and map-friendly itinerary.
-                    {' '}
-                    <span className="font-bold text-navy">Create your own</span> — describe the night in your words, pick an AI concept, then generate.
-                </p>
+                        <p className="text-center text-[12px] sm:text-sm text-gray-500 font-medium px-2 -mt-4 mb-6 max-w-xl mx-auto leading-relaxed">
+                            <span className="font-bold text-navy">Guided Builder</span> — step-by-step vibe, budget, and map-friendly itinerary.
+                            {' '}
+                            <span className="font-bold text-navy">Create your own</span> — describe the night in your words, pick an AI concept, then generate.
+                        </p>
+                    </>
+                )}
 
                 {error && (
                     <div className="p-4 mb-6 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100 italic flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-left-4 duration-300">
@@ -922,234 +888,42 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                 {/* --- AI MODE --- */}
                 {mode === 'ai_custom' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
-                        {aiConcepts.length === 0 ? (
-                            <div className="bg-white rounded-[2.5rem] shadow-[0_8px_60px_rgba(0,0,0,0.05)] border border-gray-100 p-8 sm:p-12 mb-24 animate-in fade-in slide-in-from-bottom-6 duration-500">
-                                <div className="space-y-10">
-                                    <div className="space-y-4">
-                                        <h3 className="text-xs font-black text-violet-500 uppercase tracking-widest pl-1">Get Inspired</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {[
-                                                { icon: "🥂", text: "Unforgettable anniversary", prompt: "Plan an unforgettable anniversary night — intimate dinner, a beautiful walk, and a rooftop moment to end the evening." },
-                                                { icon: "🗺️", text: "First date, zero awkwardness", prompt: "It's a first date. Keep it fun, low-pressure, and conversation-friendly — coffee, a stroll, maybe a surprise." },
-                                                { icon: "🌆", text: "Hidden local gems", prompt: "Show me the side of this city most people miss — local bars, underground spots, hole-in-the-wall restaurants only locals know." },
-                                                { icon: "⚡", text: "Spontaneous & electric", prompt: "We have 3 hours, no plan, and want to feel alive. Make it bold, unexpected, and impossible to forget." }
-                                            ].map((starter, i) => (
-                                                <button
-                                                    key={i}
-                                                    type="button"
-                                                    onClick={() => setInitialPrompt(starter.prompt)}
-                                                    className="group flex items-start gap-3 p-4 bg-violet-50/50 border border-violet-100 rounded-2xl text-left hover:bg-violet-600 hover:border-violet-600 transition-all duration-300"
-                                                >
-                                                    <span className="text-2xl group-hover:scale-110 transition-transform">{starter.icon}</span>
-                                                    <span className="text-[13px] font-bold text-navy group-hover:text-white transition-colors">
-                                                        {starter.text}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <form onSubmit={handleSuggestConcepts} className="space-y-8">
-                                         <div className="space-y-4">
-                                            {/* Location Input for AI Mode */}
-                                            <div className="relative group">
-                                                <Compass className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Where in NYC? (Neighborhood or Zip)"
-                                                    required
-                                                    value={formData.location}
-                                                    onChange={(e) => handleLocationChange(e.target.value)}
-                                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                                    onFocus={() => formData.location.length >= 3 && setShowSuggestions(true)}
-                                                    className="w-full pl-14 pr-32 py-4 sm:py-5 bg-gray-50 border-2 border-gray-100 rounded-[2rem] focus:outline-none focus:border-violet-500 text-[15px] font-bold text-navy shadow-inner transition-all"
-                                                />
-                                                {showSuggestions && suggestions.length > 0 && (
-                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                                        {suggestions.map((s) => (
-                                                            <button
-                                                                key={s.place_id}
-                                                                type="button"
-                                                                onMouseDown={() => handleSelectSuggestion(s)}
-                                                                className="w-full px-6 py-4 text-left hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0 transition-colors"
-                                                            >
-                                                                <MapPin className="w-4 h-4 text-gray-400" />
-                                                                <div>
-                                                                    <div className="text-[14px] font-bold text-navy">{s.structured_formatting.main_text}</div>
-                                                                    <div className="text-[11px] text-gray-400">{s.structured_formatting.secondary_text}</div>
-                                                                </div>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={handlePreciseLocation}
-                                                    disabled={locationLoading}
-                                                    className={`absolute right-3 top-1/2 -translate-y-1/2 px-3 sm:px-4 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all shadow-lg active:scale-95 ${
-                                                        formData.usePreciseLocation 
-                                                        ? 'bg-green-500 text-white shadow-green-500/20' 
-                                                        : 'bg-violet-600 text-white shadow-violet-600/30 hover:bg-violet-700 animate-pulse-subtle'
-                                                    }`}
-                                                >
-                                                    {locationLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Locate className="w-3.5 h-3.5" />}
-                                                    <span className="hidden sm:inline">{formData.usePreciseLocation ? 'GPS: ACTIVE' : 'Use My Location'}</span>
-                                                    <span className="sm:hidden">{formData.usePreciseLocation ? 'ON' : 'GPS'}</span>
-                                                </button>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="relative group">
-                                                    <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
-                                                    <input
-                                                        type="date"
-                                                        required
-                                                        value={formData.date}
-                                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[13px] font-bold text-navy shadow-inner"
-                                                    />
-                                                </div>
-                                                <div className="relative group">
-                                                    <Clock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
-                                                    <input
-                                                        type="time"
-                                                        required
-                                                        value={formData.time}
-                                                        onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[13px] font-bold text-navy shadow-inner"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <textarea
-                                                placeholder="e.g. 'I want to take her to a museum to chill, and finish with some highly rated artisanal ice cream.'"
-                                                value={initialPrompt}
-                                                onChange={(e) => setInitialPrompt(e.target.value)}
-                                                rows={4}
-                                                className="w-full px-6 py-6 bg-gray-50 border-2 border-gray-100 rounded-[2rem] focus:outline-none focus:border-violet-500 transition-all text-[15px] font-medium resize-none shadow-inner"
-                                                required
-                                            />
-                                            <div className="relative">
-                                                <DollarSign className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Budget (optional, e.g. $200)"
-                                                    value={aiBudget}
-                                                    onChange={(e) => setAiBudget(e.target.value)}
-                                                    className="w-full pl-12 pr-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[14px] font-bold text-navy shadow-inner"
-                                                />
-                                            </div>
-
-                                            {/* Search Radius Slider */}
-                                            <div className="bg-gray-50/50 border-2 border-gray-100 rounded-3xl p-6 space-y-4 shadow-sm">
-                                                <div className="flex justify-between items-center px-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Compass className="w-4 h-4 text-violet-500" />
-                                                        <span className="text-[12px] font-black text-navy uppercase tracking-widest">Search Distance</span>
-                                                    </div>
-                                                    <span className="text-sm font-black text-violet-600 bg-violet-50 px-3 py-1 rounded-lg">{(customRadius / 1609.34).toFixed(1)} miles</span>
-                                                </div>
-                                                <input
-                                                    type="range"
-                                                    min="804"   // 0.5 miles
-                                                    max="32186" // 20 miles
-                                                    step="804"  // 0.5 mile increments
-                                                    value={customRadius}
-                                                    onChange={(e) => setCustomRadius(Number(e.target.value))}
-                                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
-                                                />
-                                                <div className="flex justify-between text-[10px] font-bold text-gray-400 px-1 uppercase tracking-tighter">
-                                                    <span>Walking</span>
-                                                    <span>Local</span>
-                                                    <span>Driving</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            disabled={isSuggesting || !initialPrompt.trim()}
-                                            className="w-full bg-navy text-white hover:bg-navy/90 py-3.5 sm:py-4 rounded-xl text-[15px] sm:text-[16px] font-bold flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-sm"
-                                        >
-                                            {isSuggesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Wand2 className="w-5 h-5" /> Pitch me some ideas</>}
-                                        </button>
-                                        <div className="flex items-center gap-3 px-2 py-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
-                                                className={`w-10 h-6 rounded-full transition-all duration-300 relative flex items-center p-1 shadow-inner ${formData.is_favorite ? 'bg-coral' : 'bg-gray-300'}`}
-                                            >
-                                                <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.is_favorite ? 'translate-x-4' : 'translate-x-0'}`} />
-                                            </button>
-                                            <span className="text-[13px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
-                                                <Heart className={`w-3.5 h-3.5 ${formData.is_favorite ? 'fill-coral text-coral' : 'text-gray-400'}`} />
-                                                Save to Favorites Automatically
-                                            </span>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-6 pb-20 animate-in slide-in-from-bottom-4 duration-500">
-                                <div className="bg-white rounded-3xl p-6 border border-gray-100 flex justify-between items-center shadow-sm">
-                                    <div className="flex flex-col">
-                                        <p className="text-navy font-medium italic text-[14px]">"{initialPrompt}"</p>
-                                        {aiBudget && <span className="text-[11px] font-black text-coral uppercase tracking-widest mt-1">Budget: {aiBudget}</span>}
-                                    </div>
-                                    <button onClick={() => { setAiConcepts([]); setConversationHistory([]); setRefinementCount(0); setAiBudget(''); }} className="text-[13px] font-bold text-violet-600 hover:text-violet-700 bg-violet-50 px-4 py-2 rounded-xl shrink-0">Start Over</button>
-                                </div>
-
-                                <div className="flex items-center justify-between px-2">
-                                    <h3 className="text-sm font-black text-navy uppercase tracking-wider">Select a Concept</h3>
-                                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${refinementCount >= 2 ? 'bg-red-100 text-red-600' : 'bg-violet-100 text-violet-600'}`}>
-                                        Refinements: {refinementCount}/2
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {aiConcepts.map((concept, idx) => (
-                                        <div
-                                            key={idx}
-                                            onClick={() => setSelectedConceptIndex(idx)}
-                                            className={`p-6 rounded-2xl border cursor-pointer transition-all ${selectedConceptIndex === idx ? 'border-violet-500 bg-violet-50 shadow-md scale-[1.01]' : 'border-gray-200 bg-white hover:border-violet-300'}`}
-                                        >
-                                            <h3 className="text-[18px] font-bold text-navy mb-2">{concept.title}</h3>
-                                            <p className="text-[15px] text-gray-600">{concept.description}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {refinementCount < 2 ? (
-                                    <div className="bg-violet-50/50 border border-violet-100 rounded-[2rem] p-6 space-y-4">
-                                        <textarea
-                                            placeholder="Want to change something? (e.g. 'Make it more adventurous' or 'Add a dinner spot')"
-                                            value={refinePrompt}
-                                            onChange={(e) => setRefinePrompt(e.target.value)}
-                                            rows={2}
-                                            className="w-full px-5 py-4 bg-white border-2 border-violet-100 rounded-2xl focus:outline-none focus:border-violet-500 text-[14px] font-medium resize-none"
-                                        />
-                                        <button
-                                            onClick={(e) => handleSuggestConcepts(e, true)}
-                                            disabled={isSuggesting || !refinePrompt.trim()}
-                                            className="w-full bg-violet-600 text-white hover:bg-violet-700 py-3 rounded-xl text-[14px] font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                                        >
-                                            {isSuggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-4 h-4" /> Refine these ideas</>}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center">
-                                        <p className="text-[13px] font-bold text-gray-500 italic">Maximum refinements reached. Select an idea below to continue.</p>
-                                    </div>
-                                )}
-
-                                <button
-                                    onClick={handleGenerateCustom}
-                                    disabled={selectedConceptIndex === null || isGenerating}
-                                    className="w-full bg-navy text-white hover:bg-navy/90 py-3.5 sm:py-4 rounded-xl font-bold flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg"
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="space-y-6 pb-20"
+                        >
+                            <div className="flex items-center justify-between px-2">
+                                <h3 className="text-sm font-black text-navy uppercase tracking-wider flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-violet-600" />
+                                    Collaborating with Architect
+                                </h3>
+                                <button 
+                                    onClick={() => { setAiConcepts([]); setConversationHistory([]); setRefinementCount(0); setAiBudget(''); }} 
+                                    className="text-[11px] font-black text-gray-400 uppercase tracking-widest hover:text-navy transition-colors"
                                 >
-                                    {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <><MapPin className="w-5 h-5" /> Generate Itinerary</>}
+                                    Reset
                                 </button>
                             </div>
-                        )}
+
+                            <DateArchitectChat 
+                                userId={user?.id}
+                                location={formData.location}
+                                budget={aiBudget}
+                                radius={customRadius}
+                                onSettingsChange={({ location, budget, radius }) => {
+                                    setFormData(prev => ({ ...prev, location }));
+                                    setAiBudget(budget);
+                                    setCustomRadius(radius);
+                                }}
+                                onConceptSelected={(concept) => {
+                                    setAiConcepts([concept]);
+                                    setSelectedConceptIndex(0);
+                                    const fakeEvent = { preventDefault: () => {} };
+                                    setTimeout(() => handleGenerateCustom(fakeEvent, concept), 100);
+                                }}
+                            />
+                        </motion.div>
                     </div>
                 )}
 
@@ -1451,29 +1225,49 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                                 )}
 
                                 {/* Smart Loading Overlay */}
-                                {isGenerating && (
-                                    <div className="fixed inset-0 bg-white/95 backdrop-blur-xl z-[100] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
-                                        <div className="relative mb-10">
-                                            <div className="w-28 h-28 border-[6px] border-coral/10 border-t-coral border-r-coral rounded-full animate-[spin_1.5s_linear_infinite]"></div>
+                                 {isGenerating && (
+                                    <motion.div 
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="fixed inset-0 bg-white/40 backdrop-blur-2xl z-[100] flex flex-col items-center justify-center p-6 text-center"
+                                    >
+                                        <div className="relative mb-12">
+                                            <motion.div 
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                                className="w-32 h-32 border-[3px] border-coral/10 border-t-coral rounded-full"
+                                            />
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <Sparkles className="w-10 h-10 text-coral animate-pulse" />
+                                                <motion.div
+                                                    animate={{ scale: [1, 1.2, 1] }}
+                                                    transition={{ duration: 2, repeat: Infinity }}
+                                                >
+                                                    <Heart className="w-10 h-10 fill-coral text-coral" />
+                                                </motion.div>
                                             </div>
                                         </div>
-                                        <h2 className="text-4xl font-black text-navy mb-4 tracking-tight drop-shadow-sm">Crafting Your Evening</h2>
-                                        <p className="text-coral font-bold text-2xl animate-pulse min-h-[1.5em] duration-1000 max-w-lg mb-2">
-                                            {loadingMessages[loadingStage]}
-                                        </p>
-                                        <p className="text-gray-400 text-sm font-semibold max-w-sm leading-relaxed">
-                                            {isGuestMode ? 'Analyzing local gems and matching venues... this takes just a few seconds.' : 'We are curating the perfect venues and activities based on your exact preferences.'}
-                                        </p>
-                                        <div className="mt-14 max-w-sm w-full bg-gray-100 h-2.5 rounded-full overflow-hidden shadow-inner">
-                                            <div 
-                                                className="h-full bg-gradient-to-r from-coral to-pink-500 transition-all duration-[2000ms] ease-out rounded-full shadow-[0_0_10px_rgba(255,127,80,0.5)]"
-                                                style={{ width: `${((loadingStage + 1) / loadingMessages.length) * 100}%` }}
-                                            ></div>
+                                        
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: 0.2 }}
+                                            className="space-y-4"
+                                        >
+                                            <h2 className="text-4xl font-black text-navy tracking-tight">Crafting Your Evening</h2>
+                                            <p className="text-coral font-black text-xl animate-pulse min-h-[1.5em]">
+                                                {loadingMessages[loadingStage]}
+                                            </p>
+                                        </motion.div>
+
+                                        <div className="mt-16 max-w-sm w-full bg-navy/5 h-1.5 rounded-full overflow-hidden">
+                                            <motion.div 
+                                                className="h-full bg-gradient-to-r from-coral to-pink-500 rounded-full"
+                                                animate={{ width: `${((loadingStage + 1) / loadingMessages.length) * 100}%` }}
+                                                transition={{ duration: 1 }}
+                                            />
                                         </div>
-                                        <p className="mt-4 text-[12px] font-black uppercase tracking-widest text-navy/40">Step {loadingStage + 1} of {loadingMessages.length}</p>
-                                    </div>
+                                        <p className="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-navy/30">Step {loadingStage + 1} of {loadingMessages.length}</p>
+                                    </motion.div>
                                 )}
                             </div>
                         </form>

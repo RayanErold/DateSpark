@@ -1,29 +1,30 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard } from 'lucide-react';
+import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard, Music, Camera, Palette, Trophy, Mic2 } from 'lucide-react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGoogleMaps } from '../../lib/googleMaps';
 import { supabase } from '../../lib/supabase';
 
 const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#111827' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#111827' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] },
-  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#f43f5e' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#064e3b' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#10b981' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#374151' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
-  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#d1d5db' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#111827' }] },
-  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#030712' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4b5563' }] },
-  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
+    { elementType: 'geometry', stylers: [{ color: '#111827' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#111827' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] },
+    { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
+    { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#f43f5e' }] },
+    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#064e3b' }] },
+    { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#10b981' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
+    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#374151' }] },
+    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#111827' }] },
+    { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#d1d5db' }] },
+    { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#111827' }] },
+    { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#f97316' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#030712' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4b5563' }] },
+    { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
 ];
 
 // Generates a self-contained SVG pin with a number label — no external URL needed
@@ -72,10 +73,13 @@ const SharedPlan = () => {
     }, []);
 
     const focusStep = useCallback((idx, step) => {
-        if (!step.lat || !step.lng) return;
+        const lat = parseFloat(step.lat);
+        const lng = parseFloat(step.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+
         setSelectedMarker(idx);
         if (mapRef.current) {
-            mapRef.current.panTo({ lat: step.lat, lng: step.lng });
+            mapRef.current.panTo({ lat, lng });
             mapRef.current.setZoom(16);
         }
     }, []);
@@ -138,13 +142,13 @@ const SharedPlan = () => {
         );
     }
 
-    const itinerarySteps = Array.isArray(plan.itinerary) 
-        ? plan.itinerary 
+    const itinerarySteps = Array.isArray(plan.itinerary)
+        ? plan.itinerary
         : (plan.itinerary?.steps || plan.plan_content || []);
 
     const mapCenter = itinerarySteps.length > 0
-        ? { lat: itinerarySteps[0].lat, lng: itinerarySteps[0].lng }
-        : { lat: 0, lng: 0 }; // Default neutral
+        ? { lat: parseFloat(itinerarySteps[0].lat), lng: parseFloat(itinerarySteps[0].lng) }
+        : { lat: 40.7128, lng: -74.0060 }; // Default NYC if empty
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -206,7 +210,7 @@ const SharedPlan = () => {
                         <span className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100"><Calendar className="w-4 h-4 text-navy" /> {
                             plan.itinerary?.metadata?.planDate
                                 ? new Date(plan.itinerary.metadata.planDate + 'T00:00:00').toLocaleDateString()
-                                : plan.created_at.split('T')[0]
+                                : plan.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]
                         }</span>
                         <span className="flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-lg shadow-sm border border-green-100 font-bold uppercase text-xs tracking-wider">{plan.budget}</span>
                     </div>
@@ -218,23 +222,37 @@ const SharedPlan = () => {
 
                     {/* Left Column: Timeline UI */}
                     <div className="flex-1 md:w-1/2 bg-transparent md:bg-white p-6 sm:p-8 md:p-12 md:max-h-[700px] overflow-y-auto z-10 font-inter">
-                            {/* Spacer for Map on Mobile */}
-                            <div className="h-[200px] md:hidden flex-shrink-0"></div>
-                            <div className="bg-white md:bg-transparent rounded-t-[2.5rem] p-6 md:p-0 shadow-sm md:shadow-none">
-                                <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-12 pb-8">
+                        {/* Spacer for Map on Mobile */}
+                        <div className="h-[200px] md:hidden flex-shrink-0"></div>
+                        <div className="bg-white md:bg-transparent rounded-t-[2.5rem] p-6 md:p-0 shadow-sm md:shadow-none">
+                            <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-12 pb-8">
                                 {itinerarySteps.map((step, idx) => {
                                     // Public Gating: If it's a preview plan, recipients only see 2 stops (idx 0, 1). 3rd stop (idx 2) is locked.
                                     const isPreview = plan.itinerary?.metadata?.isPreviewPlan || plan.is_preview || false;
                                     const isLockedStep = isPreview && idx >= 2;
 
-                                    const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
-                                    const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
-                                    const colorIdx = idx % dotColors.length;
+                                    const CATEGORY_THEMES = {
+                                        food: { dot: 'bg-emerald-500', text: 'text-emerald-600', icon: <Utensils className="w-3 h-3" />, cta: 'View Menu & Reserve', badge: 'Dining' },
+                                        drinks: { dot: 'bg-amber-500', text: 'text-amber-600', icon: <Compass className="w-3 h-3" />, cta: 'View Selection', badge: 'Drinks' },
+                                        music: { dot: 'bg-indigo-500', text: 'text-indigo-600', icon: <Music className="w-3 h-3" />, cta: 'Get Tickets', badge: 'Music' },
+                                        sports: { dot: 'bg-red-500', text: 'text-red-600', icon: <Trophy className="w-3 h-3" />, cta: 'Book Activity', badge: 'Sports' },
+                                        comedy: { dot: 'bg-yellow-400', text: 'text-yellow-600', icon: <Mic2 className="w-3 h-3" />, cta: 'Check Showtimes', badge: 'Comedy' },
+                                        art: { dot: 'bg-purple-500', text: 'text-purple-600', icon: <Palette className="w-3 h-3" />, cta: 'Gallery Info', badge: 'Art' },
+                                        scenic: { dot: 'bg-sky-500', text: 'text-sky-600', icon: <Camera className="w-3 h-3" />, cta: 'View Details', badge: 'Scenic' },
+                                        activity: { dot: 'bg-rose-500', text: 'text-rose-600', icon: <Target className="w-3 h-3" />, cta: 'Book Experience', badge: 'Activity' },
+                                        general: { dot: 'bg-navy', text: 'text-navy', icon: <MapPin className="w-3 h-3" />, cta: 'Visit Website', badge: 'Spot' }
+                                    };
+
+                                    const theme = CATEGORY_THEMES[step.category] || CATEGORY_THEMES.general;
 
                                     return (
-                                        <div
+                                        <motion.div
                                             key={idx}
-                                            className={`relative pl-8 group cursor-pointer`}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            whileInView={{ opacity: 1, x: 0 }}
+                                            onViewportEnter={() => !isLockedStep && focusStep(idx, step)}
+                                            viewport={{ once: false, margin: "-100px", amount: 0.5 }}
+                                            className={`relative pl-8 group cursor-pointer snap-start pt-4 pb-12`}
                                             onClick={() => !isLockedStep && focusStep(idx, step)}
                                         >
                                             {/* Locked state overlay */}
@@ -252,106 +270,111 @@ const SharedPlan = () => {
                                             )}
 
                                             {/* Colored Dot — pulses when selected */}
-                                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white flex items-center justify-center transition-all duration-300 ${dotColors[colorIdx]} ${selectedMarker === idx ? 'scale-150 shadow-lg' : ''}`}>
+                                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white flex items-center justify-center transition-all duration-300 ${theme.dot} ${selectedMarker === idx ? 'scale-150 shadow-lg' : ''}`}>
                                             </div>
 
                                             <div className={`${isLockedStep ? 'blur-md select-none opacity-40 pointer-events-none' : ''}`}>
-                                                <p className={`text-xs font-black uppercase tracking-wider mb-1 ${textColor[colorIdx]} font-inter`}>
-                                                    {step.time} • {step.activity}
-                                                </p>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${theme.text} font-inter flex items-center gap-1.5`}>
+                                                        {theme.icon} {step.time} • {step.activity}
+                                                    </p>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded bg-white shadow-sm border border-gray-100 ${theme.text} uppercase tracking-tighter`}>
+                                                        {theme.badge}
+                                                    </span>
+                                                </div>
                                                 <h4 className="text-2xl font-black text-navy mb-2 font-inter">{step.venue}</h4>
-                                        
-                                        {/* Per-Stop Community Snippet */}
-                                        {plan.reviews?.find(r => r.stop_feedback?.[step.venue]?.comment) && (
-                                            <div className="mb-3 p-3 bg-gray-50/80 rounded-xl border border-gray-100 italic text-[13px] text-gray-600 relative">
-                                                <Quote className="w-3 h-3 text-coral/30 absolute -top-1 -left-1" />
-                                                "{plan.reviews.find(r => r.stop_feedback?.[step.venue]?.comment).stop_feedback[step.venue].comment}"
+
+                                                {/* Per-Stop Community Snippet */}
+                                                {plan.reviews?.find(r => r.stop_feedback?.[step.venue]?.comment) && (
+                                                    <div className="mb-3 p-3 bg-gray-50/80 rounded-xl border border-gray-100 italic text-[13px] text-gray-600 relative">
+                                                        <Quote className="w-3 h-3 text-coral/30 absolute -top-1 -left-1" />
+                                                        "{plan.reviews.find(r => r.stop_feedback?.[step.venue]?.comment)?.stop_feedback[step.venue]?.comment}"
+                                                    </div>
+                                                )}
+
+                                                <p className="text-gray-500 font-medium mb-3 font-inter">{step.description}</p>
+
+                                                {step.photoUrl && (
+                                                    <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
+                                                        <img
+                                                            src={step.photoUrl}
+                                                            alt={step.venue}
+                                                            className="w-full h-48 object-cover hover:scale-105 transition-transform duration-500"
+                                                            loading="lazy"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <div className="flex flex-wrap items-center gap-2 mt-4">
+                                                    {/* Always show Get Directions — use coords if available, else search by name */}
+                                                    <a
+                                                        href={
+                                                            step.lat && step.lng
+                                                                ? `https://www.google.com/maps/dir/?api=1&destination=${step.lat},${step.lng}&destination_place_id=${encodeURIComponent(step.venue)}`
+                                                                : step.directionsUrl
+                                                                    ? step.directionsUrl
+                                                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((step.venue || '') + ' ' + (step.address || ''))}`
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-[10px] font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                    >
+                                                        <MapPin className="w-3 h-3" /> Get Directions
+                                                    </a>
+
+                                                    {/* Primary Website Button */}
+                                                    {(step.websiteUrl || step.url) && (
+                                                        <a
+                                                            href={step.websiteUrl || step.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="px-2.5 py-1.5 bg-indigo-50 text-indigo-600 outline outline-1 outline-indigo-200 text-[10px] font-bold rounded-lg hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                        >
+                                                            {theme.icon} {theme.cta}
+                                                        </a>
+                                                    )}
+
+
+
+                                                    {/* Booking Integration (OpenTable etc) */}
+                                                    {step.bookingUrl && (
+                                                        <a
+                                                            href={step.bookingUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-[10px] font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                        >
+                                                            {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
+                                                            {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Book Tickets'}
+                                                        </a>
+                                                    )}
+
+                                                    <a
+                                                        href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="px-2.5 py-1.5 bg-gray-50 text-gray-600 outline outline-1 outline-gray-200 text-[10px] font-bold rounded-lg hover:bg-gray-800 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
+                                                    >
+                                                        <Search className="w-3 h-3" /> Search on Google
+                                                    </a>
+
+                                                    {step.lat && step.lng && (
+                                                        <a
+                                                            href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="px-2.5 py-1.5 bg-black text-white text-[10px] font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
+                                                        >
+                                                            <Car className="w-3 h-3" /> Get a Ride
+                                                        </a>
+                                                    )}
+                                                </div>
                                             </div>
-                                        )}
-
-                                        <p className="text-gray-500 font-medium mb-3 font-inter">{step.description}</p>
-
-                                        {step.photoUrl && (
-                                            <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
-                                                <img
-                                                    src={step.photoUrl}
-                                                    alt={step.venue}
-                                                    className="w-full h-48 object-cover hover:scale-105 transition-transform duration-500"
-                                                    loading="lazy"
-                                                />
-                                            </div>
-                                        )}
-
-                                        <div className="flex flex-wrap items-center gap-2 mt-4">
-                                            {/* Always show Get Directions — use coords if available, else search by name */}
-                                            <a
-                                                href={
-                                                    step.lat && step.lng
-                                                        ? `https://www.google.com/maps/dir/?api=1&destination=${step.lat},${step.lng}&destination_place_id=${encodeURIComponent(step.venue)}`
-                                                        : step.directionsUrl
-                                                        ? step.directionsUrl
-                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((step.venue || '') + ' ' + (step.address || ''))}`
-                                                }
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-2.5 py-1.5 bg-blue-50 text-blue-600 outline outline-1 outline-blue-200 text-[10px] font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
-                                            >
-                                                <MapPin className="w-3 h-3" /> Get Directions
-                                            </a>
-
-                                            {/* Primary Website Button */}
-                                            { (step.websiteUrl || step.url) && (
-                                                <a
-                                                    href={step.websiteUrl || step.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="px-2.5 py-1.5 bg-indigo-50 text-indigo-600 outline outline-1 outline-indigo-200 text-[10px] font-bold rounded-lg hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
-                                                >
-                                                    <Ticket className="w-3 h-3 text-coral" /> Visit Official Website
-                                                </a>
-                                            )}
-
-
-
-                                            {/* Booking Integration (OpenTable etc) */}
-                                            {step.bookingUrl && (
-                                                <a
-                                                    href={step.bookingUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="px-2.5 py-1.5 bg-green-50 text-green-600 outline outline-1 outline-green-200 text-[10px] font-bold rounded-lg hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
-                                                >
-                                                    {step.bookingType === 'opentable' ? <Utensils className="w-3 h-3" /> : <Ticket className="w-3 h-3" />}
-                                                    {step.bookingType === 'opentable' ? 'Book on OpenTable' : 'Book Tickets'}
-                                                </a>
-                                            )}
-
-                                            <a
-                                                href={`https://www.google.com/search?q=${encodeURIComponent(step.venue + ' ' + (step.address || ''))}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-2.5 py-1.5 bg-gray-50 text-gray-600 outline outline-1 outline-gray-200 text-[10px] font-bold rounded-lg hover:bg-gray-800 hover:text-white transition-all inline-flex items-center gap-1 shadow-sm"
-                                            >
-                                                <Search className="w-3 h-3" /> Search on Google
-                                            </a>
-
-                                            {step.lat && step.lng && (
-                                                <a
-                                                    href={`https://m.uber.com/ul/?action=setPickup&client_id=datespark_mvp&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="px-2.5 py-1.5 bg-black text-white text-[10px] font-bold rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-1 shadow-sm"
-                                                >
-                                                    <Car className="w-3 h-3" /> Get a Ride
-                                                </a>
-                                            )}
-                                        </div>
-                                            </div>
-                                        </div>
+                                        </motion.div>
                                     );
-                            })}
+                                })}
+                            </div>
                         </div>
-                    </div>
                     </div>
 
                     {/* Right Column: Interactive Google Map */}
@@ -377,8 +400,20 @@ const SharedPlan = () => {
                                     const lng = parseFloat(step.lng);
                                     if (!lat || !lng || isNaN(lat) || isNaN(lng)) return null;
 
-                                    const hexColors = ['e67e22', 'f1c40f', '1e3a5f', '27ae60', '8e44ad'];
-                                    const hex = isLockedStep ? '9ca3af' : hexColors[idx % hexColors.length];
+                                    const CATEGORY_HEX = {
+                                        food: '10b981',
+                                        drinks: 'f59e0b',
+                                        music: '6366f1',
+                                        sports: 'ef4444',
+                                        comedy: 'fbbf24',
+                                        art: 'a855f7',
+                                        scenic: '0ea5e9',
+                                        activity: 'f43f5e',
+                                        general: '1e3a5f'
+                                    };
+                                    
+                                    const categoryHex = CATEGORY_HEX[step.category] || CATEGORY_HEX.general;
+                                    const hex = isLockedStep ? '9ca3af' : categoryHex;
                                     const pinLabel = isLockedStep ? '?' : String(idx + 1);
                                     const isSelected = selectedMarker === idx;
 
@@ -399,48 +434,56 @@ const SharedPlan = () => {
                                             opacity={isLockedStep ? 0.5 : 1}
                                             onClick={() => !isLockedStep && setSelectedMarker(idx === selectedMarker ? null : idx)}
                                         >
-                                            {isSelected && (
-                                                <InfoWindow
-                                                    position={{ lat, lng }}
-                                                    onCloseClick={() => setSelectedMarker(null)}
-                                                >
-                                                    <div style={{ fontFamily: 'Inter, sans-serif', minWidth: '220px', maxWidth: '260px', padding: '4px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: `#${hex}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                <span style={{ color: 'white', fontSize: '11px', fontWeight: '900' }}>{idx + 1}</span>
+                                            <AnimatePresence mode="wait">
+                                                {isSelected && (
+                                                    <InfoWindow
+                                                        position={{ lat, lng }}
+                                                        onCloseClick={() => setSelectedMarker(null)}
+                                                        options={{ pixelOffset: new window.google.maps.Size(0, -40) }}
+                                                    >
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                                            className="glassmorphic-card p-4 min-w-[240px] max-w-[280px]"
+                                                            style={{
+                                                                fontFamily: 'Inter, sans-serif',
+                                                                background: 'rgba(255, 255, 255, 0.9)',
+                                                                backdropFilter: 'blur(16px)',
+                                                                borderRadius: '1.5rem',
+                                                                border: '1px solid rgba(255, 255, 255, 0.5)',
+                                                                boxShadow: '0 20px 40px rgba(0,0,0,0.12)'
+                                                            }}
+                                                        >
+                                                            <div className="flex items-center gap-3 mb-3">
+                                                                <div className={`w-8 h-8 rounded-full bg-[#${hex}] flex items-center justify-center shadow-lg border-2 border-white`}>
+                                                                    <span className="text-[14px] text-white font-black">{idx + 1}</span>
+                                                                </div>
+                                                                <span className={`text-[11px] font-black uppercase tracking-widest text-[#${hex}]`}>
+                                                                    {step.time} · {step.activity}
+                                                                </span>
                                                             </div>
-                                                            <span style={{ fontSize: '10px', fontWeight: '800', color: `#${hex}`, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                                                {step.time} · {step.activity}
-                                                            </span>
-                                                        </div>
-                                                        <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '900', color: '#0f172a', lineHeight: '1.2' }}>
-                                                            {step.venue}
-                                                        </h4>
-                                                        {step.address && (
-                                                            <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#6b7280', fontWeight: '500' }}>
-                                                                {step.address}
-                                                            </p>
-                                                        )}
-                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-                                                            <a href={directionsHref} target="_blank" rel="noopener noreferrer"
-                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
-                                                                🗺️ Directions
-                                                            </a>
-                                                            {(step.websiteUrl || step.url) && (
-                                                                <a href={step.websiteUrl || step.url} target="_blank" rel="noopener noreferrer"
-                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
-                                                                    🌐 Website
+
+                                                            <h4 className="text-[18px] font-black text-navy mb-1 leading-tight tracking-tight">{step.venue}</h4>
+                                                            {step.address && <p className="text-[11px] text-gray-500 font-medium mb-4 line-clamp-2 leading-relaxed">{step.address}</p>}
+
+                                                            <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100/50">
+                                                                <a href={directionsHref} target="_blank" rel="noopener noreferrer" className="flex-1 px-3 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black text-center hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                                                                    <Navigation className="w-3.5 h-3.5" /> GO
                                                                 </a>
-                                                            )}
-                                                            <a href={`https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}&dropoff[nickname]=${encodeURIComponent(step.venue)}`}
-                                                                target="_blank" rel="noopener noreferrer"
-                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#000', color: '#fff', borderRadius: '8px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
-                                                                🚗 Uber
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                </InfoWindow>
-                                            )}
+                                                                {(step.websiteUrl || step.url) && (
+                                                                    <a href={step.websiteUrl || step.url} target="_blank" rel="noopener noreferrer" className="flex-1 px-3 py-2.5 bg-violet-50 text-violet-600 rounded-xl text-[10px] font-black text-center hover:bg-violet-600 hover:text-white transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                                                                        <Sparkles className="w-3.5 h-3.5" /> VISIT
+                                                                    </a>
+                                                                )}
+                                                                <a href={`https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${step.lat}&dropoff[longitude]=${step.lng}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2.5 bg-black text-white rounded-xl text-[10px] font-black text-center hover:bg-gray-800 transition-all shadow-sm">
+                                                                    UBER
+                                                                </a>
+                                                            </div>
+                                                        </motion.div>
+                                                    </InfoWindow>
+                                                )}
+                                            </AnimatePresence>
                                         </Marker>
                                     );
                                 })}
@@ -465,7 +508,7 @@ const SharedPlan = () => {
                             <div className="text-right">
                                 <p className="text-4xl font-black text-navy leading-none">{plan.avg_rating || '4.9'}</p>
                                 <div className="flex items-center gap-0.5 justify-end mt-1">
-                                    {[1,2,3,4,5].map(s => <Star key={s} className="w-3 h-3 fill-yellow-400 text-yellow-400" />)}
+                                    {[1, 2, 3, 4, 5].map(s => <Star key={s} className="w-3 h-3 fill-yellow-400 text-yellow-400" />)}
                                 </div>
                             </div>
                         </div>
