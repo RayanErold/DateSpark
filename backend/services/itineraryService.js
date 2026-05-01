@@ -61,6 +61,72 @@ export const generateAIDate = async (params) => {
 };
 
 /**
+ * --- GOOGLE PLACES GENERATION (NON-AI) ---
+ * Used by Guided Builder to find real venues without LLM orchestration.
+ */
+export const generateGoogleDate = async (params) => {
+    try {
+        const city = params.city || params.location || 'NYC';
+        const vibe = params.vibe || 'romantic';
+        
+        // 1. Find a Restaurant
+        const restResponse = await axios.post(
+            'https://places.googleapis.com/v1/places:searchText',
+            {
+                textQuery: `top rated ${vibe} restaurant in ${city}`,
+                maxResultCount: 1
+            },
+            { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.location,places.shortFormattedAddress,places.rating' } }
+        );
+
+        // 2. Find an Activity
+        const actResponse = await axios.post(
+            'https://places.googleapis.com/v1/places:searchText',
+            {
+                textQuery: `${vibe} activity or attraction in ${city}`,
+                maxResultCount: 1
+            },
+            { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.location,places.shortFormattedAddress,places.rating' } }
+        );
+
+        const rest = restResponse.data.places?.[0];
+        const act = actResponse.data.places?.[0];
+
+        const itinerary = {
+            title: `${vibe.charAt(0).toUpperCase() + vibe.slice(1)} Date in ${city}`,
+            description: `A hand-picked ${vibe} experience discovered via Google Places.`,
+            itinerary: [
+                {
+                    time: "Evening",
+                    activity: "Dinner",
+                    venue: rest?.displayName?.text || "Local Favorite",
+                    address: rest?.shortFormattedAddress || "In the heart of the city",
+                    rating: rest?.rating,
+                    vibe: vibe
+                },
+                {
+                    time: "Late Night",
+                    activity: "Shared Experience",
+                    venue: act?.displayName?.text || "City Landmark",
+                    address: act?.shortFormattedAddress || "Nearby",
+                    rating: act?.rating,
+                    vibe: vibe
+                }
+            ]
+        };
+
+        return { 
+            source: 'GOOGLE_PLACES', 
+            data: itinerary, 
+            enriched: true 
+        };
+    } catch (err) {
+        console.error('[GOOGLE_GEN_ERROR]', err.message);
+        throw new Error('Failed to generate plan via Google Places');
+    }
+};
+
+/**
  * Persists a generated plan to Supabase.
  */
 export const savePlan = async (supabase, userId, planData, aiResult) => {

@@ -13,8 +13,13 @@ export const generatePlanFlow = async (supabase, userId, params, type = 'classic
         throw { status: 403, message: 'Limit reached', code: 'LIMIT_REACHED' };
     }
 
-    // 2. Generate AI Itinerary
-    const aiResult = await itineraryService.generateAIDate(params);
+    // 2. Generate Itinerary (Switch between AI and Google based on type)
+    let aiResult;
+    if (type === 'guided') {
+        aiResult = await itineraryService.generateGoogleDate(params);
+    } else {
+        aiResult = await itineraryService.generateAIDate(params);
+    }
 
     // 3. Persist to Database
     const savedPlan = await itineraryService.savePlan(supabase, userId, params, aiResult);
