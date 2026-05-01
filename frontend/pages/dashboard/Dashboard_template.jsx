@@ -8,8 +8,6 @@ import {
     MessageSquare,
     Share2,
     Trash2,
-    RefreshCw,
-    Send,
     Search,
     X,
     ChevronRight,
@@ -56,13 +54,7 @@ import {
     ThumbsUp,
     Reply,
     TrendingUp,
-    Navigation,
-    Home,
-    Menu,
-    Bot,
-    Wand2,
-    Gem,
-    ShuffleIcon
+    Navigation
 } from 'lucide-react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { useGoogleMaps } from '../../lib/googleMaps';
@@ -106,363 +98,7 @@ const darkMapStyle = [
 ];
 
 
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SHARE CARD MODAL — Beautiful visual card for sharing to Instagram/Stories etc
-// ─────────────────────────────────────────────────────────────────────────────
-const ShareCardModal = ({ plan, onClose, user }) => {
-    const [copied, setCopied] = useState(false);
-    const cardRef = React.useRef(null);
-
-    if (!plan) return null;
-
-    const steps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
-    const coverImage = steps[0]?.photoUrl || steps[0]?.image || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
-    const shareUrl = `${window.location.origin}/shared/${plan.id}`;
-    const planTitle = plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1) + ' Date' : 'Perfect Date Plan');
-
-    const handleCopyLink = async () => {
-        try {
-            await navigator.clipboard.writeText(shareUrl);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2500);
-        } catch { }
-    };
-
-    const handleNativeShare = async () => {
-        const text = `✨ ${planTitle} — crafted with DateSpark\n📍 ${plan.location}\n\n${steps.slice(0, 3).map((s, i) => `${i + 1}. ${s.time} · ${s.venue}`).join('\n')}\n\nSee the full plan 👇`;
-        if (navigator.share) {
-            try { await navigator.share({ title: planTitle, text, url: shareUrl }); } catch { }
-        } else {
-            handleCopyLink();
-        }
-    };
-
-    return (
-        <AnimatePresence>
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[900] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm"
-                onClick={onClose}
-            >
-                <motion.div
-                    initial={{ y: 60, opacity: 0, scale: 0.95 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ y: 60, opacity: 0, scale: 0.95 }}
-                    transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                    className="w-full sm:max-w-sm bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Drag Handle */}
-                    <div className="flex justify-center pt-3 pb-1 sm:hidden">
-                        <div className="w-10 h-1 rounded-full bg-gray-200" />
-                    </div>
-
-                    {/* ── THE SHAREABLE CARD ── */}
-                    <div ref={cardRef} className="relative mx-4 mt-2 mb-4 rounded-3xl overflow-hidden shadow-xl" style={{ height: '460px' }}>
-                        {/* Background photo */}
-                        <img src={coverImage} alt={planTitle} className="absolute inset-0 w-full h-full object-cover" />
-
-                        {/* Gradient overlays */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/20" />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-transparent" style={{ height: '40%' }} />
-
-                        {/* TOP: Branding */}
-                        <div className="absolute top-4 inset-x-4 flex items-center justify-between z-10">
-                            <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full">
-                                <Sparkles className="w-3 h-3 text-coral" />
-                                <span className="text-white text-[10px] font-black uppercase tracking-widest">DateSpark</span>
-                            </div>
-                            <div className="bg-coral text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
-                                Date Plan ✨
-                            </div>
-                        </div>
-
-                        {/* MIDDLE: Photo strip (other venue photos) */}
-                        {steps.length > 1 && (
-                            <div className="absolute top-1/2 -translate-y-1/2 inset-x-4 z-10 flex gap-2">
-                                {steps.slice(1, 3).filter(s => s.photoUrl || s.image).map((s, i) => (
-                                    <div key={i} className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl flex-shrink-0">
-                                        <img src={s.photoUrl || s.image} alt={s.venue} className="w-full h-full object-cover" />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* BOTTOM: Plan info */}
-                        <div className="absolute bottom-0 inset-x-0 z-10 p-5">
-                            {/* Location chip */}
-                            <div className="flex items-center gap-1.5 mb-3">
-                                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-full">
-                                    <MapPin className="w-3 h-3 text-coral" />
-                                    <span className="text-white text-[10px] font-black truncate max-w-[180px]">{plan.location}</span>
-                                </div>
-                                {plan.avg_rating && (
-                                    <div className="flex items-center gap-1 bg-white/15 backdrop-blur-md border border-white/20 px-2 py-1 rounded-full">
-                                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                        <span className="text-white text-[10px] font-black">{plan.avg_rating}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Plan title */}
-                            <h2 className="text-white text-2xl font-black leading-tight mb-3 drop-shadow-lg">{planTitle}</h2>
-
-                            {/* Stops preview */}
-                            <div className="space-y-1.5 mb-4">
-                                {steps.slice(0, 3).map((s, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-coral flex-shrink-0" />
-                                        <span className="text-white/80 text-[11px] font-bold truncate">{s.time} · {s.venue}</span>
-                                    </div>
-                                ))}
-                                {steps.length > 3 && (
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-white/30 flex-shrink-0" />
-                                        <span className="text-white/50 text-[10px] font-bold">+{steps.length - 3} more stops</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Domain watermark */}
-                            <div className="border-t border-white/20 pt-3 flex items-center justify-between">
-                                <span className="text-white/40 text-[9px] font-black uppercase tracking-widest">datespark.app</span>
-                                <div className="flex gap-1">
-                                    {['💫','✨','🌹'].map((e, i) => <span key={i} className="text-sm">{e}</span>)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── ACTION BUTTONS ── */}
-                    <div className="px-4 pb-8 space-y-3">
-                        <button
-                            onClick={handleNativeShare}
-                            className="w-full py-4 bg-gradient-to-r from-coral to-pink-500 text-white font-black rounded-2xl flex items-center justify-center gap-2.5 shadow-xl shadow-coral/30 active:scale-[0.98] transition-all text-[15px]"
-                        >
-                            <Share2 className="w-5 h-5" />
-                            Share This Date Plan
-                        </button>
-                        <button
-                            onClick={handleCopyLink}
-                            className="w-full py-3.5 bg-navy/5 hover:bg-navy/10 text-navy font-black rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all text-[13px] border border-navy/10"
-                        >
-                            {copied ? (
-                                <><Check className="w-4 h-4 text-green-500" /> <span className="text-green-600">Link Copied!</span></>
-                            ) : (
-                                <><Copy className="w-4 h-4" /> Copy Link</>
-                            )}
-                        </button>
-                    </div>
-                </motion.div>
-            </motion.div>
-        </AnimatePresence>
-    );
-};
-
-const NearbyMapWidget = ({ globalTrendingPlans, isLoaded, onFindEvents }) => {
-
-    const [userPos, setUserPos] = useState(null);
-    const [geoError, setGeoError] = useState(false);
-    const [geoLoading, setGeoLoading] = useState(true);
-    const [neighborhood, setNeighborhood] = useState(null);
-    const [mapRef, setMapRef] = useState(null);
-    const [zoom, setZoom] = useState(15);
-
-    const requestLocation = () => {
-        setGeoError(false);
-        setGeoLoading(true);
-        if (!navigator.geolocation) { setGeoError(true); setGeoLoading(false); return; }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                setUserPos(latlng);
-                setGeoLoading(false);
-                if (window.google?.maps?.Geocoder) {
-                    new window.google.maps.Geocoder().geocode({ location: latlng }, (results, status) => {
-                        if (status === 'OK' && results[0]) {
-                            const hood = results[0].address_components.find(c =>
-                                c.types.includes('neighborhood') || c.types.includes('sublocality')
-                            );
-                            const city = results[0].address_components.find(c => c.types.includes('locality'));
-                            setNeighborhood(hood?.short_name || city?.short_name || null);
-                        }
-                    });
-                }
-            },
-            () => { setGeoError(true); setGeoLoading(false); }
-        );
-    };
-
-    useEffect(() => { requestLocation(); }, []);
-
-    const nearbyMarkers = (globalTrendingPlans || []).slice(0, 8).map((p) => {
-        const steps = Array.isArray(p.itinerary) ? p.itinerary : p.itinerary?.steps || [];
-        const step = steps[0];
-        return (step?.lat && step?.lng) ? { lat: step.lat, lng: step.lng, vibe: p.vibe } : null;
-    }).filter(Boolean);
-
-    const mapCenter = userPos || { lat: 40.7128, lng: -74.0060 };
-
-    const openInMaps = () => {
-        if (!userPos) return;
-        window.open(`https://www.google.com/maps/search/?api=1&query=${userPos.lat},${userPos.lng}`, '_blank');
-    };
-
-    const handleZoomIn = () => { const z = Math.min(zoom + 1, 20); setZoom(z); mapRef?.setZoom(z); };
-    const handleZoomOut = () => { const z = Math.max(zoom - 1, 10); setZoom(z); mapRef?.setZoom(z); };
-
-    const miniMapStyle = [
-        { elementType: 'geometry', stylers: [{ color: '#f0f4ff' }] },
-        { elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
-        { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
-        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-        { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-        { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#e2e8f0' }] },
-        { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#cbd5e1' }] },
-        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#93c5fd' }] },
-        { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#f0f4ff' }] },
-        { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#e8eeff' }] },
-    ];
-
-    if (typeof document !== 'undefined' && !document.getElementById('ds-pulse-ring')) {
-        const s = document.createElement('style');
-        s.id = 'ds-pulse-ring';
-        s.textContent = '@keyframes ds-pulse{0%{transform:scale(0.6);opacity:0.9}100%{transform:scale(2.2);opacity:0}}';
-        document.head.appendChild(s);
-    }
-
-    return (
-        <div className="rounded-[2rem] overflow-hidden shadow-xl border border-white/20 relative" style={{ height: '260px' }}>
-
-            <div className="absolute top-0 inset-x-0 z-20 px-3 pt-3 flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-md border border-white/60 shadow-sm px-3 py-1.5 rounded-full pointer-events-none">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        userPos ? 'bg-green-500' : geoError ? 'bg-red-400' : 'bg-amber-400 animate-pulse'
-                    }`} />
-                    <span className="text-[10px] font-black text-navy uppercase tracking-wider truncate max-w-[140px]">
-                        {geoLoading ? 'Locating...' : geoError ? 'Location off' : neighborhood || 'You Are Here'}
-                    </span>
-                </div>
-                {userPos && (
-                    <button
-                        onClick={openInMaps}
-                        className="ml-auto flex items-center gap-1 bg-white/90 backdrop-blur-md border border-white/60 shadow-sm px-2.5 py-1.5 rounded-full active:scale-95 transition-all hover:bg-white"
-                    >
-                        <ExternalLink className="w-3 h-3 text-navy" />
-                        <span className="text-[10px] font-black text-navy">Maps</span>
-                    </button>
-                )}
-            </div>
-
-            {!geoError && isLoaded && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1.5">
-                    <button onClick={handleZoomIn} className="w-8 h-8 bg-white/90 backdrop-blur-md border border-white/60 shadow-sm rounded-xl flex items-center justify-center text-navy font-black text-base leading-none active:scale-95 transition-all hover:bg-white select-none">+</button>
-                    <button onClick={handleZoomOut} className="w-8 h-8 bg-white/90 backdrop-blur-md border border-white/60 shadow-sm rounded-xl flex items-center justify-center text-navy font-black text-base leading-none active:scale-95 transition-all hover:bg-white select-none">−</button>
-                </div>
-            )}
-
-            {geoError ? (
-                <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col items-center justify-center gap-3 p-6 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-navy/5 border border-navy/10 flex items-center justify-center">
-                        <MapPin className="w-7 h-7 text-navy/25" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-black text-navy">Enable Location</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-1 max-w-[180px] mx-auto leading-relaxed">
-                            Allow location to see yourself on the map and find nearby date spots.
-                        </p>
-                    </div>
-                    <button onClick={requestLocation} className="px-5 py-2.5 bg-navy text-white text-[11px] font-black rounded-xl active:scale-95 transition-all shadow-md">
-                        Enable &amp; Retry
-                    </button>
-                </div>
-            ) : isLoaded ? (
-                <GoogleMap
-                    mapContainerStyle={{ width: '100%', height: '100%' }}
-                    center={mapCenter}
-                    zoom={zoom}
-                    onLoad={(map) => setMapRef(map)}
-                    options={{
-                        disableDefaultUI: true,
-                        zoomControl: false,
-                        gestureHandling: 'greedy',
-                        styles: miniMapStyle,
-                        clickableIcons: false,
-                    }}
-                >
-                    {nearbyMarkers.map((m, i) => (
-                        <Marker key={i} position={m}
-                            icon={{
-                                path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                scale: 7,
-                                fillColor: '#0a192f',
-                                fillOpacity: 0.85,
-                                strokeColor: '#ffffff',
-                                strokeWeight: 2,
-                            }}
-                        />
-                    ))}
-
-                    {userPos && window.google?.maps?.OverlayView && (() => {
-                        class PulseDot extends window.google.maps.OverlayView {
-                            constructor(pos) { super(); this._pos = pos; this._el = null; }
-                            onAdd() {
-                                this._el = document.createElement('div');
-                                this._el.style.cssText = 'position:absolute;transform:translate(-50%,-50%);pointer-events:none;';
-                                this._el.innerHTML = `
-                                    <div style="position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
-                                        <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(255,107,71,0.3);animation:ds-pulse 2s ease-out infinite;"></div>
-                                        <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:rgba(255,107,71,0.2);animation:ds-pulse 2s ease-out 0.5s infinite;"></div>
-                                        <div style="width:16px;height:16px;border-radius:50%;background:#FF6B47;border:2.5px solid #fff;box-shadow:0 2px 10px rgba(255,107,71,0.6),0 0 0 1px rgba(255,107,71,0.3);"></div>
-                                    </div>`;
-                                this.getPanes().overlayMouseTarget.appendChild(this._el);
-                            }
-                            draw() {
-                                const proj = this.getProjection();
-                                const pt = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(this._pos.lat, this._pos.lng));
-                                if (pt && this._el) { this._el.style.left = pt.x + 'px'; this._el.style.top = pt.y + 'px'; }
-                            }
-                            onRemove() { this._el?.parentNode?.removeChild(this._el); this._el = null; }
-                        }
-                        if (mapRef && !mapRef._pulseDot) {
-                            mapRef._pulseDot = new PulseDot(userPos);
-                            mapRef._pulseDot.setMap(mapRef);
-                        }
-                        return null;
-                    })()}
-                </GoogleMap>
-            ) : (
-                <div className="h-full bg-gradient-to-br from-slate-100 to-blue-50 flex flex-col items-center justify-center gap-2">
-                    <Loader2 className="w-6 h-6 text-navy/20 animate-spin" />
-                    <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest">Loading Map...</span>
-                </div>
-            )}
-
-            <div className="absolute bottom-0 inset-x-0 z-20 p-3">
-                <button
-                    onClick={onFindEvents}
-                    className="w-full py-2.5 bg-navy/85 backdrop-blur-md text-white text-[11px] font-black rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-navy border border-white/10"
-                >
-                    {nearbyMarkers.length > 0 && (
-                        <span className="bg-coral text-white text-[8px] font-black px-1.5 py-0.5 rounded-full leading-none">
-                            {nearbyMarkers.length}
-                        </span>
-                    )}
-                    Find Events Near Me
-                    <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-            </div>
-        </div>
-    );
-};
-
 const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
-
     const [photoIndex, setPhotoIndex] = useState(0);
     const x = useMotionValue(0);
     const rotate = useTransform(x, [-200, 200], [-25, 25]);
@@ -472,32 +108,34 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
 
     if (!isTop) {
         return (
-            <div className="absolute inset-0 rounded-[2rem] overflow-hidden shadow-2xl scale-[0.96] translate-y-4 opacity-50 transition-all duration-500">
-                <div className="h-full w-full bg-navy/60 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-white/5 rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl scale-[0.96] translate-y-4 opacity-50 transition-all duration-500">
+                <div className="h-full w-full bg-navy/40 backdrop-blur-3xl" />
             </div>
         );
     }
 
+    // --- DEFENSIVE DATA GUARD ---
     if (!plan || (!Array.isArray(plan.itinerary) && !plan.itinerary?.steps)) {
         return (
-            <div className="absolute inset-0 bg-navy rounded-[2rem] flex flex-col items-center justify-center p-8 text-center gap-4 shadow-xl">
-                <Sparkles className="w-8 h-8 text-white/20" />
-                <p className="text-white/40 text-sm font-bold">Plan data unavailable</p>
-                <button onClick={() => onSwipe('left')} className="px-6 py-2 bg-white/10 text-white rounded-xl text-xs font-black">Skip</button>
+            <div className="absolute inset-0 bg-white rounded-[2.5rem] border border-gray-100 flex flex-col items-center justify-center p-8 text-center gap-4 shadow-sm">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+                    <Sparkles className="w-8 h-8 text-gray-200" />
+                </div>
+                <p className="text-gray-400 text-sm font-bold">Spark plan data is unavailable</p>
+                <button onClick={() => onSwipe('left')} className="px-6 py-2 bg-navy text-white rounded-xl text-xs font-black">Skip this Spark</button>
             </div>
         );
     }
 
+    // Data Mapping
     const cardTitle = plan.vibe ? `${plan.vibe} Date` : 'Trending Date';
-    const cardLocation = plan.location || 'New York, NY';
+    const cardLocation = plan.location || 'New Rochelle, NY';
     const cardRating = plan.avg_rating ? parseFloat(plan.avg_rating).toFixed(1) : '4.9';
-    const triesCount = plan.boost_count !== undefined ? plan.boost_count : (plan.total_tries || 0);
+    const triesCount = plan.boost_count !== undefined ? plan.boost_count : (plan.total_tries || Math.floor(Math.random() * 150) + 50);
     const steps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
-    const photos = steps.map(s => s.photoUrl || s.image).filter(Boolean);
+    const photos = steps.map(s => s.photoUrl).filter(Boolean);
     const hasPhotos = photos.length > 0;
-    const currentPhoto = hasPhotos ? photos[photoIndex] : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
-    const currentVenue = steps[photoIndex]?.venue || 'Discovery Stop';
-    const currentActivity = steps[photoIndex]?.activity || plan.vibe;
+    const currentPhoto = hasPhotos ? photos[photoIndex] : null;
 
     const handlePhotoTap = (e) => {
         e.stopPropagation();
@@ -506,7 +144,7 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
         if (clickX < rect.width / 2) {
             setPhotoIndex(prev => Math.max(0, prev - 1));
         } else {
-            setPhotoIndex(prev => Math.min(photos.length - 1, prev + 1));
+            setPhotoIndex(prev => (prev + 1) % photos.length);
         }
     };
 
@@ -521,101 +159,85 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
                 else if (info.offset.x < -120) onSwipe('left');
             }}
             whileDrag={{ scale: 1.02 }}
-            className="absolute inset-0 rounded-[2rem] overflow-hidden cursor-grab active:cursor-grabbing shadow-2xl"
-            onClick={handlePhotoTap}
+            className={`absolute inset-0 rounded-[2rem] shadow-xl overflow-hidden cursor-grab active:cursor-grabbing border flex flex-col transition-colors duration-300 ${theme === 'dark' ? 'bg-navy border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' :
+                theme === 'sunset' ? 'bg-white border-coral/20' :
+                    'bg-white border-gray-100 shadow-xl'
+                }`}
         >
-            {/* ── FULL-BLEED BACKGROUND PHOTO ── */}
-            <motion.img
-                key={currentPhoto}
-                src={currentPhoto}
-                alt={currentVenue}
-                initial={{ opacity: 0, scale: 1.04 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4 }}
-                className="absolute inset-0 w-full h-full object-cover"
-            />
 
-            {/* ── TOP GRADIENT OVERLAY ── */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-transparent z-10" />
+            {/* HEADER SECTION */}
+            <div className={`p-6 pb-4 z-20 ${theme === 'dark' ? 'bg-gradient-to-b from-navy to-navy/50' : 'bg-transparent'}`}>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <div className="bg-gradient-to-r from-coral to-pink-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">TRENDING</div>
+                    <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-full border ${theme === 'dark' ? 'text-white/50 bg-white/5 border-white/5' : 'text-gray-500 bg-gray-50 border-gray-200'
+                        }`}>
+                        <MapPin className="w-3 h-3 text-coral" /> {cardLocation}
+                    </div>
+                </div>
+                <h3 className={`text-[28px] font-black leading-tight font-outfit drop-shadow-sm ${theme === 'dark' ? 'text-white' : 'text-navy'
+                    }`}>{cardTitle}</h3>
+            </div>
 
-            {/* ── BOTTOM GRADIENT OVERLAY ── */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
-
-            {/* ── SWIPE INDICATORS ── */}
-            <motion.div
-                style={{ opacity: likeOpacity }}
-                className="absolute top-12 left-6 z-30 rotate-[-12deg] border-[3px] border-green-400 rounded-xl px-4 py-2"
+            {/* IMAGE GALLERY SECTION */}
+            <div
+                className={`relative flex-1 mx-4 rounded-[1.5rem] overflow-hidden border pointer-events-auto cursor-pointer mb-4 transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-100'
+                    }`}
+                onClick={handlePhotoTap}
             >
-                <span className="text-green-400 font-black text-2xl tracking-widest">SAVE ♡</span>
-            </motion.div>
-            <motion.div
-                style={{ opacity: passOpacity }}
-                className="absolute top-12 right-6 z-30 rotate-[12deg] border-[3px] border-red-400 rounded-xl px-4 py-2"
-            >
-                <span className="text-red-400 font-black text-2xl tracking-widest">PASS ✕</span>
-            </motion.div>
-
-            {/* ── TOP BAR: Pagination + Location ── */}
-            <div className="absolute top-0 inset-x-0 z-20 px-4 pt-4">
-                {/* Pagination bars */}
-                {photos.length > 1 && (
-                    <div className="flex gap-1.5 mb-3">
-                        {photos.map((_, idx) => (
-                            <div
-                                key={idx}
-                                className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${
-                                    idx === photoIndex
-                                        ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]'
-                                        : 'bg-white/30'
-                                }`}
-                            />
-                        ))}
+                {hasPhotos ? (
+                    <>
+                        <img
+                            key={currentPhoto}
+                            src={currentPhoto}
+                            alt={`Venue ${photoIndex + 1}`}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105"
+                        />
+                        {/* Progress Bars (Tinder Style) */}
+                        <div className="absolute top-3 inset-x-3 flex gap-1.5 z-30">
+                            {photos.map((_, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${idx === photoIndex ? 'bg-white shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'bg-white/30'}`}
+                                />
+                            ))}
+                        </div>
+                        {/* Tap Indicators (Hidden visually but functional) */}
+                        <div className="absolute inset-y-0 left-0 w-1/3 z-20" />
+                        <div className="absolute inset-y-0 right-0 w-1/3 z-20" />
+                    </>
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-navy via-navy/90 to-coral opacity-40 p-8 text-center gap-3">
+                        <MapPin className="w-12 h-12 text-white/20" />
+                        <span className="text-white/40 text-xs font-bold font-outfit">Visualizing venue details...</span>
                     </div>
                 )}
-                {/* Badges row */}
-                <div className="flex items-center gap-2 flex-wrap">
-                    <div className="bg-gradient-to-r from-coral to-pink-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">
-                        TRENDING
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white/80">
-                        <MapPin className="w-3 h-3 text-coral" /> {cardLocation}
+                {/* Image Label Overlay */}
+                <div className="absolute overflow-hidden bottom-3 left-3 right-3 z-20 border border-white/10 rounded-xl">
+                    <div className="bg-black/40 backdrop-blur-md px-4 py-2 w-full flex items-center justify-between">
+                        <span className="text-xs font-black text-white/90 uppercase tracking-widest truncate mr-2">{steps[photoIndex]?.venue || 'Discovery Stop'}</span>
                     </div>
                 </div>
             </div>
 
-            {/* ── BOTTOM OVERLAY: Info + CTA ── */}
-            <div className="absolute bottom-0 inset-x-0 z-20 px-5 pb-6 pt-10">
-                {/* Plan title */}
-                <h3 className="text-[26px] font-black text-white leading-tight tracking-tight mb-1 drop-shadow-lg">
-                    {cardTitle}
-                </h3>
-                {/* Current venue name */}
-                <div className="flex items-center gap-1.5 mb-4">
-                    <div className="w-1.5 h-1.5 rounded-full bg-coral" />
-                    <span className="text-white/70 text-xs font-black uppercase tracking-widest truncate">
-                        {currentVenue}
-                    </span>
-                    {photos.length > 1 && (
-                        <span className="text-white/40 text-[10px] font-black ml-auto">
-                            {photoIndex + 1} / {photos.length}
-                        </span>
-                    )}
-                </div>
+            {/* FOOTER SECTION */}
+            <div className="px-6 pb-6 pt-2 z-20">
+                <p className={`text-sm font-medium line-clamp-2 leading-relaxed mb-4 ${theme === 'dark' ? 'text-white/70' : 'text-gray-600'
+                    }`}>{steps[photoIndex]?.activity || plan.vibe} Date</p>
 
-                {/* Stats + CTA */}
-                <div className="flex items-center justify-between">
+                <div className={`flex items-center justify-between border-t pt-4 ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'
+                    }`}>
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col">
-                            <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                                <span className="font-black text-white text-base">{cardRating}</span>
+                            <div className="flex items-center gap-1.5">
+                                <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                                <span className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{cardRating}</span>
                             </div>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Rating</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Rating</span>
                         </div>
-                        <div className="w-px h-7 bg-white/10" />
+                        <div className={`w-px h-8 ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'}`} />
                         <div className="flex flex-col">
-                            <span className="font-black text-white text-base">{triesCount}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Tries</span>
+                            <span className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-navy'}`}>{triesCount}</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest mt-0.5 text-gray-400">Tries</span>
                         </div>
                     </div>
 
@@ -625,7 +247,8 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
                             e.preventDefault();
                             onView();
                         }}
-                        className="px-5 py-2.5 bg-white/15 backdrop-blur-md border border-white/25 text-white font-black rounded-xl text-xs shadow-lg active:scale-95 transition-all flex items-center gap-2 hover:bg-white/25 group/btn"
+                        className={`px-6 py-3 font-black rounded-xl transition-all text-xs shadow-lg active:scale-95 flex items-center gap-2 group/btn ${theme === 'dark' ? 'bg-white text-navy hover:bg-coral hover:text-white' : 'bg-navy text-white hover:bg-coral hover:translate-y-[-2px]'
+                            }`}
                     >
                         View Plan
                         <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
@@ -636,9 +259,7 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
     );
 };
 
-
 const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) => {
-
     const [photoIndex, setPhotoIndex] = useState(0);
     const steps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
     const photos = steps.map(s => s.photoUrl).filter(Boolean);
@@ -658,10 +279,10 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
     return (
         <motion.div
             whileHover={{ y: -5 }}
-            className={`flex-shrink-0 w-[75vw] sm:w-[280px] rounded-3xl border overflow-hidden shadow-xl transition-all duration-300 ${theme === 'dark' ? 'bg-navy border-white/10' : 'bg-white border-gray-100'}`}
+            className={`flex-shrink-0 w-[85vw] sm:w-[360px] rounded-[2.5rem] border overflow-hidden shadow-xl transition-all duration-300 ${theme === 'dark' ? 'bg-navy border-white/10' : 'bg-white border-gray-100'}`}
         >
             {/* Visual Header (Rectangular Photo) */}
-            <div className="relative h-44 overflow-hidden group/photo">
+            <div className="relative h-60 overflow-hidden group/photo">
                 {hasPhotos ? (
                     <>
                         <img
@@ -769,7 +390,6 @@ const Dashboard = () => {
     const [swipeDirection, setSwipeDirection] = useState(null);
     const [showMapMobile, setShowMapMobile] = useState(false);
     const [currentTab, setCurrentTab] = useState('home'); // 'home', 'plans', 'discovery', 'account'
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1024);
     const [accountSubView, setAccountSubView] = useState('menu'); // 'menu', 'personal', 'billing', 'preferences', 'trash'
 
     // --- SETTINGS STATE ---
@@ -800,9 +420,6 @@ const Dashboard = () => {
             setSelectedPlan(prev => ({ ...prev, ...updatedPlan }));
         }
     };
-    const [activeVibeFilter, setActiveVibeFilter] = useState('ALL');
-    const [aiCopilotInput, setAiCopilotInput] = useState('');
-    const [copilotSuggestion, setCopilotSuggestion] = useState(null);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [showVisionBanner, setShowVisionBanner] = useState(() => {
         return localStorage.getItem('hideVisionBanner') !== 'true';
@@ -835,9 +452,6 @@ const Dashboard = () => {
     const [ideaText, setIdeaText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     const [completedSteps, setCompletedSteps] = useState([]);
-    const [shareCardPlan, setShareCardPlan] = useState(null);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [generatingStatus, setGeneratingStatus] = useState('');
 
     useEffect(() => {
         const msg = consumeFlashMessage();
@@ -1115,74 +729,6 @@ const Dashboard = () => {
             // Even if Supabase fails (e.g. invalid session), we MUST clear local state
             localStorage.clear();
             window.location.href = '/';
-        }
-    };
-
-    const handleGeneratePlan = async (prompt) => {
-        if (!prompt) return;
-        setIsGenerating(true);
-        setGeneratingStatus('Sparking your date idea...');
-        try {
-            console.log('[Dashboard] Generating direct plan for prompt:', prompt);
-            const response = await axios.post('/api/generate-date', {
-                prompt,
-                userId: user?.id,
-                email: user?.email,
-                type: 'classic'
-            });
-
-            if (response.data.success) {
-                const newPlan = response.data.plan;
-                setPlans(prev => [newPlan, ...prev]);
-                setSelectedPlan(newPlan);
-                setToastMessage('Sparked a new date! ⚡');
-                setAiCopilotInput('');
-                // If it was a community plan that got saved, we might want to sync that
-            }
-        } catch (err) {
-            console.error('Direct generation error:', err);
-            if (err.response?.status === 403) {
-                setLimitType('classic');
-                setShowUpgradeModal(true);
-            } else {
-                setToastMessage('Failed to spark date. Please try again. 🛑');
-            }
-        } finally {
-            setIsGenerating(false);
-            setGeneratingStatus('');
-        }
-    };
-
-    const handleRecreatePlan = async (planId) => {
-        if (!planId) return;
-        setIsGenerating(true);
-        setGeneratingStatus('Refining your date variation...');
-        try {
-            console.log('[Dashboard] Recreating plan variation for ID:', planId);
-            const response = await axios.post('/api/recreate-date', {
-                planId,
-                userId: user?.id,
-                email: user?.email,
-                type: 'classic'
-            });
-
-            if (response.data.success) {
-                const newPlan = response.data.plan;
-                setPlans(prev => [newPlan, ...prev]);
-                setSelectedPlan(newPlan);
-                setToastMessage('Recreated your date variation! 🎨');
-            }
-        } catch (err) {
-            console.error('Recreation error:', err);
-            if (err.response?.status === 403) {
-                setLimitType('classic');
-                setShowUpgradeModal(true);
-            } else {
-                setToastMessage('Failed to recreate variation. 🛑');
-            }
-        } finally {
-            setIsGenerating(false);
-            setGeneratingStatus('');
         }
     };
 
@@ -2228,15 +1774,12 @@ const Dashboard = () => {
         const isLockedPlan = enforceLocked || false; // Whole-card lock disabled for now as per "1 Full + 1 Preview" rule
         const isPartiallyLocked = !isPremium && isPreview; // Only 2nd+ plans are partially locked for free users
 
-        const itinerarySteps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
-        const coverImage = itinerarySteps[0]?.photoUrl || itinerarySteps[0]?.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
-
         return (
             <div
                 key={plan.id}
                 className={`rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-full sm:max-w-none snap-start premium-shadow premium-shadow-hover ${appTheme === 'dark'
-                        ? 'border-white/10 hover:border-white/20'
-                        : 'border-navy/5 shadow-sm'
+                        ? 'bg-navy/40 backdrop-blur-md border-white/10 hover:bg-navy/60 hover:border-white/20'
+                        : 'bg-white border-navy/5 shadow-sm'
                     } ${isCompact ? 'p-3' : 'p-4 sm:p-6'} ${isLockedPlan ? 'cursor-not-allowed grayscale-[0.5] opacity-80' : ''}`}
                 onClick={() => {
                     if (isLockedPlan) {
@@ -2244,20 +1787,6 @@ const Dashboard = () => {
                     }
                 }}
             >
-                {/* Cinematic Background Image */}
-                <div className="absolute inset-0 z-0">
-                    <img
-                        src={coverImage}
-                        alt="Plan Cover"
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-                    />
-                    {/* Multi-layer Gradient Overlay for readability */}
-                    <div className={`absolute inset-0 z-1 ${appTheme === 'dark'
-                            ? 'bg-gradient-to-b from-navy/60 via-navy/40 to-navy/95'
-                            : 'bg-gradient-to-b from-black/40 via-black/20 to-black/80'
-                        }`} />
-                </div>
-
                 {/* Selection Checkbox */}
                 {isSelectMode && (
                     <div
@@ -2299,16 +1828,16 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-2 sm:gap-5 mb-4 sm:mb-6 relative z-10">
+                <div className="flex flex-col gap-2 sm:gap-5 mb-4 sm:mb-6 relative">
                     {/* 🗓️ Planned For - TOP Minimalist Badge */}
                     <div className="flex items-center justify-between gap-4">
                         {(plan.itinerary?.metadata?.planDate || plan.created_at) && (
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border backdrop-blur-md ${appTheme === 'dark' ? 'bg-white/10 border-white/10' : 'bg-black/20 border-white/20'
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'
                                 }`}>
                                 <Calendar className={`w-3.5 h-3.5 ${appTheme === 'dark' ? 'text-white/60' : 'text-coral'}`} />
-                                <p className={`text-[10px] font-black uppercase tracking-widest font-outfit ${appTheme === 'dark' ? 'text-white/60' : 'text-white/70'
+                                <p className={`text-[10px] font-black uppercase tracking-widest font-outfit ${appTheme === 'dark' ? 'text-white/60' : 'text-navy/40'
                                     }`}>
-                                    Scheduled for: <span className={appTheme === 'dark' ? 'text-white' : 'text-white'}>
+                                    Scheduled for: <span className={appTheme === 'dark' ? 'text-white' : 'text-navy'}>
                                         {new Date((plan.itinerary?.metadata?.planDate || plan.created_at) + (plan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
                                     </span>
                                 </p>
@@ -2317,19 +1846,19 @@ const Dashboard = () => {
                     </div>
 
                     <div className="space-y-1">
-                        <h3 className={`text-2xl font-black leading-tight font-outfit line-clamp-2 drop-shadow-lg ${appTheme === 'dark' ? 'text-white' : 'text-white'
+                        <h3 className={`text-2xl font-black leading-tight font-outfit line-clamp-2 ${appTheme === 'dark' ? 'text-white' : 'text-navy'
                             }`}>
                             {plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + " Date" : "Perfect Date Plan")}
                         </h3>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-md border ${appTheme === 'dark' ? 'bg-white/10 border-white/10 text-white' : 'bg-black/20 border-white/20 text-white'
+                            <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${appTheme === 'dark' ? 'bg-white/5 text-white/70' : 'bg-navy/5 text-navy/60'
                                 }`}>
                                 <MapPin className="w-3 h-3 text-coral" /> {plan.location}
                             </div>
                             {plan.budget && (
-                                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-md border ${appTheme === 'dark' ? 'bg-white/10 border-white/10 text-white' : 'bg-black/20 border-white/20 text-white'
+                                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${appTheme === 'dark' ? 'bg-white/5 text-white/70' : 'bg-navy/5 text-navy/60'
                                     }`}>
-                                    <CreditCard className="w-3 h-3 text-emerald-400" /> {plan.budget}
+                                    <CreditCard className="w-3 h-3 text-emerald-500" /> {plan.budget}
                                 </div>
                             )}
                         </div>
@@ -2337,28 +1866,26 @@ const Dashboard = () => {
                 </div>
 
                 {!isCompact && (
-                    <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-8 relative z-10">
-                        {itinerarySteps.slice(0, 2).map((step, idx) => (
+                    <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-8">
+                        {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.slice(0, 2).map((step, idx) => (
                             <div key={idx} className="flex items-center gap-4 relative group/step">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all backdrop-blur-md ${appTheme === 'dark'
-                                        ? 'bg-white/10 border-white/20 text-white'
-                                        : 'bg-white/20 border-white/20 text-white group-hover/step:bg-white/30'
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all ${appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-coral/5 border-coral/10 text-coral group-hover/step:bg-coral group-hover/step:text-white group-hover/step:border-coral'
                                     }`}>
                                     <Clock className="w-4.5 h-4.5" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className={`text-[14px] font-black leading-none mb-1 font-outfit drop-shadow-md ${appTheme === 'dark' ? 'text-white' : 'text-white'}`}>{step.time}</p>
-                                    <p className={`text-[12px] font-bold truncate font-outfit drop-shadow-md ${appTheme === 'dark' ? 'text-white/60' : 'text-white/80'}`}>
+                                    <p className={`text-[14px] font-black leading-none mb-1 font-outfit ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>{step.time}</p>
+                                    <p className={`text-[12px] font-bold truncate font-outfit ${appTheme === 'dark' ? 'text-white/50' : 'text-navy/70'}`}>
                                         {step.activity}
                                     </p>
                                 </div>
                             </div>
                         ))}
-                        {itinerarySteps.length > 2 && (
+                        {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [])?.length > 2 && (
                             <div className="flex items-center gap-3 pl-15">
-                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg backdrop-blur-md ${appTheme === 'dark' ? 'bg-white/10 text-white/50' : 'bg-white/20 text-white/80'
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${appTheme === 'dark' ? 'bg-white/5 text-white/30' : 'bg-coral/5 text-coral/80'
                                     }`}>
-                                    + {itinerarySteps.length - 2} ADDED STOPS
+                                    + {(Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps)?.length - 2} ADDED STOPS
                                 </span>
                             </div>
                         )}
@@ -2366,25 +1893,25 @@ const Dashboard = () => {
                 )}
 
                 {/* Modern Social Action Bar */}
-                <div className={`flex items-center justify-between gap-2 py-4 mb-5 border-t relative z-10 ${appTheme === 'dark' ? 'border-white/10' : 'border-white/20'}`}>
+                <div className={`flex items-center justify-between gap-2 py-4 mb-5 border-t ${appTheme === 'dark' ? 'border-white/5' : 'border-gray-50'}`}>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-0.5">
                             {[1, 2, 3, 4, 5].map((s) => (
                                 <Star key={s} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
                             ))}
                         </div>
-                        <span className={`text-xs font-black drop-shadow-md ${appTheme === 'dark' ? 'text-white/80' : 'text-white/90'}`}>{plan.avg_rating || '4.9'}</span>
+                        <span className={`text-xs font-black ${appTheme === 'dark' ? 'text-white/80' : 'text-navy/80'}`}>{plan.avg_rating || '4.9'}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                         <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setShareCardPlan(plan); }}
+                            onClick={(e) => { e.stopPropagation(); handleShare(plan); }}
                             className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 ${appTheme === 'dark'
                                     ? 'bg-coral/20 border-coral/40 text-coral hover:bg-coral/30'
                                     : 'bg-coral/10 border-coral/30 text-coral hover:bg-coral/15'
                                 }`}
-                            title="Share — opens beautiful share card"
+                            title="Share link — your date opens it in the browser"
                         >
                             <Share2 className="w-4 h-4" />
                         </button>
@@ -2393,7 +1920,7 @@ const Dashboard = () => {
                             title={plan.is_favorite ? "Remove from Favorites" : "Add to Favorites"}
                             className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${appTheme === 'dark'
                                     ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500'
-                                    : 'bg-white/10 border-white/20 text-white/70 hover:text-red-400 hover:border-red-400'
+                                    : 'bg-white border-gray-100 text-navy/40 hover:text-red-500 hover:border-red-100'
                                 }`}
                         >
                             <Heart className={`w-4 h-4 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
@@ -2403,21 +1930,21 @@ const Dashboard = () => {
                             title="Delete this Date Plan"
                             className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${appTheme === 'dark'
                                     ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500'
-                                    : 'bg-white/10 border-white/20 text-white/70 hover:text-red-400 hover:border-red-400'
+                                    : 'bg-white border-gray-100 text-navy/40 hover:text-red-500 hover:border-red-100'
                                 }`}
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
 
-                        <div className={`w-px h-6 mx-1 opacity-20 ${appTheme === 'dark' ? 'bg-white' : 'bg-white'}`} />
+                        <div className={`w-px h-6 mx-1 opacity-20 ${appTheme === 'dark' ? 'bg-white' : 'bg-gray-300'}`} />
 
                         <button
                             onClick={(e) => { e.stopPropagation(); handleBoostPlan(plan.id); }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-black transition-all duration-300 group/boost shadow-md active:scale-95 backdrop-blur-md ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-black transition-all duration-300 group/boost shadow-md active:scale-95 ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
                                     ? 'bg-gradient-to-r from-orange-500 via-coral to-pink-500 text-white shadow-lg shadow-coral/30 hover:shadow-xl hover:-translate-y-0.5 border border-white/20'
                                     : appTheme === 'dark'
                                         ? 'bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10'
-                                        : 'bg-black/20 border border-white/20 text-white/80 hover:text-coral hover:bg-black/40 hover:border-coral/50'
+                                        : 'bg-white border border-gray-100 text-gray-500 hover:text-coral hover:bg-coral/5 hover:border-coral/20'
                                 }`}
                         >
                             {Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? (
@@ -2425,8 +1952,8 @@ const Dashboard = () => {
                                     <Check className="w-3 h-3 text-white" strokeWidth={3} />
                                 </div>
                             ) : (
-                                <div className={`flex items-center justify-center w-5 h-5 rounded-full transition-colors ${appTheme === 'dark' ? 'bg-white/10 group-hover/boost:bg-coral/20' : 'bg-white/10 group-hover/boost:bg-coral/30'}`}>
-                                    <Flame className={`w-3 h-3 transition-colors ${appTheme === 'dark' ? 'opacity-70 group-hover/boost:opacity-100 group-hover/boost:fill-coral text-coral' : 'text-white group-hover/boost:fill-coral group-hover/boost:text-coral'}`} />
+                                <div className={`flex items-center justify-center w-5 h-5 rounded-full transition-colors ${appTheme === 'dark' ? 'bg-white/10 group-hover/boost:bg-coral/20' : 'bg-gray-50 group-hover/boost:bg-coral/10'}`}>
+                                    <Flame className={`w-3 h-3 transition-colors ${appTheme === 'dark' ? 'opacity-70 group-hover/boost:opacity-100 group-hover/boost:fill-coral text-coral' : 'text-gray-400 group-hover/boost:fill-coral group-hover/boost:text-coral'}`} />
                                 </div>
                             )}
                             <span className={`tracking-tight ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'drop-shadow-sm' : ''}`}>
@@ -2444,15 +1971,15 @@ const Dashboard = () => {
                         if (isLockedPlan) setShowUpgradeModal(true);
                         else setSelectedPlan({ ...plan, isPartiallyLocked });
                     }}
-                    className={`w-full py-4.5 text-[15px] font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg relative z-10 backdrop-blur-md ${isLockedPlan
-                            ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-black/20 text-white/40 border-white/20")
+                    className={`w-full py-4.5 text-[15px] font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg ${isLockedPlan
+                            ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-gray-100 text-gray-400 border-gray-200")
                             : isPartiallyLocked
                                 ? (appTheme === 'dark'
-                                    ? "bg-white/10 text-white border-white/20 hover:bg-coral hover:text-white hover:border-coral"
-                                    : "bg-white/20 text-white border-white/30 hover:bg-coral hover:text-white hover:border-coral")
+                                    ? "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral"
+                                    : "bg-navy text-white border-navy hover:bg-coral hover:border-coral")
                                 : (appTheme === 'dark'
-                                    ? "bg-white/10 text-white border-white/20 hover:bg-coral hover:text-white hover:border-coral"
-                                    : "bg-white/20 text-white border-white/30 hover:bg-coral hover:text-white hover:border-coral")
+                                    ? "bg-white text-navy border-white hover:bg-coral hover:text-white hover:border-coral"
+                                    : "bg-navy text-white border-navy hover:bg-coral hover:border-coral")
                         }`}
                 >
                     {isLockedPlan ? (
@@ -2471,676 +1998,181 @@ const Dashboard = () => {
 
     // --- SUB-PAGE RENDER FUNCTIONS ---
 
-    const renderOverview = () => {
-        const activePlans = plans.filter(p => !p.deleted_at);
-        const recentPlan = activePlans.length
-            ? activePlans.reduce((best, p) => {
-                const tb = new Date(best.updated_at || best.created_at).getTime();
-                const tp = new Date(p.updated_at || p.created_at).getTime();
-                return tp >= tb ? p : best;
-            })
-            : null;
+    const renderOverview = () => (
 
-        // Usage limits
-        const usageMetrics = [
-            { id: 'builder', label: 'BUILDER', current: usage.classic ?? 0, limit: limits.classic ?? SERVER_DEFAULT_LIMITS.classic, color: 'bg-blue-500' },
-            { id: 'ai', label: 'AI', current: usage.guided ?? 0, limit: limits.guided ?? SERVER_DEFAULT_LIMITS.guided, color: 'bg-purple-500' },
-            { id: 'swaps', label: 'SWAPS', current: usage.swap ?? 0, limit: limits.swap ?? SERVER_DEFAULT_LIMITS.swap, color: 'bg-green-500' },
-            { id: 'saves', label: 'FAVORITE SAVES', current: usage.save_weekly ?? 0, limit: limits.save_weekly ?? SERVER_DEFAULT_LIMITS.save_weekly, color: 'bg-orange-500' },
-        ];
+        <div className="animate-in fade-in duration-500 pt-6 sm:pt-4">
+            {/* Sleek New Plan Button */}
+            <div className="mb-4 px-1 flex flex-col items-center justify-center">
+                <Link
+                    to="/generate"
+                    className="w-full sm:w-auto h-14 sm:h-12 flex items-center justify-center gap-3 px-8 bg-[#FF7F50] rounded-2xl sm:rounded-xl shadow-xl shadow-coral/20 active:scale-[0.98] transition-all hover:brightness-105 no-underline"
+                >
+                    <Plus className="w-5 h-5 text-white shrink-0" />
+                    <span className="text-[15px] font-black tracking-tight text-white whitespace-nowrap">Start New Plan</span>
+                </Link>
+            </div>
 
-        return (
-            <div className="animate-in fade-in duration-500 pt-4 pb-12">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2">
-                        {/* Header Greetings */}
-                        <div className="flex flex-wrap items-start justify-between gap-4 mb-6 px-4">
-                            <div className="animate-in slide-in-from-bottom-2 fade-in duration-500">
-                                <p className={`text-[11px] font-black uppercase tracking-widest mb-1 ${appTheme === 'dark' ? 'text-white/40' : 'text-slate-400'}`}>
-                                    {(() => { const h = new Date().getHours(); return h < 12 ? '☀️ Good Morning' : h < 17 ? '🌤️ Good Afternoon' : '🌙 Good Evening'; })()}
-                                </p>
-                                <h1 className={`text-2xl sm:text-3xl font-black ${appTheme === 'dark' ? 'text-white' : 'text-navy'} tracking-tight`}>
-                                    {profileData.first_name || user?.user_metadata?.first_name || 'You'}, ready to spark? ✨
-                                </h1>
-                                <p className={`text-xs font-medium ${appTheme === 'dark' ? 'text-white/50' : 'text-slate-400'} mt-1`}>
-                                    Based on your history, you love <span className="font-black text-coral">cozy evening dates</span>. Here's what's next.
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {!isPremium && (() => {
-                                    const totalUsage = usageMetrics.reduce((acc, curr) => acc + (curr.current || 0), 0);
-                                    const totalLimit = usageMetrics.reduce((acc, curr) => acc + (curr.limit || 1), 0);
-                                    return (
-                                        <div className="relative group">
-                                            <button className="h-9 px-3 bg-white hover:bg-gray-50 text-navy font-black text-[11px] rounded-xl border border-gray-100 flex items-center gap-1.5 shadow-sm">
-                                                <Zap className="w-3.5 h-3.5 text-coral" />
-                                                <span>{totalUsage}/{totalLimit}</span>
-                                            </button>
-                                            <div className="absolute right-0 top-11 w-64 p-4 bg-navy text-white rounded-2xl shadow-2xl border border-white/10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100]">
-                                                <h5 className="text-xs font-black tracking-wide mb-3 border-b border-white/10 pb-1">Usage Summary</h5>
-                                                <div className="space-y-3">
-                                                    {usageMetrics.map((m) => {
-                                                        const pct = Math.min(100, (m.current / m.limit) * 100);
-                                                        return (
-                                                            <div key={m.id} className="space-y-1">
-                                                                <div className="flex justify-between text-[10px] font-bold">
-                                                                    <span>{m.label}</span><span>{m.current}/{m.limit}</span>
-                                                                </div>
-                                                                <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
-                                                                    <div className={`h-full ${m.color} rounded-full`} style={{ width: `${pct}%` }} />
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
+            {!isPremium && user && (
+                <div className="px-4 mb-5 max-w-2xl mx-auto w-full space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-center text-gray-400">
+                        Free tier · builder, AI, and swaps reset every 24h · favorite saves refresh weekly
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        <UsageBadge label="Builder" usage={usage.classic ?? 0} limit={limits.classic ?? SERVER_DEFAULT_LIMITS.classic} isPremium={isPremium} />
+                        <UsageBadge label="AI" usage={usage.guided ?? 0} limit={limits.guided ?? SERVER_DEFAULT_LIMITS.guided} isPremium={isPremium} />
+                        <UsageBadge label="Swaps" usage={usage.swap ?? 0} limit={limits.swap ?? SERVER_DEFAULT_LIMITS.swap} isPremium={isPremium} />
+                        <UsageBadge label="Fav saves" usage={usage.save_weekly ?? 0} limit={limits.save_weekly ?? SERVER_DEFAULT_LIMITS.save_weekly} isPremium={isPremium} />
+                    </div>
+                </div>
+            )}
+
+            {/* Empty State / Hero */}
+            {plans.length === 0 ? (
+                <div className="bg-gradient-to-br from-navy to-navy/90 rounded-[2.5rem] p-12 text-center relative overflow-hidden shadow-xl border border-navy-100/20 max-w-2xl mx-auto my-8">
+                    <div className="absolute -right-16 -top-16 w-64 h-64 bg-coral/20 rounded-full blur-3xl animate-pulse" />
+                    <div className="relative z-10 space-y-4">
+                        <div className="w-20 h-20 bg-gradient-to-br from-coral to-pink-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-coral/30 rotate-6 hover:rotate-0 transition-transform duration-300">
+                            <Heart className="w-10 h-10 fill-white text-white" />
                         </div>
-
-                        {/* Quick Actions Row */}
-                        <div className="px-4 mb-8 grid grid-cols-3 gap-3">
-                            <Link to="/generate" className="no-underline group flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-coral to-orange-500 rounded-2xl shadow-lg shadow-coral/25 active:scale-95 transition-all hover:brightness-105">
-                                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                                    <Plus className="w-5 h-5 text-white group-hover:rotate-90 transition-transform duration-300" />
-                                </div>
-                                <span className="text-white text-[11px] font-black text-center leading-tight">Plan New Date</span>
-                            </Link>
-                            <button
-                                onClick={() => { if (recentPlan) setSelectedPlan(recentPlan); }}
-                                className="group flex flex-col items-center gap-2 p-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md active:scale-95 transition-all"
-                            >
-                                <div className="w-9 h-9 bg-navy/5 rounded-xl flex items-center justify-center">
-                                    <RefreshCw className="w-5 h-5 text-navy group-hover:rotate-180 transition-transform duration-500" />
-                                </div>
-                                <span className="text-navy text-[11px] font-black text-center leading-tight">Recreate Last</span>
-                            </button>
-                            <button
-                                onClick={() => setCurrentTab('events')}
-                                className="group flex flex-col items-center gap-2 p-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md active:scale-95 transition-all"
-                            >
-                                <div className="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center">
-                                    <Ticket className="w-5 h-5 text-violet-500 group-hover:scale-110 transition-transform duration-300" />
-                                </div>
-                                <span className="text-navy text-[11px] font-black text-center leading-tight">Local Events</span>
-                            </button>
-                        </div>
-
-                        {/* Mobile sticky "New Plan" FAB — only on mobile */}
-                        <div className="lg:hidden fixed bottom-32 right-6 z-50">
-                            <Link
-                                to="/generate"
-                                className="no-underline flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-coral to-orange-500 rounded-2xl text-white text-sm font-black shadow-2xl shadow-coral/40 active:scale-95 transition-all hover:brightness-105"
-                            >
-                                <Plus className="w-4 h-4" /> New Plan
+                        <h2 className="text-4xl font-black text-white tracking-tight">Let's plan your next date 💖</h2>
+                        <p className={`${appTheme === 'dark' ? 'text-white/80' : 'text-navy/80'} max-w-md mx-auto font-medium text-lg text-white`}>Stop deciding, start dating. Generate custom timelines and interactive maps in seconds.</p>
+                        <div className="pt-4">
+                            <Link to="/generate" className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-navy font-black rounded-2xl hover:bg-coral hover:text-white transition-all shadow-xl hover:-translate-y-1 active:scale-[0.98] group">
+                                Start your first plan <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                             </Link>
                         </div>
-
-                        <hr className={`mx-4 border-t ${appTheme === 'dark' ? 'border-white/5' : 'border-gray-100'} mb-6`} />
-
-                        {/* Current Plan */}
-                        {recentPlan && (() => {
-                            const recentPlanSteps = Array.isArray(recentPlan.itinerary) ? recentPlan.itinerary : recentPlan.itinerary?.steps || [];
-                            const recentPlanImage = recentPlanSteps[0]?.photoUrl || recentPlanSteps[0]?.image || 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=1000';
-                            const planDate = new Date((recentPlan.itinerary?.metadata?.planDate || recentPlan.created_at) + (recentPlan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
-                            const visibleStops = recentPlanSteps.slice(0, 2);
-                            const extraStops = Math.max(0, recentPlanSteps.length - 2);
-                            const planCost = recentPlan.itinerary?.metadata?.estimatedCost || recentPlan.estimated_cost;
-                            const planRating = parseFloat(recentPlan.avg_rating || 4.9).toFixed(1);
-
-                            return (
-                                <div className="px-4 mb-6">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className={`text-sm font-black uppercase tracking-widest ${appTheme === 'dark' ? 'text-white/50' : 'text-slate-400'}`}>Continue Planning</h3>
-                                        <button onClick={() => setCurrentTab('plans')} className="text-xs font-black text-coral hover:opacity-80">View all</button>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-6">
+                    {(() => {
+                        const activePlans = plans.filter(p => !p.deleted_at);
+                        const recent = activePlans.length
+                            ? activePlans.reduce((best, p) => {
+                                const tb = new Date(best.updated_at || best.created_at).getTime();
+                                const tp = new Date(p.updated_at || p.created_at).getTime();
+                                return tp >= tb ? p : best;
+                            })
+                            : null;
+                        return recent ? (
+                            <div className="px-4 max-w-2xl mx-auto w-full">
+                                <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                    <div className="min-w-0 text-left">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-coral mb-1">Continue</p>
+                                        <p className={`font-black text-lg truncate ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
+                                            {recent.vibe ? `${recent.vibe} date` : 'Your latest plan'}
+                                        </p>
+                                        <p className="text-xs text-gray-500 font-medium truncate">{recent.location || 'NYC area'}</p>
                                     </div>
-
-                                    {/* Premium tall card matching reference design */}
-                                    <div
-                                        className="w-full rounded-3xl relative overflow-hidden cursor-pointer active:scale-[0.99] transition-all shadow-2xl group"
-                                        style={{ minHeight: '420px' }}
-                                        onClick={() => setSelectedPlan(recentPlan)}
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedPlan(recent)}
+                                        className="shrink-0 px-6 py-3 bg-navy text-white font-black rounded-xl hover:bg-coral transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2"
                                     >
-                                        {/* Background image */}
-                                        <div
-                                            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                                            style={{ backgroundImage: `url('${recentPlanImage}')` }}
-                                        />
-                                        {/* Gradient overlay — stronger at top and bottom */}
-                                        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
-
-                                        {/* Content layers */}
-                                        <div className="relative z-10 flex flex-col h-full p-5" style={{ minHeight: '420px' }}>
-
-                                            {/* TOP: Scheduled date badge */}
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full">
-                                                    <Calendar className="w-3 h-3 text-coral" />
-                                                    <span className="text-[10px] font-black text-white/80 uppercase tracking-widest">
-                                                        Scheduled for: <span className="text-white">{planDate}</span>
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* TITLE */}
-                                            <h4 className="text-white text-[22px] font-black leading-tight drop-shadow-lg mb-3 max-w-[85%]">
-                                                {recentPlan.vibe_variant || (recentPlan.vibe ? (recentPlan.vibe.toLowerCase().startsWith('a curated') ? recentPlan.vibe : `A curated ${recentPlan.vibe.toLowerCase()} Date`) : 'Custom Date Experience')}
-                                            </h4>
-
-                                            {/* LOCATION + COST PILLS */}
-                                            <div className="flex items-center gap-2 mb-5 flex-wrap">
-                                                <div className="flex items-center gap-1 bg-black/30 backdrop-blur-sm border border-white/15 px-3 py-1.5 rounded-full">
-                                                    <MapPin className="w-3 h-3 text-coral" />
-                                                    <span className="text-[11px] font-black text-white uppercase tracking-wide">{(recentPlan.location || 'NYC').split(',')[0]}</span>
-                                                </div>
-                                                {planCost && (
-                                                    <div className="flex items-center gap-1 bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 px-3 py-1.5 rounded-full">
-                                                        <span className="text-[11px] font-black text-emerald-300">${planCost}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* ITINERARY STOPS */}
-                                            <div className="flex flex-col gap-2.5 mb-4">
-                                                {visibleStops.map((step, idx) => (
-                                                    <div key={idx} className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                                                            <Clock className="w-4 h-4 text-white/80" />
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="text-white text-sm font-black leading-none">
-                                                                {step.time || (idx === 0 ? '6:00 PM' : '7:45 PM')}
-                                                            </p>
-                                                            <p className="text-white/60 text-[11px] font-medium mt-0.5 truncate">
-                                                                {step.venue || step.activity || 'Venue stop'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {extraStops > 0 && (
-                                                    <div className="flex items-center">
-                                                        <span className="text-[11px] font-black text-white/70 bg-white/10 backdrop-blur-sm border border-white/20 px-3 py-1.5 rounded-full uppercase tracking-widest">
-                                                            + {extraStops} Added Stop{extraStops > 1 ? 's' : ''}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* BOTTOM: rating + action icons + tried it */}
-                                            <div className="mt-auto">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    {/* Stars + rating */}
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex items-center gap-0.5">
-                                                            {[1, 2, 3, 4, 5].map(i => (
-                                                                <Star key={i} className={`w-4 h-4 ${i <= Math.round(parseFloat(planRating)) ? 'fill-yellow-400 text-yellow-400' : 'text-white/20'}`} />
-                                                            ))}
-                                                        </div>
-                                                        <span className="text-white font-black text-sm">{planRating}</span>
-                                                    </div>
-
-                                                    {/* Action icons + Tried It */}
-                                                    <div className="flex items-center gap-2">
-                                                        {/* Share */}
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); handleShare(recentPlan); }}
-                                                            className="w-9 h-9 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-center hover:bg-coral/30 hover:border-coral/40 active:scale-90 transition-all"
-                                                            title="Share plan"
-                                                        >
-                                                            <Share2 className="w-4 h-4 text-white/80" />
-                                                        </button>
-                                                        {/* Favorite */}
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); handleToggleFavorite(recentPlan, e); }}
-                                                            className={`w-9 h-9 backdrop-blur-md border rounded-xl flex items-center justify-center active:scale-90 transition-all ${
-                                                                recentPlan.is_favorite
-                                                                    ? 'bg-red-500/30 border-red-400/50 hover:bg-red-500/40'
-                                                                    : 'bg-white/10 border-white/20 hover:bg-red-500/20 hover:border-red-400/40'
-                                                            }`}
-                                                            title={recentPlan.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                                                        >
-                                                            <Heart className={`w-4 h-4 ${recentPlan.is_favorite ? 'fill-red-400 text-red-400' : 'text-white/80'}`} />
-                                                        </button>
-                                                        {/* Delete */}
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); setConfirmModal({ isOpen: true, plan: recentPlan, type: 'trash', isBatch: false }); }}
-                                                            className="w-9 h-9 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-center hover:bg-red-500/40 hover:border-red-400/50 active:scale-90 transition-all"
-                                                            title="Delete plan"
-                                                        >
-                                                            <Trash2 className="w-4 h-4 text-white/80" />
-                                                        </button>
-                                                        {/* Tried It / Boost */}
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); handleBoostPlan(recentPlan.id); }}
-                                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl backdrop-blur-md border active:scale-95 transition-all ${
-                                                                Array.isArray(recentPlan.boosted_by) && recentPlan.boosted_by.includes(user?.id)
-                                                                    ? 'bg-gradient-to-r from-orange-500 via-coral to-pink-500 border-white/20 text-white shadow-lg shadow-coral/30'
-                                                                    : 'bg-white/10 border-white/20 hover:bg-white/20'
-                                                            }`}
-                                                            title="Mark as tried"
-                                                        >
-                                                            <Flame className={`w-3.5 h-3.5 ${Array.isArray(recentPlan.boosted_by) && recentPlan.boosted_by.includes(user?.id) ? 'fill-white text-white' : 'text-coral'}`} />
-                                                            <span className="text-[10px] font-black text-white">
-                                                                {Array.isArray(recentPlan.boosted_by) && recentPlan.boosted_by.includes(user?.id) ? 'We Tried!' : 'Tried It?'}
-                                                            </span>
-                                                            <span className="text-white/40 text-[9px] font-black">•</span>
-                                                            <span className="text-[10px] font-black text-white">{recentPlan.boost_count || 0}</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* CTA Button */}
-                                                <button
-                                                    onClick={e => { e.stopPropagation(); setSelectedPlan(recentPlan); }}
-                                                    className="w-full py-4 bg-gradient-to-r from-coral to-orange-500 hover:brightness-110 active:scale-[0.98] rounded-2xl text-white font-black text-base shadow-2xl shadow-coral/30 flex items-center justify-center gap-2 transition-all"
-                                                >
-                                                    View Full Itinerary <ArrowRight className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        Open plan
+                                    </button>
                                 </div>
-                            );
-                        })()}
-
-                        <hr className={`mx-4 border-t ${appTheme === 'dark' ? 'border-white/5' : 'border-gray-100'} mb-6`} />
-
-                        {/* Your Date Plans */}
-                        <div className="px-4 mb-8">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className={`text-sm font-black uppercase tracking-widest ${appTheme === 'dark' ? 'text-white/50' : 'text-slate-400'}`}>Your Plans</h3>
-                                <button onClick={() => setCurrentTab('plans')} className="text-xs font-black text-coral hover:opacity-80">View all</button>
                             </div>
-
-                            {isLoading ? (
-                                <div className="flex gap-3 px-4 pb-4 overflow-hidden">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="flex-shrink-0 w-44 h-44 rounded-2xl bg-gray-200 animate-pulse" />
-                                    ))}
-                                </div>
-                            ) : plans.filter(p => !p.deleted_at && !p.is_favorite).length === 0 ? (
-                                <div className={`flex flex-col items-center justify-center py-12 px-6 rounded-2xl border border-dashed ${appTheme === 'dark' ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50/50'}`}>
-                                    <div className="w-14 h-14 bg-coral/10 rounded-2xl flex items-center justify-center mb-4">
-                                        <Sparkles className="w-7 h-7 text-coral" />
-                                    </div>
-                                    <h4 className={`text-sm font-black mb-1 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>No plans yet</h4>
-                                    <p className="text-xs text-slate-400 font-medium text-center mb-4">Start crafting your first unforgettable date experience.</p>
-                                    <Link to="/generate" className="no-underline px-5 py-2.5 bg-gradient-to-r from-coral to-orange-500 rounded-xl text-white text-xs font-black shadow-lg shadow-coral/25 hover:brightness-105 active:scale-95 transition-all flex items-center gap-2">
-                                        <Plus className="w-3.5 h-3.5" /> Create First Plan
-                                    </Link>
-                                </div>
-                            ) : (
-                                <div className="flex overflow-x-auto gap-3 px-4 md:px-0 pb-4 snap-x snap-mandatory scrollbar-hide">
-                                    {plans
-                                        .filter(p => !p.deleted_at && !p.is_favorite)
-                                        .slice(0, 12)
-                                        .map((plan, idx) => {
-                                            const planSteps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
-                                            const planImage = planSteps[0]?.photoUrl || planSteps[0]?.image || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=600';
-                                            const planDateStr = new Date((plan.itinerary?.metadata?.planDate || plan.created_at) + (plan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-                                            const planRating = plan.avg_rating || '4.9';
-
-                                            const handleSharePlan = async (e) => {
-                                                e.stopPropagation();
-                                                const shareUrl = `${window.location.origin}/shared/${plan.id}`;
-                                                if (navigator.share) {
-                                                    try { await navigator.share({ title: 'Check out my DateSpark plan!', url: shareUrl }); } catch (_) { }
-                                                } else {
-                                                    navigator.clipboard.writeText(shareUrl);
-                                                    setToastMessage('Link copied to clipboard! 🔗');
-                                                    setTimeout(() => setToastMessage(''), 3000);
-                                                }
-                                            };
-
-                                            return (
-                                                <div
-                                                    key={plan.id || idx}
-                                                    className="snap-start flex-shrink-0 w-44 h-44 rounded-2xl bg-cover bg-center relative overflow-hidden group cursor-pointer active:scale-95 transition-all shadow-md"
-                                                    style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.75)), url('${planImage}')` }}
-                                                    onClick={() => setSelectedPlan(plan)}
-                                                >
-                                                    {/* Top-left: Share + Delete — visible on hover */}
-                                                    <div className="absolute top-2 left-2 flex items-center gap-1.5 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                        <button
-                                                            onClick={handleSharePlan}
-                                                            className="w-7 h-7 bg-black/40 backdrop-blur-md border border-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 active:scale-90 transition-all"
-                                                            title="Share"
-                                                        >
-                                                            <Share2 className="w-3 h-3 text-white" />
-                                                        </button>
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); setConfirmModal({ isOpen: true, plan, type: 'trash', isBatch: false }); }}
-                                                            className="w-7 h-7 bg-black/40 backdrop-blur-md border border-white/20 rounded-lg flex items-center justify-center hover:bg-red-500/70 active:scale-90 transition-all"
-                                                            title="Delete"
-                                                        >
-                                                            <Trash2 className="w-3 h-3 text-white" />
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Top-right: Rating */}
-                                                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/30 backdrop-blur-md border border-white/20 px-2 py-1 rounded-xl text-white z-10">
-                                                        <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
-                                                        <span className="text-[9px] font-black">{planRating}</span>
-                                                    </div>
-
-                                                    {/* Hover: View overlay */}
-                                                    <div className="absolute inset-0 bg-coral/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
-                                                        <span className="text-white font-black text-sm flex items-center gap-1.5">View <ChevronRight className="w-4 h-4" /></span>
-                                                    </div>
-
-                                                    {/* Bottom info */}
-                                                    <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
-                                                        <h4 className="text-white text-xs font-black leading-tight truncate drop-shadow-md">
-                                                            {plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + ' Date' : 'Custom Date'}
-                                                        </h4>
-                                                        <div className="flex items-center gap-1.5 mt-1">
-                                                            <span className="text-white/70 text-[9px] font-bold flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5 text-coral/80" />{(plan.location || 'NYC').split(',')[0]}</span>
-                                                            <span className="text-white/50 text-[9px]">·</span>
-                                                            <span className="text-white/70 text-[9px] font-bold">{planDateStr}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                </div>
-                            )}
+                        ) : null;
+                    })()}
+                    <div className="flex items-center justify-between mb-2 px-4 gap-4">
+                        <div className="min-w-0 flex-1">
+                            <h3 className={`text-xl font-black border-l-4 border-coral pl-4 ${appTheme === 'dark' ? 'text-white' : 'text-navy'
+                                }`}>Your Date Plans</h3>
+                            <p className={`text-xs font-medium mt-1 pl-4 border-l-4 border-transparent ${appTheme === 'dark' ? 'text-white/50' : 'text-gray-500'}`}>
+                                Your saved itineraries — open a card for the full timeline, map, and share link.
+                            </p>
                         </div>
-
-                        {/* Mobile-only: AI Copilot mini strip */}
-                        <div className="lg:hidden px-4 mb-6">
-                            <div className="bg-gradient-to-br from-navy to-[#1a2b4a] rounded-2xl p-3 sm:p-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-7 h-7 bg-coral rounded-xl flex items-center justify-center flex-shrink-0">
-                                        <Bot className="w-3.5 h-3.5 text-white" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-black text-white">Spark AI</p>
-                                        <p className="text-[9px] text-white/40 font-bold">What vibe tonight?</p>
-                                    </div>
-                                    <span className="flex items-center gap-1 text-[9px] font-black text-emerald-400">
-                                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Online
-                                    </span>
-                                </div>
-                                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-                                    {['✨ Romantic night', '🎲 Surprise me', '💸 Budget date', '🌙 Late night'].map(p => (
-                                        <button
-                                            key={p}
-                                            onClick={() => handleGeneratePlan(p.replace(/^[^\s]+\s/, ''))}
-                                            className="no-underline flex-shrink-0 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold text-white/80 active:scale-95 transition-all"
-                                        >
-                                            {p}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <button
+                                onClick={() => {
+                                    setIsSelectMode(!isSelectMode);
+                                    setSelectedPlanIds([]);
+                                }}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all border uppercase tracking-widest ${isSelectMode
+                                        ? 'bg-navy text-white border-navy'
+                                        : (appTheme === 'dark'
+                                            ? 'bg-white/10 text-white border-white/20 hover:bg-white/20'
+                                            : 'bg-white text-navy border-gray-200 hover:bg-gray-50')
+                                    }`}
+                            >
+                                {isSelectMode ? 'Cancel' : 'Select'}
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('plans')}
+                                className={`text-sm font-bold px-4 py-2 rounded-xl transition-all ${appTheme === 'dark'
+                                        ? 'text-coral bg-coral/10 hover:bg-coral/20'
+                                        : 'text-coral hover:bg-coral/5'
+                                    }`}
+                            >
+                                View Full History
+                            </button>
                         </div>
+                    </div>
+                    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory px-4 md:px-0 pb-4 md:pb-0 scrollbar-hide">
+                        {plans
+                            .filter(p => !p.deleted_at && !p.is_favorite)
+                            .slice(0, 3)
+                            .map((plan, idx) => renderPlanCard(plan, idx, false))}
+                    </div>
+                </div>
+            )}
 
-                    </div> {/* End of lg:col-span-2 */}
+            {/* Community Trending */}
+            {globalTrendingPlans.length > 0 && (() => {
+                // Smarter City Extraction Helper
+                const getCity = (loc) => {
+                    if (!loc) return 'NYC';
+                    const parts = loc.split(',').map(p => p.trim());
+                    // 1. If "Venue, Borough/City, State" (3 parts), return parts[1]
+                    // 2. If "Borough/City, State" (2 parts), return parts[0]
+                    // 3. Fallback to just the first part normalized
+                    if (parts.length >= 3) return parts[1];
+                    if (parts.length === 2) return parts[0];
+                    return parts[0] || 'NYC';
+                };
 
-                    {/* Right Sidebar — AI Copilot */}
-                    <div className="hidden lg:flex flex-col gap-5">
-
-                        {/* Profile + Streak compact */}
-                        <div className="bg-white/70 backdrop-blur-xl border border-white/30 rounded-[2rem] p-5 shadow-xl flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-coral/20 shadow-md flex-shrink-0">
-                                <img
-                                    src={profileData.avatar_url || user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300'}
-                                    alt="avatar"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                            <div className="min-w-0">
-                                <h4 className="text-base font-black text-navy truncate">{profileData.first_name || user?.user_metadata?.first_name || 'You'}</h4>
-                                <p className="text-[10px] text-slate-400 font-bold">{isPremium ? '✨ Premium Spark' : 'Free Tier'}</p>
-                            </div>
-                            <span className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-400 rounded-xl text-[10px] font-black text-white shadow-md flex-shrink-0">
-                                🔥 7
-                            </span>
-                        </div>
-
-                        {/* AI Copilot */}
-                        <div className="bg-gradient-to-br from-navy to-[#1a2b4a] rounded-[2rem] p-5 shadow-2xl border border-white/10">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-8 h-8 bg-coral rounded-xl flex items-center justify-center">
-                                    <Bot className="w-4 h-4 text-white" />
+                return (
+                    <div className="pt-8">
+                        <div className="flex items-center justify-between mb-8 px-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
+                                    <Sparkles className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h5 className="text-sm font-black text-white">Spark AI</h5>
-                                    <p className="text-[9px] text-white/40 font-bold">Your date planning copilot</p>
+                                    <h3 className={`text-2xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'
+                                        }`}>Trending Spots Now</h3>
+                                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Community ideas from other couples — preview here, or save from Discovery.</p>
                                 </div>
-                                <span className="ml-auto flex items-center gap-1 text-[9px] font-black text-emerald-400">
-                                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                                    Online
-                                </span>
                             </div>
-
-                            <div className="flex flex-col gap-2 mb-4">
-                                {[
-                                    { label: '✨ Plan a romantic night', prompt: 'Plan a romantic night' },
-                                    { label: '🎲 Surprise me!', prompt: 'Surprise me with a unique date' },
-                                    { label: '💸 Budget-friendly date', prompt: 'Budget-friendly date night' }
-                                ].map(p => (
-                                    <button
-                                        key={p.label}
-                                        onClick={() => setAiCopilotInput(p.prompt)}
-                                        className="text-left px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[11px] font-bold text-white/80 hover:text-white transition-all active:scale-95"
-                                    >
-                                        {p.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Input bar */}
-                            <div className="flex gap-2">
-                                <input
-                                    value={aiCopilotInput}
-                                    onChange={e => setAiCopilotInput(e.target.value)}
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && aiCopilotInput.trim()) {
-                                            e.preventDefault();
-                                            handleGeneratePlan(aiCopilotInput.trim());
-                                        }
-                                    }}
-                                    placeholder="What vibe are you feeling?"
-                                    className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-[11px] text-white placeholder:text-white/30 font-medium outline-none focus:border-coral/50"
-                                />
-                                <button
-                                    onClick={() => handleGeneratePlan(aiCopilotInput.trim())}
-                                    className="w-9 h-9 bg-coral flex items-center justify-center rounded-xl shadow-lg shadow-coral/30 hover:brightness-110 active:scale-95 transition-all flex-shrink-0 self-end no-underline"
-                                >
-                                    <Send className="w-4 h-4 text-white" />
-                                </button>
-                            </div>
+                            <button onClick={() => setCurrentTab('discovery')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
+                                Explore All <ChevronRight className="w-4 h-4" />
+                            </button>
                         </div>
-
-                        {/* ── SPARK SUGGESTIONS — AI Prompt Recommender ── */}
-                        {(() => {
-                            // Derive personalized prompts from user's plan history
-                            const activePlans = plans.filter(p => !p.deleted_at);
-
-                            const vibeFreq = {};
-                            const locationFreq = {};
-                            const budgets = new Set();
-
-                            activePlans.forEach(p => {
-                                if (p.vibe) vibeFreq[p.vibe] = (vibeFreq[p.vibe] || 0) + 1;
-                                if (p.location) {
-                                    const city = p.location.split(',')[0].trim();
-                                    locationFreq[city] = (locationFreq[city] || 0) + 1;
-                                }
-                                if (p.budget) budgets.add(p.budget);
-                            });
-
-                            const topVibe = Object.entries(vibeFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
-                            const topLocation = Object.entries(locationFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
-                            const topBudget = [...budgets][0];
-
-                            // Build personalized prompts
-                            const personalizedPrompts = [];
-                            if (topVibe && topLocation) personalizedPrompts.push({
-                                emoji: '🔁', label: `Another ${topVibe} night in ${topLocation}`,
-                                prompt: `Plan a ${topVibe} date night in ${topLocation}`, tag: 'Based on history', tagColor: 'bg-violet-50 text-violet-600'
-                            });
-                            if (topVibe) personalizedPrompts.push({
-                                emoji: '✨', label: `Surprise ${topVibe} twist`,
-                                prompt: `Surprise me with a unique ${topVibe} date experience`, tag: 'Your vibe', tagColor: 'bg-coral/10 text-coral'
-                            });
-                            if (topBudget) personalizedPrompts.push({
-                                emoji: '💸', label: `${topBudget} budget date night`,
-                                prompt: `Plan a creative date night with a ${topBudget} budget`, tag: 'Budget match', tagColor: 'bg-emerald-50 text-emerald-600'
-                            });
-
-                            // Curated fallbacks
-                            const fallbacks = [
-                                { emoji: '🌆', label: 'Rooftop jazz bar evening', prompt: 'Plan a romantic rooftop jazz bar evening for two', tag: 'Romantic', tagColor: 'bg-rose-50 text-rose-500' },
-                                { emoji: '🌿', label: 'Hidden garden picnic', prompt: 'Plan a cozy hidden garden picnic date', tag: 'Cozy', tagColor: 'bg-emerald-50 text-emerald-600' },
-                                { emoji: '🍜', label: 'Late-night food crawl', prompt: 'Plan an adventurous late-night food market crawl', tag: 'Adventurous', tagColor: 'bg-amber-50 text-amber-600' },
-                                { emoji: '🎨', label: 'Art gallery & wine', prompt: 'Plan a sophisticated art gallery and wine date evening', tag: 'Artsy', tagColor: 'bg-indigo-50 text-indigo-600' },
-                                { emoji: '🌊', label: 'Sunset waterfront stroll', prompt: 'Plan a romantic sunset waterfront walking date', tag: 'Scenic', tagColor: 'bg-blue-50 text-blue-600' },
-                            ];
-
-                            const suggestions = personalizedPrompts.length >= 2
-                                ? [...personalizedPrompts, ...fallbacks.slice(0, 3 - personalizedPrompts.length)]
-                                : fallbacks.slice(0, 3);
-
-                            return (
-                                <div className={`rounded-[2rem] p-5 shadow-xl border ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/80 backdrop-blur-xl border-white/30'}`}>
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30">
-                                                <Sparkles className="w-4 h-4 text-white" />
-                                            </div>
-                                            <div>
-                                                <h5 className={`text-sm font-black ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>Spark Suggestions</h5>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                                    {personalizedPrompts.length > 0 ? 'Personalized for you' : 'Curated picks'}
-                                                </p>
-                                            </div>
+                        <div className="flex overflow-x-auto gap-4 md:gap-8 px-4 md:px-0 pb-10 snap-x snap-mandatory scrollbar-hide">
+                            {globalTrendingPlans
+                                .sort((a, b) => (b.boost_count || 0) - (a.boost_count || 0))
+                                .slice(0, 20) // Deep Discovery
+                                .map((plan, idx) => {
+                                    const planCity = getCity(plan.location);
+                                    return (
+                                        <div key={plan.id || idx} className="snap-start">
+                                            <VisualSparkCard
+                                                plan={plan}
+                                                onView={setSelectedPlan}
+                                                theme={appTheme}
+                                                isTopInBorough={idx === 0}
+                                                boroughName={planCity}
+                                            />
                                         </div>
-                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-violet-50 rounded-xl border border-violet-100">
-                                            <Zap className="w-3 h-3 text-violet-500" />
-                                            <span className="text-[9px] font-black text-violet-600 uppercase tracking-wider">AI</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Suggestion Cards */}
-                                    <div className="space-y-2">
-                                        {suggestions.map((rec, i) => (
-                                            <button
-                                                key={i}
-                                                onClick={() => handleGeneratePlan(rec.prompt)}
-                                                className={`group flex items-center gap-3 w-full p-3 rounded-2xl border transition-all duration-200 active:scale-[0.98] no-underline cursor-pointer
-                                                    ${appTheme === 'dark'
-                                                        ? 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-coral/30'
-                                                        : 'bg-white border-gray-100 hover:border-coral/30 hover:shadow-md'
-                                                    }`}
-                                            >
-                                                {/* Emoji bubble */}
-                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg transition-transform duration-200 group-hover:scale-110
-                                                    ${appTheme === 'dark' ? 'bg-white/10' : 'bg-gray-50'}`}>
-                                                    {rec.emoji}
-                                                </div>
-
-                                                {/* Text */}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={`text-[12px] font-black truncate transition-colors group-hover:text-coral ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
-                                                        {rec.label}
-                                                    </p>
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${rec.tagColor}`}>
-                                                        {rec.tag}
-                                                    </span>
-                                                </div>
-
-                                                {/* Spark arrow */}
-                                                <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black flex-shrink-0 transition-all duration-200 group-hover:bg-coral group-hover:text-white
-                                                    ${appTheme === 'dark' ? 'bg-white/10 text-white/50' : 'bg-gray-50 text-slate-400'}`}>
-                                                    Spark
-                                                    <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Footer hint */}
-                                    <p className={`mt-3 text-center text-[9px] font-bold ${appTheme === 'dark' ? 'text-white/20' : 'text-slate-300'}`}>
-                                        Tap any suggestion to launch Spark AI ⚡
-                                    </p>
-                                </div>
-                            );
-                        })()}
-
-
-
-
-                        {/* Live Location Map Widget */}
-                        <NearbyMapWidget
-                            globalTrendingPlans={globalTrendingPlans}
-                            isLoaded={isLoaded}
-                            onFindEvents={() => setCurrentTab('events')}
-                        />
-
-                    </div> {/* End of Right Sidebar */}
-                </div> {/* End of grid-cols-3 */}
-
-                {/* Community Trending */}
-                {globalTrendingPlans.length > 0 && (() => {
-                    // Smarter City Extraction Helper
-                    const getCity = (loc) => {
-                        if (!loc) return 'NYC';
-                        const parts = loc.split(',').map(p => p.trim());
-                        // 1. If "Venue, Borough/City, State" (3 parts), return parts[1]
-                        // 2. If "Borough/City, State" (2 parts), return parts[0]
-                        // 3. Fallback to just the first part normalized
-                        if (parts.length >= 3) return parts[1];
-                        if (parts.length === 2) return parts[0];
-                        return parts[0] || 'NYC';
-                    };
-
-                    return (
-                        <div className="pt-8">
-                            <div className="flex items-center justify-between mb-8 px-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
-                                        <Sparkles className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className={`text-2xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'
-                                            }`}>Trending Spots Now</h3>
-                                        <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Community ideas from other couples — preview here, or save from Discovery.</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setCurrentTab('events')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
-                                    See Events <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <div className="flex overflow-x-auto gap-4 md:gap-8 px-4 md:px-0 pb-10 snap-x snap-mandatory scrollbar-hide">
-                                {globalTrendingPlans
-                                    .sort((a, b) => (b.boost_count || 0) - (a.boost_count || 0))
-                                    .slice(0, 20) // Deep Discovery
-                                    .map((plan, idx) => {
-                                        const planCity = getCity(plan.location);
-                                        return (
-                                            <div key={plan.id || idx} className="snap-start">
-                                                <VisualSparkCard
-                                                    plan={plan}
-                                                    onView={setSelectedPlan}
-                                                    theme={appTheme}
-                                                    isTopInBorough={idx === 0}
-                                                    boroughName={planCity}
-                                                />
-                                            </div>
-                                        );
-                                    })}
-                            </div>
+                                    );
+                                })}
                         </div>
-                    );
-                })()}
-            </div>
-        );
-    };
+                    </div>
+                );
+            })()}
+        </div>
+    );
 
     const renderMyPlans = () => (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -3210,198 +2242,119 @@ const Dashboard = () => {
         </div>
     );
 
-    const renderDiscovery = () => {
-        const remaining = Math.max(0, globalTrendingPlans.length - swipeIndex);
-        const progress = globalTrendingPlans.length > 0
-            ? Math.min(100, (swipeIndex / globalTrendingPlans.length) * 100)
-            : 0;
-
-        return (
-            <div className="animate-in fade-in duration-500 flex flex-col min-h-[80vh]">
-
-                {/* ── CINEMATIC HEADER ── */}
-                <div className={`relative overflow-hidden rounded-3xl mx-4 mb-6 ${appTheme === 'dark' ? 'bg-navy' : 'bg-gradient-to-br from-[#0d1b2a] via-[#1a2b3c] to-[#0a1628]'}`}>
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-coral/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-                    <div className="relative z-10 px-5 pt-5 pb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <button
-                                onClick={() => setCurrentTab('home')}
-                                className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-black uppercase tracking-widest group"
-                            >
-                                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-                                Back
-                            </button>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-coral/20 border border-coral/30 rounded-full">
-                                <Flame className="w-3 h-3 fill-coral text-coral" />
-                                <span className="text-[10px] font-black text-coral uppercase tracking-widest">Discovery Mode</span>
-                            </div>
-                        </div>
-                        <h2 className="text-3xl font-black text-white tracking-tight mb-1">
-                            Today's Top Sparks <span className="inline-block animate-bounce">🔥</span>
-                        </h2>
-                        <p className="text-white/40 text-xs font-medium mb-5">
-                            Swipe right to save · Left to pass · Tap card to preview
-                        </p>
-                        {globalTrendingPlans.length > 0 && (
-                            <div className="mb-4">
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Spark Meter</span>
-                                    <span className="text-[10px] font-black text-white/60">
-                                        {remaining > 0 ? `${remaining} left` : 'All done!'}
-                                    </span>
-                                </div>
-                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-coral to-orange-400 rounded-full transition-all duration-500 ease-out"
-                                        style={{ width: `${progress}%` }}
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        <div className="hidden md:flex items-center gap-3">
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg text-[10px] font-black text-white/40 border border-white/10 uppercase tracking-tighter">
-                                <kbd className="font-sans">←</kbd> Pass
-                            </span>
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-coral/10 rounded-lg text-[10px] font-black text-coral border border-coral/20 uppercase tracking-tighter">
-                                <kbd className="font-sans">→</kbd> Like &amp; Save
-                            </span>
-                        </div>
-                    </div>
+    const renderDiscovery = () => (
+        <div className="space-y-8 animate-in fade-in duration-500 flex flex-col h-full min-h-[70vh]">
+            <div className="px-4">
+                <button
+                    onClick={() => setCurrentTab('home')}
+                    className="flex items-center gap-2 text-xs font-black text-gray-400 hover:text-coral transition-colors uppercase tracking-widest mb-4 group"
+                >
+                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                    Back to Overview
+                </button>
+            </div>
+            <div className="px-4 text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-coral/10 text-coral rounded-full text-xs font-black uppercase tracking-[0.2em] mb-4 outline outline-1 outline-coral/20">
+                    <Flame className="w-3.5 h-3.5 fill-coral" /> Discovery Mode
                 </div>
-
-                {/* ── SWIPE STACK ── */}
-                <div className="flex-1 relative flex flex-col items-center justify-start px-4">
-                    {globalTrendingPlans.length > 0 ? (
-                        <>
-                            <div className="relative w-full max-w-[440px] h-[520px]">
-                                <div className="absolute inset-0 bg-gradient-to-br from-coral/10 to-violet-500/5 blur-3xl -z-10 rounded-full scale-125 opacity-40" />
-                                {globalTrendingPlans.slice(swipeIndex, swipeIndex + 3).reverse().map((plan, i) => {
-                                    const isTop = i === 2 || (globalTrendingPlans.length - swipeIndex < 3 && i === (globalTrendingPlans.length - swipeIndex - 1));
-                                    return (
-                                        <div key={plan.id} className="absolute inset-0 transform transition-all duration-300">
-                                            <SwipeCard
-                                                plan={plan}
-                                                isTop={isTop}
-                                                theme={appTheme}
-                                                onSwipe={(dir) => {
-                                                    if (dir === 'right') handleToggleFavorite(plan);
-                                                    setSwipeIndex(prev => prev + 1);
-                                                }}
-                                                onView={() => setSelectedPlan(plan)}
-                                            />
-                                        </div>
-                                    );
-                                })}
-                                {swipeIndex >= globalTrendingPlans.length && (
-                                    <div className={`flex flex-col items-center justify-center h-full text-center p-10 rounded-[3rem] border-2 border-dashed animate-in zoom-in-95 duration-500 ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner ${appTheme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
-                                            <Sparkles className="w-10 h-10 text-coral animate-pulse" />
-                                        </div>
-                                        <h3 className={`text-2xl font-black tracking-tight mb-2 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>You're all caught up!</h3>
-                                        <p className={`text-[13px] font-medium leading-relaxed max-w-[220px] mx-auto mb-8 ${appTheme === 'dark' ? 'text-white/40' : 'text-navy/50'}`}>
-                                            You've seen all today's top sparks. New dates appear daily!
-                                        </p>
-                                        <div className="flex flex-col gap-3 w-full">
-                                            <button
-                                                onClick={() => setSwipeIndex(0)}
-                                                className="w-full py-3.5 bg-gradient-to-r from-coral to-orange-500 text-white font-black rounded-2xl active:scale-95 transition-all shadow-xl shadow-coral/30 flex items-center justify-center gap-2 group"
-                                            >
-                                                <History className="w-4 h-4 group-hover:-rotate-180 transition-transform duration-500" />
-                                                Explore Again
-                                            </button>
-                                            <button
-                                                onClick={() => setCurrentTab('plans')}
-                                                className={`w-full py-3.5 font-black rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2 border ${appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-navy/5 border-navy/10 text-navy'}`}
-                                            >
-                                                <Calendar className="w-4 h-4" />
-                                                View My Plans
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ── ACTION BUTTONS ── */}
-                            {swipeIndex < globalTrendingPlans.length && (
-                                <div className="mt-10 flex items-center justify-center gap-6 animate-in slide-in-from-bottom-4 duration-700">
-                                    <div className="flex flex-col items-center gap-2">
-                                        <button
-                                            onClick={() => setSwipeIndex(prev => prev + 1)}
-                                            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg group border-2 ${appTheme === 'dark' ? 'bg-white/10 border-white/20 hover:bg-red-500/20 hover:border-red-400/50' : 'bg-white border-gray-200 hover:border-red-300 hover:shadow-red-100'}`}
-                                            title="Pass"
-                                        >
-                                            <X className="w-7 h-7 text-gray-400 group-hover:text-red-500 transition-colors" />
-                                        </button>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pass</span>
-                                    </div>
-                                    <div className="flex flex-col items-center gap-2">
-                                        <button
-                                            onClick={() => {
-                                                const plan = globalTrendingPlans[swipeIndex];
-                                                if (plan) setSelectedPlan(plan);
-                                            }}
-                                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-md group border-2 ${appTheme === 'dark' ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white border-gray-200 hover:border-navy/30'}`}
-                                            title="Preview Plan"
-                                        >
-                                            <Sparkles className="w-5 h-5 text-violet-400 group-hover:text-violet-500 transition-colors" />
-                                        </button>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Preview</span>
-                                    </div>
-                                    <div className="flex flex-col items-center gap-2">
-                                        <button
-                                            onClick={() => {
-                                                const plan = globalTrendingPlans[swipeIndex];
-                                                if (plan) handleToggleFavorite(plan);
-                                                setSwipeIndex(prev => prev + 1);
-                                            }}
-                                            className="w-16 h-16 bg-gradient-to-br from-coral to-orange-500 rounded-full flex items-center justify-center shadow-xl shadow-coral/30 hover:shadow-coral/50 active:scale-95 transition-all group"
-                                            title="Like & Save"
-                                        >
-                                            <Heart className="w-7 h-7 text-white fill-white transition-transform group-hover:scale-110" />
-                                        </button>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-coral">Save</span>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    ) : isTrendingLoading ? (
-                        <div className="flex flex-col items-center gap-6 py-20">
-                            <div className="relative">
-                                <div className="w-16 h-16 rounded-full bg-coral/10 flex items-center justify-center">
-                                    <Loader2 className="w-8 h-8 text-coral animate-spin" />
-                                </div>
-                                <div className="absolute inset-0 rounded-full bg-coral/5 animate-ping" />
-                            </div>
-                            <div className="text-center">
-                                <p className="text-gray-500 font-black text-sm tracking-widest animate-pulse uppercase">Scanning the city...</p>
-                                <p className="text-gray-400 text-xs font-medium mt-1">Finding the best date spots near you</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className={`flex flex-col items-center justify-center text-center p-12 rounded-3xl border mx-auto max-w-sm w-full ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
-                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                                <Compass className="w-8 h-8 text-gray-200" />
-                            </div>
-                            <h3 className={`text-xl font-black mb-2 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>No sparks yet</h3>
-                            <p className="text-gray-400 text-xs font-medium max-w-[200px] leading-relaxed">
-                                Be the first to spark the community! Create and share a plan.
-                            </p>
-                            <button
-                                onClick={() => setCurrentTab('home')}
-                                className="mt-8 px-8 py-3 bg-gradient-to-r from-coral to-orange-500 text-white font-black rounded-xl text-xs shadow-lg shadow-coral/25"
-                            >
-                                Back Home
-                            </button>
-                        </div>
-                    )}
+                <h2 className={`text-4xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'
+                    }`}>Today’s Top Sparks 🔥</h2>
+                <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>Browse other people&apos;s plans (not your own). Swipe right to save to your favorites.</p>
+                <div className="hidden md:flex items-center justify-center gap-3 mt-4">
+                    <span className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded text-[10px] font-black text-gray-400 border border-gray-200 shadow-sm uppercase tracking-tighter">
+                        <kbd className="font-sans">←</kbd> Pass
+                    </span>
+                    <span className="flex items-center gap-1.5 px-2 py-1 bg-coral/5 rounded text-[10px] font-black text-coral border border-coral/10 shadow-sm uppercase tracking-tighter">
+                        <kbd className="font-sans">→</kbd> Like
+                    </span>
                 </div>
             </div>
-        );
-    };
+
+            <div className="flex-1 relative flex items-center justify-center mt-6">
+                {globalTrendingPlans.length > 0 ? (
+                    <>
+                        <div className="relative w-full max-w-[440px] h-[520px]">
+                            {/* Background Decorative Accents */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-coral/10 to-transparent blur-3xl -z-10 rounded-full scale-125 opacity-30" />
+
+                            {globalTrendingPlans.slice(swipeIndex, swipeIndex + 3).reverse().map((plan, i) => {
+                                const isTop = i === 2 || (globalTrendingPlans.length - swipeIndex < 3 && i === (globalTrendingPlans.length - swipeIndex - 1));
+                                return (
+                                    <div key={plan.id} className="absolute inset-0 transform transition-all duration-300">
+                                        <SwipeCard
+                                            plan={plan}
+                                            isTop={isTop}
+                                            theme={appTheme}
+                                            onSwipe={(dir) => {
+                                                if (dir === 'right') handleToggleFavorite(plan);
+                                                setSwipeIndex(prev => prev + 1);
+                                            }}
+                                            onView={() => setSelectedPlan(plan)}
+                                        />
+                                    </div>
+                                );
+                            })}
+                            {swipeIndex >= globalTrendingPlans.length && (
+                                <div className="flex flex-col items-center justify-center h-full text-center p-10 bg-white rounded-[3rem] border-2 border-dashed border-gray-100 shadow-sm animate-in zoom-in-95 duration-500">
+                                    <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                                        <History className="w-10 h-10 text-gray-300 animate-pulse" />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-navy tracking-tight">End of the stack!</h3>
+                                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/50'} text-[13px] mt-2 font-medium leading-relaxed max-w-[220px] mx-auto`}>We’ve shown you everything popular in your area. Come back tomorrow for fresh sparks!</p>
+                                    <button
+                                        onClick={() => setSwipeIndex(0)}
+                                        className="mt-8 px-10 py-4 bg-navy text-white font-black rounded-2xl active:scale-95 transition-all shadow-xl shadow-navy/20 flex items-center gap-2 group"
+                                    >
+                                        <History className="w-4 h-4 group-hover:-rotate-180 transition-transform duration-500" />
+                                        Explore Again
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        {swipeIndex < globalTrendingPlans.length && (
+                            <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex items-center justify-center gap-8 animate-in slide-in-from-bottom-4 duration-700">
+                                <button
+                                    onClick={() => setSwipeIndex(prev => prev + 1)}
+                                    className="w-16 h-16 bg-white border border-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:shadow-xl hover:shadow-red-500/10 active:scale-90 transition-all group"
+                                    title="Pass (Left Swipe)"
+                                >
+                                    <X className="w-8 h-8 transition-transform group-hover:rotate-90" />
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const plan = globalTrendingPlans[swipeIndex];
+                                        if (plan) handleToggleFavorite(plan);
+                                        setSwipeIndex(prev => prev + 1);
+                                    }}
+                                    className="w-20 h-20 bg-white border border-gray-100 rounded-full flex items-center justify-center text-gray-300 hover:text-coral hover:shadow-2xl hover:shadow-coral/20 active:scale-95 transition-all group"
+                                    title="Like (Right Swipe)"
+                                >
+                                    <Heart className="w-10 h-10 transition-transform group-hover:scale-110 fill-transparent group-hover:fill-coral/10" />
+                                </button>
+                            </div>
+                        )}
+                    </>
+                ) : isTrendingLoading ? (
+                    <div className="flex flex-col items-center gap-4">
+                        <Loader2 className="w-12 h-12 text-coral animate-spin" />
+                        <p className="text-gray-400 font-bold text-sm tracking-widest animate-pulse uppercase">Scaling the city for sparks...</p>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center text-center p-10 bg-white rounded-[3rem] border border-gray-100 shadow-sm">
+                        <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+                            <X className="w-8 h-8 text-gray-200" />
+                        </div>
+                        <h3 className="text-xl font-black text-navy">No sparks found</h3>
+                        <p className="text-gray-400 text-xs mt-2 font-medium max-w-[200px]">We couldn't load discovery plans right now. Try checking your Favorites!</p>
+                        <button onClick={() => setCurrentTab('home')} className="mt-8 px-8 py-3 bg-navy text-white font-black rounded-xl text-xs">Back Home</button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
 
     const renderAccount = () => {
-
         const renderBackHeader = (title) => (
             <div className="flex items-center gap-4 mb-8">
                 <button
@@ -3799,7 +2752,6 @@ const Dashboard = () => {
             home: "Welcome Back",
             favorites: "Your Favorites",
             discovery: "Discovery Mode",
-            events: "Local Events",
             account: "Your Account"
         };
         const tabSubtitles = {
@@ -3812,24 +2764,15 @@ const Dashboard = () => {
         return (
             <header className={`border-b transition-colors duration-500 fixed top-0 left-0 right-0 w-full z-30 pt-[env(safe-area-inset-top,0px)] ${appTheme === 'dark' ? 'bg-[#050810]/80 backdrop-blur-xl border-white/5' : 'bg-white/95 backdrop-blur-md border-gray-100'
                 }`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className="md:hidden p-2 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-navy rounded-xl transition-all"
-                            title="Toggle Menu"
-                        >
-                            <Menu className="w-5 h-5" />
-                        </button>
-                        <Link to="/dashboard" onClick={() => setCurrentTab('home')} className="flex items-center gap-2 group">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-coral to-pink-500 p-[2px] shadow-lg shadow-coral/10 group-hover:scale-105 transition-transform">
-                                <div className="w-full h-full bg-white rounded-[10px] flex items-center justify-center overflow-hidden">
-                                    <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-7 h-7 object-cover" />
-                                </div>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+                    <Link to="/dashboard" onClick={() => setCurrentTab('home')} className="flex items-center gap-2 group">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-coral to-pink-500 p-[2px] shadow-lg shadow-coral/10 group-hover:scale-105 transition-transform">
+                            <div className="w-full h-full bg-white rounded-[10px] flex items-center justify-center overflow-hidden">
+                                <img src="/datespark-logo.png" alt="DateSpark Logo" className="w-7 h-7 object-cover" />
                             </div>
-                            <span className={`text-xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>DateSpark</span>
-                        </Link>
-                    </div>
+                        </div>
+                        <span className={`text-xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>DateSpark</span>
+                    </Link>
 
                     <div className="flex items-center gap-4">
                         {/* Desktop-only Tab Navigation */}
@@ -3838,8 +2781,8 @@ const Dashboard = () => {
                             <button
                                 onClick={() => setCurrentTab('home')}
                                 className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'home'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                        ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                        : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
                                     }`}
                             >
                                 Home
@@ -3847,8 +2790,8 @@ const Dashboard = () => {
                             <button
                                 onClick={() => setCurrentTab('favorites')}
                                 className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'favorites'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                        ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                        : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
                                     }`}
                             >
                                 Favorites
@@ -3856,8 +2799,8 @@ const Dashboard = () => {
                             <button
                                 onClick={() => setCurrentTab('discovery')}
                                 className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'discovery'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                        ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                        : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
                                     }`}
                             >
                                 Discovery
@@ -3865,8 +2808,8 @@ const Dashboard = () => {
                             <button
                                 onClick={() => setCurrentTab('events')}
                                 className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'events'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                        ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                        : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
                                     }`}
                             >
                                 Events
@@ -3950,8 +2893,8 @@ const Dashboard = () => {
 
     return (
         <div className={`min-h-screen transition-colors duration-500 relative flex flex-col font-inter overflow-hidden ${appTheme === 'dark' ? 'bg-[#060B1A] text-white' :
-            appTheme === 'sunset' ? 'bg-gradient-to-br from-coral/5 to-pink-50/50 bg-white' :
-                'bg-gray-50'
+                appTheme === 'sunset' ? 'bg-gradient-to-br from-coral/5 to-pink-50/50 bg-white' :
+                    'bg-gray-50'
             }`}>
             {/* 
                 ✨ THE MIDNIGHT GLOW ✨
@@ -3977,170 +2920,30 @@ const Dashboard = () => {
 
             {renderHeader()}
 
-            <div
-                className="flex flex-1 w-full relative"
+            <main
+                className="w-full max-w-full lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all"
                 style={{
                     paddingTop: 'calc(74px + env(safe-area-inset-top, 0px))',
                     paddingBottom: 'max(8rem, calc(5rem + env(safe-area-inset-bottom)))'
                 }}
             >
-                {/* Mobile Backdrop when expanded */}
-                {!isSidebarCollapsed && (
-                    <div
-                        className="fixed inset-0 bg-navy/20 backdrop-blur-sm z-[65] md:hidden"
-                        onClick={() => setIsSidebarCollapsed(true)}
-                    />
-                )}
-
-                {/* Collapsible Sidebar */}
-                <aside
-                    className={`flex flex-col fixed md:sticky bg-white border-r border-gray-100 transition-all duration-300 z-[70] ${isSidebarCollapsed
-                            ? 'w-0 -translate-x-full md:w-20 md:translate-x-0'
-                            : 'w-64 translate-x-0'
-                        }`}
-                    style={{
-                        top: 'calc(74px + env(safe-area-inset-top, 0px))',
-                        height: 'calc(100vh - 74px - env(safe-area-inset-top, 0px))'
-                    }}
-                >
-                    {/* Toggle Button - Desktop Only (Mobile uses Header Hamburger) */}
-                    <div className={`p-4 hidden md:flex ${isSidebarCollapsed ? 'justify-center' : 'justify-end'} border-b border-gray-50`}>
-                        <button
-                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className="p-1.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-navy transition-all shadow-sm"
-                            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-                        >
-                            {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                        </button>
-                    </div>
-
-                    {/* Navigation Links */}
-                    <nav className="flex-1 py-6 px-3 flex flex-col gap-2 overflow-y-auto">
-                        {/* Dashboard (Home) */}
-                        <button
-                            onClick={() => { setCurrentTab('home'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'home'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Home className={`w-5 h-5 shrink-0 ${currentTab === 'home' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Dashboard</span>}
-                        </button>
-
-                        {/* Events */}
-                        <button
-                            onClick={() => { setCurrentTab('events'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'events'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Ticket className={`w-5 h-5 shrink-0 ${currentTab === 'events' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Events</span>}
-                        </button>
-
-                        {/* Favorites */}
-                        <button
-                            onClick={() => { setCurrentTab('favorites'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'favorites'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Heart className={`w-5 h-5 shrink-0 ${currentTab === 'favorites' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Favorites</span>}
-                        </button>
-
-                        {/* My Plans */}
-                        <button
-                            onClick={() => { setCurrentTab('plans'); setActiveTab('all'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'plans' && activeTab === 'all'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Calendar className={`w-5 h-5 shrink-0 ${currentTab === 'plans' && activeTab === 'all' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">My Plans</span>}
-                        </button>
-
-                        {/* History */}
-                        <button
-                            onClick={() => { setCurrentTab('plans'); setActiveTab('favorites'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'plans' && activeTab === 'favorites'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <History className={`w-5 h-5 shrink-0 ${currentTab === 'plans' && activeTab === 'favorites' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">History</span>}
-                        </button>
-
-                        {/* Profile & Settings embedded */}
-                        <button
-                            onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'account'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <User className={`w-5 h-5 shrink-0 ${currentTab === 'account' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Profile</span>}
-                        </button>
-                    </nav>
-
-                    {/* Go Premium Upgrade Card */}
-                    {!isPremium && (
-                        <div className="p-3 border-t border-gray-50">
-                            {!isSidebarCollapsed ? (
-                                <div className="p-4 bg-white border border-rose-100 rounded-2xl shadow-lg shadow-coral/5 relative overflow-hidden flex flex-col items-center text-center">
-                                    <div className="absolute -right-8 -top-8 w-24 h-24 bg-coral/10 rounded-full blur-xl" />
-                                    <Crown className="w-6 h-6 text-gold fill-gold/10 mb-2 drop-shadow-sm" />
-                                    <h4 className="text-sm font-black text-navy tracking-tight mb-0.5">Go Premium</h4>
-                                    <p className="text-[10px] text-slate-400 font-bold leading-tight mb-3 max-w-[140px]">
-                                        Unlock unlimited plans, AI suggestions, and more!
-                                    </p>
-                                    <button
-                                        onClick={() => setShowUpgradeModal(true)}
-                                        className="w-full py-2 bg-gradient-to-r from-orange-500 via-coral to-pink-500 text-white font-black text-xs rounded-xl shadow-md shadow-coral/20 hover:brightness-105 active:scale-95 transition-all"
-                                    >
-                                        Upgrade Now
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex justify-center py-2">
-                                    <button
-                                        onClick={() => setShowUpgradeModal(true)}
-                                        className="w-10 h-10 bg-gradient-to-br from-orange-500 via-coral to-pink-500 rounded-xl flex items-center justify-center text-white shadow-md hover:scale-105 active:scale-95 transition-all"
-                                        title="Upgrade Now"
-                                    >
-                                        <Crown className="w-4 h-4 text-white" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </aside>
-
-                <main className="flex-1 w-full max-w-full lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={currentTab}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.3, ease: "easeOut" }}
-                        >
-                            {currentTab === 'home' && renderOverview()}
-                            {currentTab === 'favorites' && renderFavorites()}
-                            {currentTab === 'plans' && renderMyPlans()}
-                            {currentTab === 'discovery' && renderDiscovery()}
-                            {currentTab === 'events' && <EventsTab user={user} isPremium={isPremium} />}
-                            {currentTab === 'account' && renderAccount()}
-                        </motion.div>
-                    </AnimatePresence>
-                </main>
-            </div>
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentTab}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                    >
+                        {currentTab === 'home' && renderOverview()}
+                        {currentTab === 'favorites' && renderFavorites()}
+                        {currentTab === 'plans' && renderMyPlans()}
+                        {currentTab === 'discovery' && renderDiscovery()}
+                        {currentTab === 'events' && <EventsTab user={user} isPremium={isPremium} />}
+                        {currentTab === 'account' && renderAccount()}
+                    </motion.div>
+                </AnimatePresence>
+            </main>
 
             {/* View Plan Modal (Sleek Timeline UI) */}
             <AnimatePresence>
@@ -4215,14 +3018,6 @@ const Dashboard = () => {
                                         >
                                             <Sparkles className="w-3 h-3" />
                                             <span>Steal</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleRecreatePlan(selectedPlan.id)}
-                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter text-indigo-600"
-                                            title="Recreate a new variation of this date"
-                                        >
-                                            <RefreshCw className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isGenerating ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform`} />
-                                            <span className="hidden sm:inline">Recreate</span>
                                         </button>
                                         <button
                                             onClick={() => handleBoostPlan(selectedPlan.id)}
@@ -4415,8 +3210,8 @@ const Dashboard = () => {
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleSwitchUp(idx, step); }}
                                                                 className={`px-4 py-2 text-white text-[11px] font-black rounded-xl hover:shadow-lg transition-all active:scale-95 flex items-center gap-1.5 shadow-md ${selectedPlan?.user_id === user?.id
-                                                                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:shadow-indigo-500/30'
-                                                                    : 'bg-gradient-to-r from-coral to-pink-500 hover:shadow-coral/30'
+                                                                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:shadow-indigo-500/30'
+                                                                        : 'bg-gradient-to-r from-coral to-pink-500 hover:shadow-coral/30'
                                                                     }`}
                                                             >
                                                                 <Sparkles className="w-3.5 h-3.5" />
@@ -4914,18 +3709,7 @@ const Dashboard = () => {
                 </div>
             )}
 
-
-            {/* SHARE CARD MODAL */}
-            {shareCardPlan && (
-                <ShareCardModal
-                    plan={shareCardPlan}
-                    user={user}
-                    onClose={() => setShareCardPlan(null)}
-                />
-            )}
-
             {/* CUSTOMIZE PLAN MODAL (FOR TRENDING SPOTS) */}
-
             <AnimatePresence>
                 {showCustomizeModal && (
                     <motion.div
@@ -5051,37 +3835,6 @@ const Dashboard = () => {
                         >
                             <X className="w-4 h-4" />
                         </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-            {/* ── GENERATION OVERLAY ── */}
-            <AnimatePresence>
-                {isGenerating && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-navy/90 backdrop-blur-md text-white px-6 text-center"
-                    >
-                        <div className="relative mb-8">
-                            <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                                className="w-24 h-24 border-t-2 border-r-2 border-coral rounded-full"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Sparkles className="w-8 h-8 text-coral animate-pulse" />
-                            </div>
-                        </div>
-                        <h2 className="text-2xl font-black mb-3 tracking-tight text-white">Designing your Concierge Experience</h2>
-                        <p className="text-white/60 font-bold text-sm max-w-sm font-inter">
-                            {generatingStatus || 'Our AI is hand-picking the best spots for your date...'}
-                        </p>
-                        <div className="mt-8 flex gap-2">
-                            <span className="w-2 h-2 bg-coral rounded-full animate-bounce [animation-delay:-0.3s]" />
-                            <span className="w-2 h-2 bg-coral rounded-full animate-bounce [animation-delay:-0.15s]" />
-                            <span className="w-2 h-2 bg-coral rounded-full animate-bounce" />
-                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>

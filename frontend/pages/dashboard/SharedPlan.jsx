@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard, Music, Camera, Palette, Trophy, Mic2 } from 'lucide-react';
+import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard, Music, Camera, Palette, Trophy, Mic2, Target, CheckCircle2, Shuffle, Wallet, Umbrella } from 'lucide-react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGoogleMaps } from '../../lib/googleMaps';
@@ -37,6 +37,56 @@ const makeSvgPin = (label, fill, isSelected) => {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
+const ScorePill = ({ label, value }) => (
+    <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight">{label}</span>
+            <span className="text-sm font-black text-navy">{value}</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-full rounded-full bg-coral" style={{ width: `${Math.min(100, Math.max(0, value || 0))}%` }} />
+        </div>
+    </div>
+);
+
+const DateSparkScoreCard = ({ score }) => {
+    if (!score) return null;
+    const rows = [
+        ['Vibe Match', score.vibeMatch],
+        ['Budget Fit', score.budgetFit],
+        ['Travel Ease', score.travelEase],
+        ['Reservation Risk', score.reservationRisk],
+        ['Weather Safety', score.weatherSafety],
+        ['Conversation', score.conversationPotential],
+    ];
+
+    return (
+        <section className="w-full mb-8 bg-white border border-gray-100 rounded-[2rem] p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                <div>
+                    <p className="text-[10px] font-black text-coral uppercase tracking-widest mb-1">DateSpark Score</p>
+                    <h2 className="text-2xl font-black text-navy leading-tight">Why this night works</h2>
+                </div>
+                <div className="w-20 h-20 rounded-3xl bg-navy text-white flex flex-col items-center justify-center shadow-xl flex-shrink-0">
+                    <span className="text-3xl font-black leading-none">{score.overall}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Overall</span>
+                </div>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+                {rows.map(([label, value]) => <ScorePill key={label} label={label} value={value} />)}
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+                {(score.whyItWorks || []).map((note) => (
+                    <div key={note} className="flex gap-3 rounded-2xl bg-coral/5 border border-coral/10 p-3">
+                        <CheckCircle2 className="w-4 h-4 text-coral mt-0.5 flex-shrink-0" />
+                        <p className="text-sm font-bold text-navy/70 leading-snug">{note}</p>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
 const SharedPlan = () => {
     const { id } = useParams();
     const [plan, setPlan] = useState(null);
@@ -45,6 +95,7 @@ const SharedPlan = () => {
     const [appTheme] = useState(() => localStorage.getItem('appTheme') || 'light');
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [partnerFeedback, setPartnerFeedback] = useState({});
     const mapRef = useRef(null);
 
     useEffect(() => {
@@ -52,6 +103,28 @@ const SharedPlan = () => {
             setIsLoggedIn(!!session?.user);
         });
     }, []);
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(`datespark_partner_feedback_${id}`);
+            if (saved) setPartnerFeedback(JSON.parse(saved));
+        } catch {
+            setPartnerFeedback({});
+        }
+    }, [id]);
+
+    const savePartnerFeedback = (next) => {
+        setPartnerFeedback(next);
+        localStorage.setItem(`datespark_partner_feedback_${id}`, JSON.stringify(next));
+    };
+
+    const handlePartnerVote = (key, value) => {
+        const next = {
+            ...partnerFeedback,
+            [key]: partnerFeedback[key] === value ? null : value
+        };
+        savePartnerFeedback(next);
+    };
 
     const onMapLoad = useCallback((map) => {
         mapRef.current = map;
@@ -145,6 +218,8 @@ const SharedPlan = () => {
     const itinerarySteps = Array.isArray(plan.itinerary)
         ? plan.itinerary
         : (plan.itinerary?.steps || plan.plan_content || []);
+    const dateSparkScore = plan.itinerary?.metadata?.dateSparkScore;
+    const budgetMode = plan.itinerary?.metadata?.budgetMode;
 
     const mapCenter = itinerarySteps.length > 0
         ? { lat: parseFloat(itinerarySteps[0].lat), lng: parseFloat(itinerarySteps[0].lng) }
@@ -213,8 +288,50 @@ const SharedPlan = () => {
                                 : plan.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]
                         }</span>
                         <span className="flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-lg shadow-sm border border-green-100 font-bold uppercase text-xs tracking-wider">{plan.budget}</span>
+                        {budgetMode && (
+                            <span className="flex items-center gap-1.5 bg-coral/10 text-coral px-3 py-1.5 rounded-lg shadow-sm border border-coral/10 font-bold uppercase text-xs tracking-wider"><Wallet className="w-4 h-4" /> {budgetMode.replace('_', ' ')}</span>
+                        )}
                     </div>
                 </div>
+
+                <DateSparkScoreCard score={dateSparkScore} />
+
+                <section className="w-full mb-8 bg-white border border-gray-100 rounded-[2rem] p-5 sm:p-6 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                        <div>
+                            <p className="text-[10px] font-black text-coral uppercase tracking-widest mb-1">Partner Check</p>
+                            <h2 className="text-2xl font-black text-navy leading-tight">Make the plan easy to say yes to</h2>
+                        </div>
+                        <MessageSquare className="w-7 h-7 text-coral" />
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                        {[
+                            { key: 'overall', value: 'love', label: 'Love it', icon: CheckCircle2 },
+                            { key: 'overall', value: 'swap', label: 'Swap a stop', icon: Shuffle },
+                            { key: 'overall', value: 'budget', label: 'Too expensive', icon: Wallet },
+                            { key: 'overall', value: 'weather', label: 'Need backup', icon: Umbrella },
+                        ].map((action) => {
+                            const Icon = action.icon;
+                            const isActive = partnerFeedback[action.key] === action.value;
+                            return (
+                                <button
+                                    type="button"
+                                    key={action.value}
+                                    onClick={() => handlePartnerVote(action.key, action.value)}
+                                    className={`min-h-[64px] rounded-2xl border-2 px-3 py-3 font-black text-sm flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98] ${isActive ? 'bg-navy text-white border-navy shadow-lg' : 'bg-gray-50 text-navy border-gray-100 hover:border-coral/30'}`}
+                                >
+                                    <Icon className={`w-4 h-4 ${isActive ? 'text-coral' : 'text-gray-400'}`} />
+                                    {action.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {partnerFeedback.overall && (
+                        <p className="mt-4 text-sm font-bold text-gray-500">
+                            Saved on this device: {partnerFeedback.overall === 'love' ? 'ready to confirm' : partnerFeedback.overall === 'swap' ? 'partner wants a swap' : partnerFeedback.overall === 'budget' ? 'budget needs another look' : 'weather backup requested'}.
+                        </p>
+                    )}
+                </section>
 
                 {/* Split View: Timeline + Map */}
                 <div className="w-full min-h-[600px] bg-transparent md:bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col md:flex-row relative animate-in fade-in zoom-in-95 duration-700 delay-100 border border-gray-100">
@@ -293,6 +410,12 @@ const SharedPlan = () => {
                                                 )}
 
                                                 <p className="text-gray-500 font-medium mb-3 font-inter">{step.description}</p>
+                                                {step.planning_note && (
+                                                    <div className="mb-4 flex gap-2 rounded-2xl bg-navy/5 border border-navy/10 p-3">
+                                                        <Sparkles className="w-4 h-4 text-coral mt-0.5 flex-shrink-0" />
+                                                        <p className="text-[12px] font-bold text-navy/70 leading-snug">{step.planning_note}</p>
+                                                    </div>
+                                                )}
 
                                                 {step.photoUrl && (
                                                     <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
@@ -368,6 +491,29 @@ const SharedPlan = () => {
                                                             <Car className="w-3 h-3" /> Get a Ride
                                                         </a>
                                                     )}
+                                                </div>
+                                                <div className="mt-4 grid grid-cols-3 gap-2">
+                                                    {[
+                                                        { value: 'love', label: 'Love' },
+                                                        { value: 'swap', label: 'Swap' },
+                                                        { value: 'skip', label: 'Skip' },
+                                                    ].map((vote) => {
+                                                        const key = `stop_${idx}`;
+                                                        const isActive = partnerFeedback[key] === vote.value;
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                key={vote.value}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handlePartnerVote(key, vote.value);
+                                                                }}
+                                                                className={`py-2.5 rounded-xl border text-[11px] font-black transition-all active:scale-[0.98] ${isActive ? 'bg-coral text-white border-coral' : 'bg-white text-gray-500 border-gray-100 hover:border-coral/30'}`}
+                                                            >
+                                                                {vote.label}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </motion.div>

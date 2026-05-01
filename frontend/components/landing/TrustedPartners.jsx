@@ -9,7 +9,7 @@ const TrustedPartners = () => {
                 <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center text-white rotate-3">
                     <Star className="w-5 h-5 fill-current" />
                 </div>
-                <span className="text-xl font-black tracking-tight text-navy">Yelp</span>
+                <span className="text-xl font-black tracking-tighter text-navy uppercase">YELP</span>
             </div>
         ),
         (
@@ -17,7 +17,7 @@ const TrustedPartners = () => {
                 <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center text-white -rotate-3">
                     <MapPin className="w-5 h-5 fill-current" />
                 </div>
-                <span className="text-xl font-bold tracking-tight text-navy">Google Maps</span>
+                <span className="text-xl font-black tracking-tighter text-navy uppercase">GOOGLE MAPS</span>
             </div>
         ),
         (
@@ -25,7 +25,7 @@ const TrustedPartners = () => {
                 <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white rotate-6">
                     <Navigation2 className="w-5 h-5 fill-current" />
                 </div>
-                <span className="text-xl font-light tracking-wide text-navy">Uber</span>
+                <span className="text-xl font-black tracking-tighter text-navy uppercase">UBER</span>
             </div>
         ),
         (
@@ -33,7 +33,7 @@ const TrustedPartners = () => {
                 <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center text-white -rotate-6">
                     <Utensils className="w-5 h-5" />
                 </div>
-                <span className="text-xl font-serif font-black tracking-tight text-navy">OpenTable</span>
+                <span className="text-xl font-black tracking-tighter text-navy uppercase">OPENTABLE</span>
             </div>
         ),
         (
@@ -41,18 +41,34 @@ const TrustedPartners = () => {
                 <div className="w-10 h-10 bg-[#f05537] rounded-xl flex items-center justify-center text-white rotate-3">
                     <Ticket className="w-5 h-5" />
                 </div>
-                <span className="text-xl font-black tracking-tight text-navy">EventBrite</span>
+                <span className="text-xl font-black tracking-tighter text-navy uppercase">EVENTBRITE</span>
+            </div>
+        ),
+        (
+            <div key="seatgeek" className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300 flex-shrink-0">
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white -rotate-6">
+                    <Ticket className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-black tracking-tighter text-navy uppercase">SEATGEEK</span>
+            </div>
+        ),
+        (
+            <div key="ticketmaster" className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300 flex-shrink-0">
+                <div className="w-10 h-10 bg-blue-800 rounded-xl flex items-center justify-center text-white rotate-6">
+                    <Star className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-black tracking-tighter text-navy uppercase">TICKETMASTER</span>
             </div>
         )
     ];
 
     return (
         <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.6 }}
-            className="py-12 bg-white border-t border-b border-gray-100 overflow-hidden relative"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+            className="py-16 bg-white border-t border-b border-gray-50 overflow-hidden relative"
         >
             <style>{`
                 @keyframes scroll {
@@ -60,29 +76,26 @@ const TrustedPartners = () => {
                     100% { transform: translateX(-50%); }
                 }
                 .animate-scroll {
-                    animation: scroll 20s linear infinite;
+                    animation: scroll 30s linear infinite;
                 }
             `}</style>
 
-            <div className="container-custom">
-                <p className="text-center text-sm font-bold text-gray-400 uppercase tracking-widest mb-8">
-                    Powered by real data from trusted partners
+            <div className="container-custom relative">
+                <p className="text-center text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] mb-12">
+                    OFFICIALLY INTEGRATED WITH WORLD-CLASS PARTNERS
                 </p>
 
                 {/* Logo Carousel sliding marquee */}
-                <div className="flex overflow-hidden relative w-full">
-                    <div className="flex animate-scroll items-center opacity-60 hover:opacity-100 transition-opacity duration-500 w-max">
-
+                <div className="flex overflow-hidden relative w-full [mask-image:linear-gradient(to_right,transparent,white_15%,white_85%,transparent)]">
+                    <div className="flex animate-scroll items-center opacity-40 hover:opacity-100 transition-opacity duration-700 w-max">
                         {/* Track 1 */}
-                        <div className="flex items-center space-x-12 md:space-x-24 pr-12 md:pr-24">
+                        <div className="flex items-center space-x-16 md:space-x-32 pr-16 md:pr-32">
                             {partnerNodes}
                         </div>
-
-                        {/* Track 2 for seamless loop layout fits */}
-                        <div className="flex items-center space-x-12 md:space-x-24 pr-12 md:pr-24">
+                        {/* Track 2 for seamless loop */}
+                        <div className="flex items-center space-x-16 md:space-x-32 pr-16 md:pr-32">
                             {partnerNodes}
                         </div>
-
                     </div>
                 </div>
             </div>

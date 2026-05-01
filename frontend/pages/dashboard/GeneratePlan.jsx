@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X } from 'lucide-react';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X, Wallet, Umbrella, Martini, Footprints, BadgeDollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConceptSkeleton } from '../../components/ui/SkeletonLoader';
 import DateArchitectChat from '../../components/dashboard/DateArchitectChat';
-import { isLocationInServiceArea } from '../../lib/geo';
 import { supabase } from '../../lib/supabase';
 import { useGoogleMaps } from '../../lib/googleMaps';
 import BottomNav from '../../components/common/BottomNav';
@@ -17,7 +16,24 @@ import { setFlashMessage } from '../../lib/flashMessage';
 /** Must match server.js `/api/user-usage` defaults until fetch completes */
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
-const GeneratePlan = ({ isGuestMode = false }) => {
+const BUDGET_MODES = [
+    { id: 'wallet', label: 'Under $50', hint: 'Free/cheap anchors', value: '$50', icon: Wallet },
+    { id: 'smart', label: 'Under $100', hint: 'Best value flow', value: '$100', icon: BadgeDollarSign },
+    { id: 'free_first', label: 'Free + Food', hint: 'Save on the opener', value: '$75', icon: Footprints },
+    { id: 'happy_hour', label: 'Happy Hour', hint: 'Drinks and bites', value: '$80', icon: Martini },
+    { id: 'splurge', label: 'Splurge', hint: 'Premium night out', value: '$250', icon: Sparkles },
+    { id: 'no_reservation', label: 'No Reservation', hint: 'Flexible walk-ins', value: '$120', icon: Umbrella },
+];
+
+const NEIGHBORHOOD_PACKS = [
+    { label: 'West Village Romance', neighborhoods: ['West Village', 'Greenwich Village'], vibe: 'romantic', budgetMode: 'smart' },
+    { label: 'Brooklyn Creative', neighborhoods: ['Williamsburg', 'Dumbo', 'Greenpoint'], vibe: 'artistic', budgetMode: 'smart' },
+    { label: 'Jersey Waterfront', neighborhoods: ['Jersey City', 'Hoboken'], vibe: 'romantic', budgetMode: 'free_first' },
+    { label: 'Rainy Manhattan', neighborhoods: ['Chelsea', 'Flatiron', 'SoHo'], vibe: 'chill', budgetMode: 'no_reservation' },
+    { label: 'Late Night LES', neighborhoods: ['Lower East Side', 'East Village'], vibe: 'party', budgetMode: 'happy_hour' },
+];
+
+const GeneratePlan = () => {
     const navigate = useNavigate();
     const [user, setUser] = React.useState(null);
     const [, setAuthLoading] = React.useState(true);
@@ -32,9 +48,10 @@ const GeneratePlan = ({ isGuestMode = false }) => {
 
     // Core states
     const [searchParams] = useSearchParams();
-    const initialMode = searchParams.get('mode') === 'ai' ? 'ai_custom' : 'classic';
+    const urlPrompt = searchParams.get('prompt') || searchParams.get('vibe') || '';
+    const initialMode = (searchParams.get('mode') === 'ai' || urlPrompt) ? 'ai_custom' : 'classic';
     const [mode, setMode] = useState(initialMode); // 'classic' or 'ai_custom'
-    const [isSelectionSkipped, setIsSelectionSkipped] = useState(searchParams.get('mode') === 'ai');
+    const [isSelectionSkipped, setIsSelectionSkipped] = useState(searchParams.get('mode') === 'ai' || !!urlPrompt);
     // --- FREEMIUM LOGIC STATE ---
     const [isPremium, setIsPremium] = useState(() => {
         // Admin Override Initialization
@@ -83,11 +100,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
     // Initialize Auth Session
     React.useEffect(() => {
         const initAuth = async () => {
-            if (isGuestMode) {
-                setUser(null);
-                setAuthLoading(false);
-                return;
-            }
             try {
                 const { data: { user: currentUser } } = await supabase.auth.getUser();
                 setUser(currentUser);
@@ -137,6 +149,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                             ...prev,
                             vibe: vp.primaryVibe || prev.vibe,
                             budget: vp.budget || prev.budget,
+                            budgetMode: vp.budget === 'budget' ? 'wallet' : vp.budget === 'premium' ? 'splurge' : prev.budgetMode,
                         }));
                         setAiBudget(vp.budget || '');
                     }
@@ -149,7 +162,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
         };
 
         initAuth();
-        if (isGuestMode) return;
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             const newUser = session?.user || null;
             setUser(newUser);
@@ -264,49 +276,94 @@ const GeneratePlan = ({ isGuestMode = false }) => {
         "Almost there! Finalizing your itinerary..."
     ];
 
-    const handleLocationChange = (val) => {
-        setFormData({ ...formData, location: val, usePreciseLocation: false });
+    const handleLocationChange = async (val) => {
+        setFormData(prev => ({ ...prev, location: val, usePreciseLocation: false }));
         
-        if (!val || val.length < 3 || !autocompleteService) {
+        if (!val || val.length < 3) {
             setSuggestions([]);
             setShowSuggestions(false);
             return;
         }
 
-        autocompleteService.getPlacePredictions(
-            {
-                input: val,
-                types: ['geocode', 'establishment'],
-            },
-            (predictions, status) => {
-                if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-                    setSuggestions(predictions);
+        try {
+            if (window.google?.maps?.importLibrary) {
+                const { AutocompleteSuggestion } = await window.google.maps.importLibrary("places");
+                const { suggestions: newSuggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+                    input: val,
+                    includedPrimaryTypes: ['geocode', 'establishment'],
+                });
+                
+                if (newSuggestions && newSuggestions.length > 0) {
+                    const mapped = newSuggestions.map(s => ({
+                        place_id: s.placePrediction.placeId,
+                        description: s.placePrediction.text.text,
+                        structured_formatting: {
+                            main_text: s.placePrediction.text.text.split(',')[0],
+                            secondary_text: s.placePrediction.text.text.split(',').slice(1).join(',').trim()
+                        }
+                    }));
+                    setSuggestions(mapped);
                     setShowSuggestions(true);
-                } else {
-                    setSuggestions([]);
-                    setShowSuggestions(false);
+                    return;
                 }
             }
-        );
+            
+            if (autocompleteService) {
+                autocompleteService.getPlacePredictions(
+                    { input: val, types: ['geocode', 'establishment'] },
+                    (predictions, status) => {
+                        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+                            setSuggestions(predictions);
+                            setShowSuggestions(true);
+                        } else {
+                            setSuggestions([]);
+                            setShowSuggestions(false);
+                        }
+                    }
+                );
+            }
+        } catch (err) {
+            console.error("Autocomplete error:", err);
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
     };
 
-    const handleSelectSuggestion = (suggestion) => {
+    const handleSelectSuggestion = async (suggestion) => {
         setFormData(prev => ({ ...prev, location: suggestion.description }));
         setShowSuggestions(false);
 
-        if (placesService && suggestion.place_id) {
-            placesService.getDetails(
-                { placeId: suggestion.place_id, fields: ['geometry'] },
-                (place, status) => {
-                    if (status === window.google.maps.places.PlacesServiceStatus.OK && place.geometry) {
-                        setFormData(prev => ({
-                            ...prev,
-                            lat: place.geometry.location.lat(),
-                            lng: place.geometry.location.lng()
-                        }));
-                    }
+        try {
+            if (window.google?.maps?.importLibrary) {
+                const { Place } = await window.google.maps.importLibrary("places");
+                const place = new Place({ id: suggestion.place_id });
+                await place.fetchFields({ fields: ['location'] });
+                if (place.location) {
+                    setFormData(prev => ({
+                        ...prev,
+                        lat: place.location.lat(),
+                        lng: place.location.lng()
+                    }));
+                    return;
                 }
-            );
+            }
+            
+            if (placesService && suggestion.place_id) {
+                placesService.getDetails(
+                    { placeId: suggestion.place_id, fields: ['geometry'] },
+                    (place, status) => {
+                        if (status === window.google.maps.places.PlacesServiceStatus.OK && place.geometry) {
+                            setFormData(prev => ({
+                                ...prev,
+                                lat: place.geometry.location.lat(),
+                                lng: place.geometry.location.lng()
+                            }));
+                        }
+                    }
+                );
+            }
+        } catch (err) {
+            console.error("Place details error:", err);
         }
     };
 
@@ -315,12 +372,12 @@ const GeneratePlan = ({ isGuestMode = false }) => {
         "Chelsea", "Tribeca", "Upper East Side", "Upper West Side", "Hell's Kitchen",
         "Financial District", "Williamsburg", "Dumbo", "Greenpoint", "Bushwick",
         "Astoria", "Long Island City", "Harlem", "Brooklyn Heights", "Prospect Heights",
-        "Fort Greene", "Park Slope"
+        "Fort Greene", "Park Slope", "Jersey City", "Hoboken"
     ];
 
 
     // AI Flow states
-    const [initialPrompt, setInitialPrompt] = useState('');
+    const [initialPrompt, setInitialPrompt] = useState(urlPrompt || '');
     const [refinePrompt, setRefinePrompt] = useState('');
     const [conversationHistory, setConversationHistory] = useState([]);
     const [aiConcepts, setAiConcepts] = useState([]);
@@ -340,6 +397,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
         time: '18:00',
         endTime: '22:00',
         budget: '',
+        budgetMode: 'smart',
         interests: 'Any',
         radius: 8046, 
         dietary: [],
@@ -351,12 +409,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
     });
 
     const [locationLoading, setLocationLoading] = useState(false);
-    const [showWaitlistModal, setShowWaitlistModal] = useState(false);
-    const [detectedCity, setDetectedCity] = useState('');
-    const [waitlistEmail, setWaitlistEmail] = useState('');
-    const [waitlistLoading, setWaitlistLoading] = useState(false);
-    const [waitlistSuccess, setWaitlistSuccess] = useState(false);
-    const [waitlistError, setWaitlistError] = useState(null);
 
     const handlePreciseLocation = () => {
         if (!navigator.geolocation) {
@@ -406,12 +458,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                         }
 
                         // GATING: Check if this detected point is in our service area
-                        if (!isLocationInServiceArea(readableLocation, latitude, longitude)) {
-                            setDetectedCity(readableLocation);
-                            setShowWaitlistModal(true);
-                            setLocationLoading(false);
-                            return;
-                        }
 
                         setFormData(prev => ({
                             ...prev,
@@ -424,12 +470,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                     });
                 } else {
                     // Fallback without Geocoder
-                    if (!isLocationInServiceArea('Current Location', latitude, longitude)) {
-                        setDetectedCity('your area');
-                        setShowWaitlistModal(true);
-                        setLocationLoading(false);
-                        return;
-                    }
 
                     setFormData(prev => ({
                         ...prev,
@@ -464,6 +504,27 @@ const GeneratePlan = ({ isGuestMode = false }) => {
         });
     };
 
+    const applyBudgetMode = (mode) => {
+        setFormData(prev => ({
+            ...prev,
+            budgetMode: mode.id,
+            budget: mode.value
+        }));
+        setAiBudget(mode.value);
+    };
+
+    const applyNeighborhoodPack = (pack) => {
+        const matchingBudget = BUDGET_MODES.find(mode => mode.id === pack.budgetMode);
+        setFormData(prev => ({
+            ...prev,
+            vibe: pack.vibe,
+            budgetMode: pack.budgetMode,
+            budget: matchingBudget?.value || prev.budget,
+            neighborhoods: pack.neighborhoods
+        }));
+        if (matchingBudget?.value) setAiBudget(matchingBudget.value);
+    };
+
     const handleModeSwitch = (newMode) => {
         if (newMode === 'ai_custom' && !isPremium && usage.guided >= limits.guided) {
             setLimitType('guided');
@@ -484,12 +545,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
             return;
         }
 
-        // GATING: Ensure we are in NYC or Jersey
-        if (!isLocationInServiceArea(formData.location, formData.lat, formData.lng)) {
-            setDetectedCity(formData.location.split(',')[0]);
-            setShowWaitlistModal(true);
-            return;
-        }
 
         if (!isPremium && usage.guided >= limits.guided) {
             setLimitType('guided');
@@ -504,7 +559,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
         setAiConcepts(['INIT']); 
     };
 
-    const handleGenerateCustom = async (e, forcedConcept = null) => {
+    const handleGenerateCustom = async (e, forcedConcept = null, forcedSettings = null) => {
         if (e && e.preventDefault) e.preventDefault();
         
         const conceptToUse = forcedConcept || (selectedConceptIndex !== null ? aiConcepts[selectedConceptIndex] : null);
@@ -530,11 +585,15 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                     userId: currentUser.id,
                     concept: conceptToUse,
                     date: formData.date,
-                    budget: aiBudget,
-                    radius: customRadius,
-                    location: formData.location,
+                    budget: forcedSettings?.budget || aiBudget || formData.budget,
+                    budgetMode: formData.budgetMode,
+                    radius: forcedSettings?.radius || customRadius,
+                    location: forcedSettings?.location || formData.location,
                     lat: formData.lat,
                     lng: formData.lng,
+                    dietary: formData.dietary,
+                    neighborhoods: formData.neighborhoods,
+                    interests: formData.interests,
                     is_favorite: formData.is_favorite
                 })
             });
@@ -573,30 +632,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
         }
     };
 
-    const handleWaitlistSubmit = async (e) => {
-        if (e) e.preventDefault();
-        if (!waitlistEmail) return;
-        setWaitlistLoading(true);
-        setWaitlistError(null);
-        try {
-            const response = await fetch('/api/waitlist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: waitlistEmail })
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setWaitlistSuccess(true);
-            } else {
-                setWaitlistError(data.error || 'Failed to join waitlist');
-            }
-        } catch (err) {
-            console.error('Waitlist join error:', err);
-            setWaitlistError('Network error. Please try again.');
-        } finally {
-            setWaitlistLoading(false);
-        }
-    };
 
     const handleSubmitClassic = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
@@ -610,12 +645,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
 
         setError(null);
 
-        // --- SERVICE AREA GATING (NYC & NJ ONLY) ---
-        if (!isLocationInServiceArea(formData.location, formData.lat, formData.lng)) {
-            setDetectedCity(formData.location.split(',')[0]);
-            setShowWaitlistModal(true);
-            return;
-        }
 
         if (!isPremium && usage.classic >= limits.classic) {
             setLimitType('classic');
@@ -628,84 +657,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
             try {
                 if (!isOnline) throw new Error('You appear to be offline. Check your connection.');
 
-                if (isGuestMode) {
-                    // Check if demo was used within the last 24 hours
-                    const demoTimestamp = localStorage.getItem('datespark_demo_ts');
-                    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-                    const alreadyUsed = demoTimestamp && (Date.now() - parseInt(demoTimestamp, 10)) < TWENTY_FOUR_HOURS;
-
-                    if (alreadyUsed) {
-                        setIsGenerating(false);
-                        setError("You've already used your free demo today. Sign up free to generate unlimited plans!");
-                        setLimitType('classic');
-                        setShowPremiumModal(true);
-                        return;
-                    }
-
-                    // Clear any expired flags
-                    if (demoTimestamp && !alreadyUsed) {
-                        localStorage.removeItem('datespark_demo_ts');
-                        localStorage.removeItem('datespark_demo_plan');
-                    }
-                    
-                    const response = await fetch('/api/guest-generate-date', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            location: formData.location,
-                            date: formData.date,
-                            time: formData.time,
-                            vibe: formData.vibe,
-                            budget: formData.budget,
-                            lat: formData.lat,
-                            lng: formData.lng,
-                            duration: 4,
-                            usePreciseLocation: formData.usePreciseLocation
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const result = await response.json();
-                        if (response.status === 429) {
-                            // Backend rate limit hit — show sign-up modal
-                            setIsGenerating(false);
-                            setError(result.error || 'Daily demo limit reached.');
-                            setLimitType('classic');
-                            setShowPremiumModal(true);
-                            // Stamp the timestamp so frontend also blocks future attempts
-                            localStorage.setItem('datespark_demo_ts', Date.now().toString());
-                            return;
-                        }
-                        throw new Error(result.error || 'Failed to generate plan.');
-                    }
-
-                    const data = await response.json();
-                    const guestPlan = data[0]; 
-                    
-                    const simulatedRecord = {
-                        id: 'demo-preview',
-                        vibe: formData.vibe,
-                        location: formData.location,
-                        budget: formData.budget || '$$',
-                        itinerary: {
-                            steps: guestPlan.itinerary?.steps || [],
-                            metadata: {
-                                isPreviewPlan: false,
-                                planDate: formData.date
-                            }
-                        },
-                        created_at: new Date().toISOString()
-                    };
-
-                    // Stamp the 24h timestamp so they can't generate again today
-                    localStorage.setItem('datespark_demo_plan', JSON.stringify(simulatedRecord));
-                    localStorage.setItem('datespark_demo_ts', Date.now().toString());
-                    // Keep backward compat key
-                    localStorage.setItem('datespark_demo_used', 'true');
-                    setFlashMessage('Plan ready! Opening preview...');
-                    navigate('/shared/demo-preview');
-                    return;
-                }
 
                 const currentUser = user || (await supabase.auth.getUser()).data.user;
                 if (!currentUser) throw new Error('You must be logged in.');
@@ -744,12 +695,8 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                     setUsage(prev => ({ ...prev, classic: prev.classic + 1 }));
                 }
 
-                setFlashMessage('Plan ready — opening your itinerary!');
-                if (firstPlanId) {
-                    navigate(`/shared/${firstPlanId}`);
-                } else {
-                    navigate('/dashboard');
-                }
+                setFlashMessage('Plan ready — opening your dashboard!');
+                navigate('/dashboard');
             } catch (err) {
                 setError(err.message === 'Failed to fetch' ? 'Network error. We will save your data so you can retry!' : err.message);
                 setIsGenerating(false);
@@ -775,11 +722,11 @@ const GeneratePlan = ({ isGuestMode = false }) => {
             
             <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <Link to={isGuestMode ? '/signup' : '/dashboard'} className="flex items-center gap-2 text-navy hover:text-coral transition-all font-black text-sm group">
+                    <Link to="/dashboard" className="flex items-center gap-2 text-navy hover:text-coral transition-all font-black text-sm group">
                         <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-coral/10 group-hover:scale-110 transition-all">
                             <ArrowLeft className="w-4 h-4" />
                         </div>
-                        {isGuestMode ? 'Sign Up Free' : 'Back'}
+                        Back
                     </Link>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-coral/20 to-pink-500/20 rounded-xl p-[1px]">
@@ -790,7 +737,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
                     </div>
                     {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) — never shown to guests */}
-                    {(!isGuestMode && import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
+                    {(import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
                         <div className="hidden md:flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button
@@ -817,7 +764,7 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                 </div>
             </header>
 
-            <main className="flex-grow flex flex-col pt-6 pb-24 px-4 sm:px-6 relative z-10 w-full max-w-2xl mx-auto">
+            <main className={`flex-grow flex flex-col pt-6 pb-24 px-4 sm:px-6 relative z-10 w-full mx-auto transition-all duration-500 ${mode === 'ai_custom' ? 'max-w-5xl' : 'max-w-2xl'}`}>
                 <div className="text-center mb-8 sm:mb-12 relative animate-in fade-in slide-in-from-top-4 duration-700">
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-50 text-violet-600 rounded-full border border-violet-100 mb-4 sm:mb-6 group cursor-default shadow-sm animate-pulse">
                         <Sparkles className="w-3 h-3 group-hover:rotate-12 transition-transform" />
@@ -849,14 +796,14 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                             >
                                 <div className="flex items-center gap-2 sm:gap-3">
                                     <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
-                                    Create your own
+                                    Sparky AI Builder
                                 </div>
                             </button>
                         </div>
                         <p className="text-center text-[12px] sm:text-sm text-gray-500 font-medium px-2 -mt-4 mb-6 max-w-xl mx-auto leading-relaxed">
                             <span className="font-bold text-navy">Guided Builder</span> — step-by-step vibe, budget, and map-friendly itinerary.
                             {' '}
-                            <span className="font-bold text-navy">Create your own</span> — describe the night in your words, pick an AI concept, then generate.
+                            <span className="font-bold text-navy">Sparky AI Builder</span> — describe the night in your words, pick an AI concept, then generate.
                         </p>
                     </>
                 )}
@@ -916,11 +863,16 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                                     setAiBudget(budget);
                                     setCustomRadius(radius);
                                 }}
-                                onConceptSelected={(concept) => {
+                                onConceptSelected={(concept, settings) => {
                                     setAiConcepts([concept]);
                                     setSelectedConceptIndex(0);
+                                    if (settings) {
+                                        setFormData(prev => ({ ...prev, location: settings.location }));
+                                        setAiBudget(settings.budget);
+                                        setCustomRadius(settings.radius);
+                                    }
                                     const fakeEvent = { preventDefault: () => {} };
-                                    setTimeout(() => handleGenerateCustom(fakeEvent, concept), 100);
+                                    setTimeout(() => handleGenerateCustom(fakeEvent, concept, settings), 100);
                                 }}
                             />
                         </motion.div>
@@ -1032,16 +984,16 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                                             onChange={(e) => setFormData({ ...formData, vibe: e.target.value })}
                                             className="w-full px-6 py-5 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[15px] font-bold text-navy shadow-sm appearance-none cursor-pointer transition-all hover:border-gray-200"
                                         >
-                                            <option value="chill">Chill & Cozy 🛋️</option>
-                                            <option value="romantic">Romantic & Intimate ❤️</option>
-                                            <option value="active">Active & Adventurous 🍦</option>
-                                            <option value="fancy">Fancy & Upscale ✨</option>
-                                            <option value="hidden">Hidden Gems & Unique 💎</option>
-                                            <option value="artistic">Artistic & Cultural 🎨</option>
-                                            <option value="playful">Playful & Competitive 🎮</option>
-                                            <option value="nature">Nature & Serenity 🌿</option>
-                                            <option value="party">Night Owl & Party 🌙</option>
-                                            <option value="educational">Educational & Curious 🧠</option>
+                                            <option value="chill">Chill & Cozy</option>
+                                            <option value="romantic">Romantic & Intimate</option>
+                                            <option value="active">Active & Adventurous</option>
+                                            <option value="fancy">Fancy & Upscale</option>
+                                            <option value="hidden">Hidden Gems & Unique</option>
+                                            <option value="artistic">Artistic & Cultural</option>
+                                            <option value="playful">Playful & Competitive</option>
+                                            <option value="nature">Nature & Serenity</option>
+                                            <option value="party">Night Owl & Party</option>
+                                            <option value="educational">Educational & Curious</option>
                                         </select>
                                         <Sliders className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 w-5 h-5" />
                                     </div>
@@ -1049,8 +1001,28 @@ const GeneratePlan = ({ isGuestMode = false }) => {
 
                                 <div className="space-y-6">
                                     <div className="flex justify-between items-center px-1">
-                                        <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Budget Range</h4>
-                                        <span className="text-sm font-black text-coral">{formData.budget || '$0'}</span>
+                                        <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Budget Strategy</h4>
+                                        <span className="text-sm font-black text-coral">{BUDGET_MODES.find(mode => mode.id === formData.budgetMode)?.label || formData.budget || '$0'}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {BUDGET_MODES.map((mode) => {
+                                            const Icon = mode.icon;
+                                            const isActive = formData.budgetMode === mode.id;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={mode.id}
+                                                    onClick={() => applyBudgetMode(mode)}
+                                                    className={`min-h-[76px] rounded-2xl border-2 p-3 text-left transition-all active:scale-[0.98] ${isActive ? 'border-coral bg-coral text-white shadow-lg shadow-coral/20' : 'border-gray-100 bg-white text-navy hover:border-coral/30'}`}
+                                                >
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-coral'}`} />
+                                                        <span className="text-[12px] font-black leading-tight">{mode.label}</span>
+                                                    </div>
+                                                    <p className={`text-[10px] font-bold leading-snug ${isActive ? 'text-white/80' : 'text-gray-400'}`}>{mode.hint}</p>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                     <input
                                         type="range"
@@ -1071,17 +1043,17 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                                             onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
                                             className="w-full px-6 py-5 bg-white border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-coral/50 text-[15px] font-bold text-navy shadow-sm appearance-none cursor-pointer transition-all hover:border-gray-200"
                                         >
-                                            <option value="Any">Everything / Mix 🎭</option>
-                                            <option value="Food & Drink">Food & Cocktails 🍹</option>
-                                            <option value="Entertainment & Culture">Shows & Culture 🏛️</option>
-                                            <option value="Outdoor Activities">Parks & Outdoor 🌳</option>
-                                            <option value="Fun & Adventure">Games & Trivia 🕹️</option>
-                                            <option value="Art & Museums">Art & Museums 🖼️</option>
-                                            <option value="Live Music">Live Music & Gigs 🎸</option>
-                                            <option value="Health & Wellness">Health & Wellness 🧘</option>
-                                            <option value="Shopping & Fashion">Shopping & Fashion 🛍️</option>
-                                            <option value="Sports & Fitness">Sports & Fitness 🏀</option>
-                                            <option value="Tech & Innovation">Tech & Innovation 💻</option>
+                                            <option value="Any">Everything / Mix</option>
+                                            <option value="Food & Drink">Food & Cocktails</option>
+                                            <option value="Entertainment & Culture">Shows & Culture</option>
+                                            <option value="Outdoor Activities">Parks & Outdoor</option>
+                                            <option value="Fun & Adventure">Games & Trivia</option>
+                                            <option value="Art & Museums">Art & Museums</option>
+                                            <option value="Live Music">Live Music & Gigs</option>
+                                            <option value="Health & Wellness">Health & Wellness</option>
+                                            <option value="Shopping & Fashion">Shopping & Fashion</option>
+                                            <option value="Sports & Fitness">Sports & Fitness</option>
+                                            <option value="Tech & Innovation">Tech & Innovation</option>
                                         </select>
                                         <Target className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 w-5 h-5" />
                                     </div>
@@ -1125,6 +1097,28 @@ const GeneratePlan = ({ isGuestMode = false }) => {
 
                                     {showDietaryOptions && (
                                         <div className="space-y-8 mt-4 p-8 bg-gray-50/80 rounded-[2.5rem] border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-300">
+                                            <div className="space-y-4">
+                                                <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">Local Date Packs</h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    {NEIGHBORHOOD_PACKS.map((pack) => (
+                                                        <button
+                                                            type="button"
+                                                            key={pack.label}
+                                                            onClick={() => applyNeighborhoodPack(pack)}
+                                                            className="p-4 rounded-2xl bg-white border-2 border-gray-100 text-left hover:border-coral/40 hover:-translate-y-0.5 transition-all active:scale-[0.98]"
+                                                        >
+                                                            <div className="flex items-center justify-between gap-3 mb-1">
+                                                                <span className="text-[13px] font-black text-navy">{pack.label}</span>
+                                                                <MapPin className="w-4 h-4 text-coral flex-shrink-0" />
+                                                            </div>
+                                                            <p className="text-[11px] font-bold text-gray-400 leading-snug">
+                                                                {pack.neighborhoods.join(' + ')}
+                                                            </p>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
                                             <div className="space-y-4">
                                                 <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">Specific Neighborhoods (Max 3)</h4>
                                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1182,13 +1176,11 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                                     type="button"
                                     onClick={handleSubmitClassic}
                                     disabled={isGenerating}
-                                    className={`w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group ${!isGuestMode ? 'sm:col-span-2' : ''}`}
+                                    className="w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group sm:col-span-2"
                                 >
-                                    {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" />{isGuestMode ? 'Generate Free Demo' : 'Generate Itineraries'}</>}
+                                    {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" />Generate Itineraries</>}
                                 </button>
 
-                                {!isGuestMode && (
-                                    <>
                                         <div className="sm:col-span-2 flex items-center gap-3 px-4 py-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
                                             <button
                                                 type="button"
@@ -1221,8 +1213,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
                                         >
                                             Cancel
                                         </button>
-                                    </>
-                                )}
 
                                 {/* Smart Loading Overlay */}
                                  {isGenerating && (
@@ -1307,87 +1297,6 @@ const GeneratePlan = ({ isGuestMode = false }) => {
 
             <BottomNav onProfileClick={() => navigate('/dashboard')} />
 
-            {/* Waitlist Modal for non-NYC locations */}
-            {showWaitlistModal && (
-                <div className="fixed inset-0 bg-navy/60 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
-                    <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-300 border border-violet-100">
-                        <button
-                            onClick={() => setShowWaitlistModal(false)}
-                            className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-all font-black"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                        
-                        <div className="w-20 h-20 bg-gradient-to-br from-violet-100 to-fuchsia-100 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-3">
-                            <Sparkles className="w-10 h-10 text-violet-600" />
-                        </div>
-                        
-                        <div className="text-center space-y-4">
-                            <h3 className="text-3xl font-black text-navy tracking-tight leading-tight">
-                                Coming to <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-500">Your City</span> Soon!
-                            </h3>
-                            <p className="text-gray-500 font-bold leading-relaxed px-2">
-                                DateSpark is currently being focus in <span className="text-navy font-black italic underline decoration-coral decoration-2">New York City and Jersey</span>. 
-                                We detected you're in <span className="text-violet-600 font-black">"{detectedCity || 'a new territory'}"</span>.
-                            </p>
-                        </div>
-
-                        <div className="mt-10">
-                            {waitlistSuccess ? (
-                                <div className="p-8 bg-green-50 border border-green-100 rounded-[2rem] text-center space-y-3 animate-in fade-in zoom-in-95 duration-500">
-                                    <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-2">
-                                        <Check className="w-6 h-6" />
-                                    </div>
-                                    <h4 className="text-xl font-black text-navy">You're on the list!</h4>
-                                    <p className="text-gray-500 font-bold text-sm">We'll email you the second we launch in {detectedCity || 'your city'}.</p>
-                                    <button
-                                        onClick={() => setShowWaitlistModal(false)}
-                                        className="mt-4 text-green-600 text-sm font-black uppercase tracking-widest hover:underline"
-                                    >
-                                        I'll stay in NYC for now
-                                    </button>
-                                </div>
-                            ) : (
-                                <form onSubmit={handleWaitlistSubmit} className="space-y-4">
-                                    <div className="relative">
-                                        <input
-                                            type="email"
-                                            placeholder="Enter your email..."
-                                            required
-                                            value={waitlistEmail}
-                                            onChange={(e) => setWaitlistEmail(e.target.value)}
-                                            className={`w-full px-6 py-5 bg-gray-50 border-2 rounded-[1.5rem] focus:outline-none focus:border-violet-500 text-[15px] font-bold text-navy shadow-inner transition-all placeholder:text-gray-400 ${waitlistError ? 'border-red-300' : 'border-gray-100'}`}
-                                        />
-                                        {waitlistError && (
-                                            <p className="text-red-500 text-[10px] font-black uppercase tracking-wider mt-2 px-4 animate-in fade-in slide-in-from-top-1">
-                                                ⚠️ {waitlistError}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={waitlistLoading}
-                                        className="w-full bg-navy text-white text-lg font-black py-5 rounded-[1.5rem] flex items-center justify-center gap-3 hover:bg-navy/90 hover:-translate-y-1 transition-all shadow-xl shadow-navy/20 active:scale-95 disabled:opacity-50"
-                                    >
-                                        {waitlistLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Target className="w-5 h-5" /> Notify Me!</>}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowWaitlistModal(false)}
-                                        className="w-full bg-gray-50 text-gray-400 text-sm font-black py-4 rounded-[1.5rem] hover:text-gray-600 transition-colors"
-                                    >
-                                        Not now, I'll stay in NYC
-                                    </button>
-                                </form>
-                            )}
-                        </div>
-                        
-                        <p className="mt-8 text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] text-center">
-                            Exclusive &bull; AI Powered &bull; NYC First
-                        </p>
-                    </div>
-                </div>
-            )}
             <PremiumExperienceModal 
                 isOpen={showPremiumModal} 
                 onClose={() => { setShowPremiumModal(false); setLimitType(null); }}

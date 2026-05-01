@@ -116,7 +116,7 @@ const Pricing = () => {
                             )}
                             
                             {sub.savings && (
-                                <div className="absolute top-6 right-8 text-[10px] font-black uppercase text-coral tracking-wider px-3 py-1 bg-coral/10 rounded-full">
+                                <div className="absolute top-6 right-6 text-[10px] font-black uppercase text-coral tracking-wider px-3 py-1 bg-coral/10 rounded-full">
                                     {sub.savings}
                                 </div>
                             )}
@@ -151,8 +151,8 @@ const Pricing = () => {
                                     // Map UI names to internal server plan types
                                     const planMap = {
                                         "The Spark": "free",
-                                        "24-Hour Pass": "daily",
-                                        "DateSpark Plus": "premium"
+                                        "24-Hour Pass": "24H",
+                                        "DateSpark Plus": "ELITE"
                                     };
                                     
                                     const type = planMap[sub.name];

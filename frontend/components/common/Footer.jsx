@@ -45,7 +45,6 @@ const Footer = () => {
                             <li><a href="#faq" className="hover:text-coral transition-colors">Help Center</a></li>
                             <li><a href="mailto:support@datespark.live" className="hover:text-coral transition-colors">Contact Support</a></li>
                             <li><a href="#faq" className="hover:text-coral transition-colors">Safety Tips</a></li>
-                            <li><a href="#feedback" className="hover:text-coral transition-colors">Give Feedback</a></li>
                         </ul>
                     </div>
 

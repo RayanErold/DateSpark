@@ -44,7 +44,7 @@ const Benefits = () => {
             icon: <Rocket className="w-6 h-6 text-sky-500" />,
             bg: 'bg-sky-50',
             title: 'One button, a full night out',
-            description: 'No complex filters or endless menus. Tell us your vibe and budget — we handle the sequencing, timing, and everything else.',
+            description: 'No complex filters or endless menus. Tell us your vibe and budget - we handle sequencing, timing, route fit, and partner-ready sharing.',
         },
         {
             icon: <Shield className="w-6 h-6 text-green-500" />,
@@ -129,12 +129,6 @@ const Benefits = () => {
                             >
                                 Start Free — No Card Needed
                             </Link>
-                            <button
-                                onClick={() => window.open('/demo', '_blank')}
-                                className="px-8 py-4 bg-white/10 text-white border border-white/20 font-black rounded-2xl hover:bg-white/20 transition-all text-base"
-                            >
-                                Try the Demo First
-                            </button>
                         </div>
                     </div>
                 </motion.div>

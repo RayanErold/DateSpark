@@ -1,7 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/common/ProtectedRoute';
-import FeedbackBot from './components/features/FeedbackBot';
 import ScrollToTop from './components/common/ScrollToTop';
 
 // Lazy load pages for better performance
@@ -17,6 +16,8 @@ const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'));
 const RefundPolicy = lazy(() => import('./pages/legal/RefundPolicy'));
 const CookiePolicy = lazy(() => import('./pages/legal/CookiePolicy'));
 const VibeOnboarding = lazy(() => import('./pages/dashboard/VibeOnboarding'));
+const PricingPage = lazy(() => import('./pages/PricingPage'));
+
 
 const LoadingScreen = () => (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[9999]">
@@ -44,9 +45,10 @@ function App() {
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/refund" element={<RefundPolicy />} />
           <Route path="/cookies" element={<CookiePolicy />} />
+          <Route path="/pricing" element={<PricingPage />} />
+
 
           {/* Protected Routes */}
-          <Route path="/demo" element={<GeneratePlan isGuestMode={true} />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
@@ -64,7 +66,6 @@ function App() {
           } />
         </Routes>
       </Suspense>
-      <FeedbackBot />
     </Router>
   );
 }

@@ -1,46 +1,33 @@
 import React from 'react';
 import Navbar from '../components/common/Navbar';
 import Hero from '../components/landing/Hero';
-import TrustedPartners from '../components/landing/TrustedPartners';
+import Features from '../components/landing/Features';
+import PopularPlans from '../components/landing/PopularPlans';
 import HowItWorks from '../components/landing/HowItWorks';
-import ProductDemo from '../components/landing/ProductDemo';
-import Benefits from '../components/landing/Benefits';
 import SocialProof from '../components/landing/SocialProof';
-import Pricing from '../components/features/Pricing';
 import FAQ from '../components/landing/FAQ';
-import FeatureFeedback from '../components/features/FeatureFeedback';
-import Waitlist from '../components/landing/Waitlist';
 import Footer from '../components/common/Footer';
 
-/**
- * LandingPage — conversion-optimized section order:
- * 1. Hero          — Hook & primary CTA
- * 2. TrustedPartners — Social proof / credibility (beneath the fold)
- * 3. HowItWorks    — Explain the product simply
- * 4. ProductDemo   — Show, don't just tell (interactive CTA)
- * 5. Benefits      — Why us over alternatives
- * 6. SocialProof   — Testimonials / quotes
- * 7. Pricing       — Commit / convert
- * 8. FAQ           — Handle objections before Waitlist
- * 9. FeatureFeedback — Community engagement
- * 10. Waitlist     — Capture leads who aren't ready to pay yet
- * 11. Footer
- */
 const LandingPage = () => {
     return (
         <div className="min-h-screen bg-white">
             <Navbar />
             <main>
+                {/* 1. Hero Section (Clean split layout with mockup) */}
                 <Hero />
-                <TrustedPartners />
+                
+                {/* 2. Features Grid (4 icons) */}
+                <Features />
+                
+                {/* 3. Popular Plans Gallery */}
+                <PopularPlans />
+
+                {/* 4. How It Works Section */}
                 <HowItWorks />
-                <ProductDemo />
-                <Benefits />
+                
+                {/* 5. Supplementary Social Proof & FAQ */}
                 <SocialProof />
-                <Pricing />
                 <FAQ />
-                <FeatureFeedback />
-                <Waitlist />
             </main>
             <Footer />
         </div>
@@ -48,3 +35,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
+

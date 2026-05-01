@@ -7,9 +7,10 @@
     "node": ">=22.15.0"
   },
   "scripts": {
-    "dev": "concurrently \"npm run frontend\" \"npm run server\"",
+    "dev": "concurrently \"npm run frontend\" \"npm run server\" \"npm run start-ai\"",
     "frontend": "vite",
     "server": "nodemon backend/index.js",
+    "start-ai": "cd backend/ai_service && venv\\Scripts\\python main.py",
     "build": "vite build",
     "start": "node backend/index.js",
     "lint": "eslint .",

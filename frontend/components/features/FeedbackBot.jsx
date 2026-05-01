@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Compass, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { supabase } from '../../lib/supabase';
 
 const FeedbackBot = () => {
+    const location = useLocation();
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedbackText, setFeedbackText] = useState('');
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
@@ -155,6 +157,11 @@ const FeedbackBot = () => {
             setIsSubmittingFeedback(false);
         }
     };
+
+    // Hide on landing and auth pages
+    if (['/', '/login', '/signup', '/privacy', '/terms', '/refund', '/cookies'].includes(location.pathname)) {
+        return null;
+    }
 
     // Don't render until layout gives us a valid position
     if (position.x === 0 && position.y === 0) return null;

@@ -52,7 +52,7 @@ const stats = [
 
 const SocialProof = () => {
     return (
-        <section className="py-24 bg-gray-50 relative overflow-hidden">
+        <section className="py-16 md:py-24 bg-gray-50 relative overflow-hidden">
             <div className="absolute left-0 bottom-0 w-96 h-96 bg-coral/5 rounded-full blur-[120px] pointer-events-none" />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -63,7 +63,7 @@ const SocialProof = () => {
                     whileInView="visible"
                     viewport={{ once: true, margin: "-50px" }}
                     variants={itemVariants}
-                    className="text-center mb-16"
+                    className="text-center mb-10 md:mb-16"
                 >
                     <span className="inline-block text-xs font-black text-coral uppercase tracking-[0.2em] bg-coral/10 px-4 py-1.5 rounded-full mb-5">
                         Real Reviews
