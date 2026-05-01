@@ -176,12 +176,14 @@ app.get('/api/health', (req, res) => res.json({ status: 'running', timestamp: ne
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
-// Catch-all route to serve index.html for SPA routing
-app.get('/:any*', (req, res) => {
-    // If it's an API route that didn't match, don't serve index.html
+// Catch-all middleware to serve index.html for SPA routing
+// Using app.use() instead of app.get('*') to avoid path-to-regexp syntax issues in Express 5
+app.use((req, res, next) => {
+    // If it's an API route that didn't match, return 404
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'Not Found' });
     }
+    // For everything else, serve index.html
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
