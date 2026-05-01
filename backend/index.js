@@ -177,7 +177,7 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // Catch-all route to serve index.html for SPA routing
-app.get('*', (req, res) => {
+app.get('/:any*', (req, res) => {
     // If it's an API route that didn't match, don't serve index.html
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'Not Found' });
