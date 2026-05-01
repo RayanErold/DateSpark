@@ -52,11 +52,11 @@ export const generateAIDate = async (params) => {
             enriched: true 
         };
     } catch (err) {
-        console.error('[ITINERARY_BRIDGE_ERROR]', err.message);
+        console.error('[ITINERARY_BRIDGE_ERROR] Full Error:', err.response?.data || err.message);
         if (err.response && err.response.data && err.response.data.detail) {
             throw new Error(`AI Service Error: ${err.response.data.detail}`);
         }
-        throw new Error('AI Service Unavailable (Is the Python service running?)');
+        throw new Error(`AI Service Failed: ${err.message}`);
     }
 };
 
