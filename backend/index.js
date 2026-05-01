@@ -1,7 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import our "Unique Function" Micro-Modules
 import * as itineraryService from './services/itineraryService.js';
@@ -140,5 +145,18 @@ app.post('/api/upload-avatar', express.raw({ type: 'image/*', limit: '5mb' }), a
 });
 
 app.get('/api/health', (req, res) => res.json({ status: 'running', timestamp: new Date() }));
+
+// 5. SERVE FRONTEND (Production)
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Catch-all route to serve index.html for SPA routing
+app.get('*', (req, res) => {
+    // If it's an API route that didn't match, don't serve index.html
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Not Found' });
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+});
 
 app.listen(PORT, () => console.log(`🚀 Gateway API running on port ${PORT}`));
