@@ -28,6 +28,7 @@ test*
 
 # Maintenance & Debug
 *.py
+!backend/ai_service/main.py
 debug-*
 check-*
 deep-rls-check.js
