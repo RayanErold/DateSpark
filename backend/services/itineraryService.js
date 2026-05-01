@@ -20,7 +20,8 @@ export const generateAIDate = async (params) => {
             city: params.city || params.location,
             vibe: params.vibe,
             budget: params.budget,
-            preferences: params.preferences || params.interests
+            preferences: params.preferences || params.interests,
+            prompt: params.prompt // Natural language prompt from Copilot
         });
         
         // The Python service returns { raw_itinerary: "..." }
@@ -28,12 +29,21 @@ export const generateAIDate = async (params) => {
         let itineraryData = aiResponse.data.raw_itinerary;
         try {
             if (typeof itineraryData === 'string') {
-                // Strip markdown backticks if present
-                const cleanJson = itineraryData.replace(/```json\n?|\n?```/g, '').trim();
-                itineraryData = JSON.parse(cleanJson);
+                // Find the first { and last } to extract JSON if there's conversational text
+                const firstBrace = itineraryData.indexOf('{');
+                const lastBrace = itineraryData.lastIndexOf('}');
+                
+                if (firstBrace !== -1 && lastBrace !== -1) {
+                    const jsonCandidate = itineraryData.substring(firstBrace, lastBrace + 1);
+                    itineraryData = JSON.parse(jsonCandidate);
+                } else {
+                    // Fallback to old method if braces not found (though unlikely for valid JSON)
+                    const cleanJson = itineraryData.replace(/```json\n?|\n?```/g, '').trim();
+                    itineraryData = JSON.parse(cleanJson);
+                }
             }
         } catch (e) {
-            console.warn('[PARSING_FAILED] Using raw string instead of JSON');
+            console.warn('[PARSING_FAILED] Using raw string instead of JSON. Error:', e.message);
         }
 
         return { 
@@ -58,12 +68,12 @@ export const savePlan = async (supabase, userId, planData, aiResult) => {
         .from('plans')
         .insert([{
             user_id: userId,
-            location: planData.location,
+            location: planData.location || planData.city || 'NYC',
             vibe: planData.vibe || 'chill',
             budget: planData.budget || 'smart',
-            itinerary: aiResult.data,
-            title: aiResult.data.title || 'Your Date Plan',
-            description: aiResult.data.description || 'A curated experience by Spark AI',
+            itinerary: typeof aiResult.data === 'object' ? aiResult.data : { raw: aiResult.data },
+            title: (typeof aiResult.data === 'object' ? aiResult.data.title : null) || 'Your Date Plan',
+            description: (typeof aiResult.data === 'object' ? aiResult.data.description : null) || 'A curated experience by Spark AI',
             lat: planData.lat,
             lng: planData.lng,
             is_favorite: planData.is_favorite || false,
