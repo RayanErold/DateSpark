@@ -124,6 +124,24 @@ app.post('/api/swap-venue', async (req, res) => {
     res.json({ alternatives });
 });
 
+app.get('/api/place-ratings', async (req, res) => {
+    try {
+        const ratings = await itineraryService.getPlaceRatings(supabase, req.query.planId);
+        res.json(ratings);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/place-ratings', async (req, res) => {
+    try {
+        const rating = await itineraryService.addPlaceRating(supabase, req.body);
+        res.json(rating);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 2. EVENTS
 app.get('/api/events', async (req, res) => {
     const events = await fetchEvents(req.query.city, req.query.category, 15, process.env.TICKETMASTER_API_KEY);

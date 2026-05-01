@@ -260,3 +260,34 @@ export const swapVenue = async (params) => {
     );
     return response.data.places;
 };
+// --- RATINGS & FEEDBACK ---
+
+export const getPlaceRatings = async (supabase, planId) => {
+    const { data, error } = await supabase
+        .from('place_ratings')
+        .select('*')
+        .eq('plan_id', planId)
+        .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+};
+
+export const addPlaceRating = async (supabase, ratingData) => {
+    const { data, error } = await supabase
+        .from('place_ratings')
+        .insert([{
+            plan_id: ratingData.planId,
+            user_id: ratingData.userId,
+            place_name: ratingData.placeName,
+            place_id: ratingData.placeId,
+            rating: ratingData.rating,
+            comment: ratingData.comment,
+            quick_tag: ratingData.quickTag
+        }])
+        .select()
+        .single();
+    
+    if (error) throw error;
+    return data;
+};
