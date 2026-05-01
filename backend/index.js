@@ -142,6 +142,26 @@ app.post('/api/place-ratings', async (req, res) => {
     }
 });
 
+app.patch('/api/update-plan', async (req, res) => {
+    try {
+        const { planId, updateData } = req.body;
+        const updated = await itineraryService.updatePlan(supabase, planId, updateData);
+        res.json(updated);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/delete-plan', async (req, res) => {
+    try {
+        const { planId } = req.body;
+        const result = await itineraryService.deletePlan(supabase, planId);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 2. EVENTS
 app.get('/api/events', async (req, res) => {
     const events = await fetchEvents(req.query.city, req.query.category, 15, process.env.TICKETMASTER_API_KEY);

@@ -143,6 +143,7 @@ export const savePlan = async (supabase, userId, planData, aiResult) => {
             lat: planData.lat,
             lng: planData.lng,
             is_favorite: planData.is_favorite || false,
+            generation_type: aiResult.source === 'GOOGLE_PLACES' ? 'guided' : 'classic',
             created_at: new Date().toISOString()
         }])
         .select()
@@ -164,13 +165,22 @@ export const recreatePlan = async (supabase, planId) => {
     
     if (!original) throw new Error('Original plan not found');
 
-    // We use the same parameters to generate a fresh itinerary
-    const aiResult = await generateAIDate({
-        city: original.location,
-        vibe: original.vibe,
-        budget: original.budget,
-        preferences: original.description // using description as proxy for preferences if needed
-    });
+    let aiResult;
+    // Respect the original generation type
+    if (original.generation_type === 'guided') {
+        aiResult = await generateGoogleDate({
+            location: original.location,
+            vibe: original.vibe,
+            budget: original.budget
+        });
+    } else {
+        aiResult = await generateAIDate({
+            city: original.location,
+            vibe: original.vibe,
+            budget: original.budget,
+            preferences: original.description
+        });
+    }
 
     return await savePlan(supabase, original.user_id, original, aiResult);
 };
@@ -290,4 +300,24 @@ export const addPlaceRating = async (supabase, ratingData) => {
     
     if (error) throw error;
     return data;
+};
+
+export const updatePlan = async (supabase, planId, updateData) => {
+    const { data, error } = await supabase
+        .from('plans')
+        .update(updateData)
+        .eq('id', planId)
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const deletePlan = async (supabase, planId) => {
+    const { error } = await supabase
+        .from('plans')
+        .delete()
+        .eq('id', planId);
+    if (error) throw error;
+    return { success: true };
 };
