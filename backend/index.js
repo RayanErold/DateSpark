@@ -32,6 +32,12 @@ const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABAS
 app.use(cors());
 app.use(express.json());
 
+// Request logging middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 /**
  * ─── API GATEWAY ROUTES ───
  */
@@ -74,8 +80,13 @@ app.post('/api/recreate-date', async (req, res) => {
 });
 
 app.get('/api/trending-plans', async (req, res) => {
-    const plans = await itineraryService.getTrendingPlans(supabase);
-    res.json(plans);
+    try {
+        const plans = await itineraryService.getTrendingPlans(supabase);
+        res.json(plans);
+    } catch (err) {
+        console.error('[TRENDING_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/search', async (req, res) => {
@@ -84,8 +95,13 @@ app.get('/api/search', async (req, res) => {
 });
 
 app.get('/api/user-plans', async (req, res) => {
-    const plans = await itineraryService.getUserPlans(supabase, req.query.userId);
-    res.json(plans);
+    try {
+        const plans = await itineraryService.getUserPlans(supabase, req.query.userId);
+        res.json(plans);
+    } catch (err) {
+        console.error('[USER_PLANS_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/plans/:id', async (req, res) => {
@@ -128,13 +144,23 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
 // 4. USERS & ACCOUNT
 app.get('/api/user-premium/:userId', async (req, res) => {
-    const status = await userService.getUserPremiumStatus(supabase, req.params.userId);
-    res.json(status);
+    try {
+        const status = await userService.getUserPremiumStatus(supabase, req.params.userId);
+        res.json(status);
+    } catch (err) {
+        console.error('[USER_PREMIUM_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/user-usage/:userId', async (req, res) => {
-    const usage = await userService.getUserUsage(supabase, req.params.userId);
-    res.json(usage);
+    try {
+        const usage = await userService.getUserUsage(supabase, req.params.userId);
+        res.json(usage);
+    } catch (err) {
+        console.error('[USER_USAGE_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/upload-avatar', express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
@@ -157,6 +183,12 @@ app.get('*', (req, res) => {
         return res.status(404).json({ error: 'Not Found' });
     }
     res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('[SERVER_CRITICAL_ERROR]', err);
+    res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
 app.listen(PORT, () => console.log(`🚀 Gateway API running on port ${PORT}`));
