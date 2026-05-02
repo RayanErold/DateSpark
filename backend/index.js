@@ -31,7 +31,13 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+    verify: (req, res, buf) => {
+        if (req.originalUrl.startsWith('/api/webhook')) {
+            req.rawBody = buf;
+        }
+    }
+}));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -276,7 +282,46 @@ app.post('/api/create-portal-session', async (req, res) => {
     }
 });
 
-// 4. USERS & ACCOUNT
+// 4. STRIPE WEBHOOK
+app.post('/api/webhook', async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        event = await paymentService.handleWebhook(req.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+        console.error(`[Webhook] Verification failed: ${err.message}`);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const userId = session.metadata.userId;
+        const customerEmail = session.customer_details.email;
+
+        console.log(`[Webhook] Payment successful for User: ${userId} (${customerEmail})`);
+
+        // Upgrade user to Premium in Supabase
+        const { error } = await supabaseAdmin
+            .from('profiles')
+            .update({ 
+                is_premium: true,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+
+        if (error) {
+            console.error('[Webhook] DB Update Failed:', error.message);
+        } else {
+            console.log(`[Webhook] User ${userId} upgraded to Premium! 🚀`);
+        }
+    }
+
+    res.json({ received: true });
+});
+
+// 5. USERS & ACCOUNT
 app.get('/api/user-premium/:userId', async (req, res) => {
     try {
         const status = await userService.getUserPremiumStatus(supabase, req.params.userId);
