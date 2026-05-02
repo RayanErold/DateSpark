@@ -167,8 +167,6 @@ export const generateAIDate = async (params) => {
             return await generateGoogleDate(params);
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        
         const context = params.prompt 
             ? `User Request: "${params.prompt}". If location is missing, assume ${params.city || 'NYC'}.`
             : `City: ${params.city || 'NYC'}, Vibe: ${params.vibe || 'chill'}, Budget: ${params.budget || 'flexible'}, Preferences: ${params.preferences || 'None'}`;
@@ -194,7 +192,16 @@ export const generateAIDate = async (params) => {
                 * 'search_query': A high-intent, short Google Maps search string.
         `;
 
-        const result = await model.generateContent(finalPrompt);
+        let result;
+        try {
+            const model20 = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            result = await model20.generateContent(finalPrompt);
+        } catch (err) {
+            console.warn('[AI Service] Gemini 2.0-flash failed, falling back to 1.5-flash');
+            const model15 = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            result = await model15.generateContent(finalPrompt);
+        }
+        
         const response = await result.response;
         let itineraryDataRaw = response.text();
         
