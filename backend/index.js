@@ -102,13 +102,14 @@ app.get('/api/trending-plans', async (req, res) => {
 
 app.post('/api/feedback', async (req, res) => {
     try {
-        const { message, userId, userEmail } = req.body;
+        const { message, userId, userEmail, type } = req.body;
         
         // 1. Send the email FIRST (Guaranteed to work if Resend key is valid)
         const emailResult = await emailService.sendFeedbackEmail({ 
             userEmail, 
             message, 
-            userId 
+            userId,
+            type: type || 'feedback'
         });
 
         if (!emailResult.success) {

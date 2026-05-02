@@ -842,6 +842,7 @@ const Dashboard = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatingStatus, setGeneratingStatus] = useState('');
     const [feedbackText, setFeedbackText] = useState('');
+    const [feedbackType, setFeedbackType] = useState('feedback'); // 'feedback' or 'support'
 
     useEffect(() => {
         const msg = consumeFlashMessage();
@@ -3863,13 +3864,33 @@ const Dashboard = () => {
                 {/* ── FEEDBACK & SUPPORT ── */}
                 <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm mb-8">
                     <div className="flex items-center gap-4 mb-6">
-                        <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
-                            <MessageSquare className="w-6 h-6" />
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-colors ${feedbackType === 'support' ? 'bg-navy/10 text-navy' : 'bg-coral/10 text-coral'}`}>
+                            {feedbackType === 'support' ? <LifeBuoy className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-navy tracking-tight">Share Your Feedback</h3>
-                            <p className="text-navy/40 text-[10px] font-black uppercase tracking-widest mt-0.5">Help us spark better dates</p>
+                            <h3 className="text-xl font-black text-navy tracking-tight">
+                                {feedbackType === 'feedback' ? 'Share Your Feedback' : 'Contact Support'}
+                            </h3>
+                            <p className="text-navy/40 text-[10px] font-black uppercase tracking-widest mt-0.5">
+                                {feedbackType === 'feedback' ? 'Help us spark better dates' : 'Report an issue or get help'}
+                            </p>
                         </div>
+                    </div>
+
+                    {/* Toggle Switch */}
+                    <div className="flex bg-gray-50 p-1.5 rounded-2xl mb-6 border border-gray-100">
+                        <button 
+                            onClick={() => setFeedbackType('feedback')}
+                            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${feedbackType === 'feedback' ? 'bg-white text-coral shadow-sm border border-coral/5' : 'text-gray-400 hover:text-navy'}`}
+                        >
+                            Feedback
+                        </button>
+                        <button 
+                            onClick={() => setFeedbackType('support')}
+                            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${feedbackType === 'support' ? 'bg-navy text-white shadow-sm' : 'text-gray-400 hover:text-navy'}`}
+                        >
+                            Technical Support
+                        </button>
                     </div>
                     
                     <div className="space-y-4">
@@ -3877,7 +3898,9 @@ const Dashboard = () => {
                             value={feedbackText}
                             onChange={(e) => setFeedbackText(e.target.value)}
                             disabled={isSubmittingFeedback}
-                            placeholder="What would make DateSpark better for you? (e.g. 'I wish I could export to PDF', 'More vegetarian options')..."
+                            placeholder={feedbackType === 'feedback' 
+                                ? "What would make DateSpark better for you? (e.g. 'I wish I could export to PDF', 'More vegetarian options')..." 
+                                : "Tell us what's wrong. Please include details so we can help you faster..."}
                             className="w-full px-6 py-5 bg-gray-50 border-2 border-transparent focus:border-coral focus:bg-white rounded-[2rem] outline-none font-medium text-navy transition-all min-h-[140px] resize-none text-sm placeholder:text-gray-300 disabled:opacity-50"
                         />
                         <button 
@@ -3891,11 +3914,14 @@ const Dashboard = () => {
                                         body: JSON.stringify({
                                             message: feedbackText,
                                             userId: user?.id,
-                                            userEmail: user?.email
+                                            userEmail: user?.email,
+                                            type: feedbackType
                                         })
                                     });
                                     if (response.ok) {
-                                        alert('Thank you! Your feedback has been received. 💖');
+                                        alert(feedbackType === 'feedback' 
+                                            ? 'Thank you! Your feedback has been received. 💖' 
+                                            : 'Support request sent! We will get back to you shortly. 🚀');
                                         setFeedbackText('');
                                     } else {
                                         throw new Error('Failed to send');
@@ -3907,14 +3933,16 @@ const Dashboard = () => {
                                 }
                             }}
                             disabled={isSubmittingFeedback || !feedbackText.trim()}
-                            className="w-full py-4 bg-navy text-white font-black rounded-2xl hover:bg-navy/90 active:scale-[0.98] transition-all shadow-xl shadow-navy/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                            className={`w-full py-4 text-white font-black rounded-2xl active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 ${feedbackType === 'support' ? 'bg-navy hover:bg-navy/90 shadow-navy/20' : 'bg-coral hover:bg-coral/90 shadow-coral/20'}`}
                         >
                             {isSubmittingFeedback ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : feedbackType === 'support' ? (
+                                <LifeBuoy className="w-5 h-5" />
                             ) : (
                                 <Send className="w-5 h-5" />
                             )}
-                            {isSubmittingFeedback ? 'Sending...' : 'Send Feedback'}
+                            {isSubmittingFeedback ? 'Sending...' : (feedbackType === 'feedback' ? 'Send Feedback' : 'Send Support Request')}
                         </button>
                     </div>
                 </div>

@@ -5,21 +5,28 @@ dotenv.config();
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export const sendFeedbackEmail = async ({ userEmail, message, userId }) => {
+export const sendFeedbackEmail = async ({ userEmail, message, userId, type = 'feedback' }) => {
     try {
-        console.log(`[EmailService] Attempting to send feedback email from: ${userEmail}`);
+        const isSupport = type === 'support';
+        const subjectEmoji = isSupport ? '🚨' : '✨';
+        const subjectPrefix = isSupport ? 'Support Request' : 'New Feedback';
+        const titleText = isSupport ? 'New Support Request! 🚨' : 'New Feedback Received! 💖';
+        const accentColor = isSupport ? '#1A1F36' : '#FF6B47'; // Navy for support, Coral for feedback
+
+        console.log(`[EmailService] Attempting to send ${type} email from: ${userEmail}`);
 
         const { data, error } = await resend.emails.send({
-            from: 'DateSpark Feedback <support@datespark.live>', // You can change this to your verified domain later
-            to: ['rayanerold@gmail.com'], // The user's requested email
-            subject: `✨ New DateSpark Feedback from ${userEmail || 'Anonymous'}`,
+            from: `DateSpark ${isSupport ? 'Support' : 'Feedback'} <support@datespark.live>`,
+            to: ['rayanerold@gmail.com'], 
+            subject: `${subjectEmoji} ${subjectPrefix} from ${userEmail || 'Anonymous'}`,
             html: `
                 <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                    <h2 style="color: #FF6B47;">New Feedback Received! 💖</h2>
+                    <h2 style="color: ${accentColor};">${titleText}</h2>
+                    <p><strong>Type:</strong> <span style="text-transform: uppercase; font-weight: bold; color: ${accentColor};">${type}</span></p>
                     <p><strong>User Email:</strong> ${userEmail || 'Anonymous'}</p>
                     <p><strong>User ID:</strong> ${userId || 'N/A'}</p>
                     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-                    <p style="font-size: 16px; line-height: 1.6; color: #333;">
+                    <p style="font-size: 16px; line-height: 1.6; color: #333; background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid ${accentColor};">
                         "${message}"
                     </p>
                     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
@@ -35,7 +42,7 @@ export const sendFeedbackEmail = async ({ userEmail, message, userId }) => {
             return { success: false, error };
         }
 
-        console.log('[EmailService] Feedback email sent successfully:', data.id);
+        console.log('[EmailService] Email sent successfully:', data.id);
         return { success: true, id: data.id };
     } catch (err) {
         console.error('[EmailService] Unexpected Error:', err);
