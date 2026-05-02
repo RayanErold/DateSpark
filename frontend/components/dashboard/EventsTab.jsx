@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Autocomplete } from '@react-google-maps/api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const CATEGORIES = [
     { id: 'all',     label: 'All Events', emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
