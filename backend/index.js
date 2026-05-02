@@ -331,6 +331,20 @@ app.post('/api/webhook', async (req, res) => {
 });
 
 // 5. USERS & ACCOUNT
+app.post('/api/increment-save-usage', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const result = await userService.checkUsageLimits(supabase, userId, 'save_weekly');
+        if (!result.allowed) {
+            return res.status(403).json({ allowed: false, code: 'LIMIT_REACHED' });
+        }
+        res.json({ success: true, allowed: true });
+    } catch (err) {
+        console.error('[SAVE_USAGE_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/user-premium/:userId', async (req, res) => {
     try {
         const status = await userService.getUserPremiumStatus(supabase, req.params.userId);

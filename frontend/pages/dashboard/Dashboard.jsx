@@ -1770,19 +1770,15 @@ const Dashboard = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: user?.id })
                 });
-                if (!res.ok) {
-                    const data = await res.json();
-                    if (res.status === 403 || data.code === 'LIMIT_REACHED') {
+                
+                const data = await res.json();
+
+                if (!res.ok || !data.allowed) {
+                    if (res.status === 403 || data.code === 'LIMIT_REACHED' || !data.allowed) {
                         setLimitType('save_weekly');
                         setShowUpgradeModal(true);
                         return;
                     }
-                }
-                const data = await res.json();
-                if (!data.allowed) {
-                    setLimitType('save_weekly');
-                    setShowUpgradeModal(true);
-                    return;
                 }
             } catch (err) {
                 console.error('Save limit check failed:', err);
