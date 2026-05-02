@@ -248,10 +248,9 @@ export const generateAIDate = async (params) => {
             enriched: true 
         };
     } catch (err) {
-        if (err.response && err.response.data && err.response.data.detail) {
-            throw new Error(`AI Service Error: ${err.response.data.detail}`);
-        }
-        throw new Error(`AI Service Failed: ${err.message}`);
+        console.warn(`[AI Service] Failed, falling back to Google Places: ${err.message}`);
+        // Fallback to Google Places generator if AI Service is unreachable
+        return await generateGoogleDate(params);
     }
 };
 
