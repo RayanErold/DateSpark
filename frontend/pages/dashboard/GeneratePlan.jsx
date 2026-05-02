@@ -140,7 +140,7 @@ const GeneratePlan = () => {
                         .from('profiles')
                         .select('vibe_profile')
                         .eq('id', currentUser.id)
-                        .single();
+                        .maybeSingle();
 
                     if (profileData?.vibe_profile) {
                         const vp = profileData.vibe_profile;
@@ -535,7 +535,6 @@ const GeneratePlan = () => {
         setError(null);
     };
 
-
     const handleSuggestConcepts = async (e) => {
         if (e) e.preventDefault();
         
@@ -544,7 +543,6 @@ const GeneratePlan = () => {
             setError("Please select a location first.");
             return;
         }
-
 
         if (!isPremium && usage.guided >= limits.guided) {
             setLimitType('guided');
@@ -609,8 +607,8 @@ const GeneratePlan = () => {
                 throw new Error(errData.error || 'Failed to build custom itinerary.');
             }
 
-            const createdPlans = await response.json();
-            const firstPlanId = Array.isArray(createdPlans) ? createdPlans[0]?.id : null;
+            const result = await response.json();
+            const firstPlanId = result.plan?.id || (Array.isArray(result) ? result[0]?.id : null);
 
             if (!isPremium) {
                 setUsage(prev => ({ ...prev, guided: prev.guided + 1 }));
@@ -631,8 +629,6 @@ const GeneratePlan = () => {
             }
         }
     };
-
-
     const handleSubmitClassic = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
 

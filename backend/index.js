@@ -14,6 +14,7 @@ import { fetchEvents } from './services/eventService.js';
 import * as paymentService from './services/paymentService.js';
 import * as userService from './services/userService.js';
 import * as generationService from './services/generationService.js';
+import * as emailService from './services/emailService.js';
 
 dotenv.config();
 
@@ -45,8 +46,8 @@ app.use((req, res, next) => {
 // 1. ITINERARY & DISCOVERY
 app.post('/api/generate-date', async (req, res) => {
     try {
-        const { userId } = req.body;
-        const savedPlan = await generationService.generatePlanFlow(supabase, userId, req.body, 'classic');
+        const { userId, type = 'guided' } = req.body;
+        const savedPlan = await generationService.generatePlanFlow(supabase, userId, req.body, type);
         res.json({ success: true, plan: savedPlan });
     } catch (err) { 
         console.error('[GENERATE_ERROR]', err);
@@ -57,8 +58,8 @@ app.post('/api/generate-date', async (req, res) => {
 
 app.post('/api/generate-custom-date', async (req, res) => {
     try {
-        const { userId } = req.body;
-        const savedPlan = await generationService.generatePlanFlow(supabase, userId, req.body, 'guided');
+        const { userId, type = 'classic' } = req.body;
+        const savedPlan = await generationService.generatePlanFlow(supabase, userId, req.body, type);
         res.json({ success: true, plan: savedPlan });
     } catch (err) { 
         console.error('[GENERATE_CUSTOM_ERROR]', err);
@@ -69,13 +70,23 @@ app.post('/api/generate-custom-date', async (req, res) => {
 
 app.post('/api/recreate-date', async (req, res) => {
     try {
-        const { planId, userId } = req.body;
-        const newPlan = await generationService.recreatePlanFlow(supabase, userId, planId, 'classic');
+        const { planId, userId, type = null } = req.body;
+        const newPlan = await generationService.recreatePlanFlow(supabase, userId, planId, type);
         res.json({ success: true, plan: newPlan });
     } catch (err) { 
         console.error('[RECREATE_ERROR]', err);
         const status = err.status || 500;
         res.status(status).json({ error: err.message, code: err.code }); 
+    }
+});
+
+app.post('/api/nearby-alternatives', async (req, res) => {
+    try {
+        const alternatives = await itineraryService.getNearbyAlternatives(req.body);
+        res.json({ success: true, alternatives });
+    } catch (err) {
+        console.error('[NEARBY_ERROR]', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -86,6 +97,53 @@ app.get('/api/trending-plans', async (req, res) => {
     } catch (err) {
         console.error('[TRENDING_ERROR]', err);
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/feedback', async (req, res) => {
+    try {
+        const { message, userId, userEmail } = req.body;
+        
+        // 1. Send the email FIRST (Guaranteed to work if Resend key is valid)
+        const emailResult = await emailService.sendFeedbackEmail({ 
+            userEmail, 
+            message, 
+            userId 
+        });
+
+        if (!emailResult.success) {
+            console.warn('[Feedback] Email failed but continuing:', emailResult.error);
+        }
+
+        // 2. Attempt to save to Database (Non-blocking)
+        try {
+            const { error: dbError } = await supabaseAdmin
+                .from('feedback')
+                .insert([{ 
+                    user_id: userId, 
+                    email: userEmail, // Trying 'email' as a common alternative to 'user_email'
+                    message: message 
+                }]);
+            
+            if (dbError) {
+                // Try one more time with 'user_email' if 'email' failed
+                await supabaseAdmin
+                    .from('feedback')
+                    .insert([{ 
+                        user_id: userId, 
+                        user_email: userEmail, 
+                        message: message 
+                    }]);
+            }
+        } catch (dbErr) {
+            console.error('[Feedback] Database insertion failed:', dbErr.message);
+        }
+
+        console.log(`[Feedback] Processed message from ${userEmail || 'Anonymous'}`);
+        res.json({ success: true, emailSent: emailResult.success });
+    } catch (err) {
+        console.error('[FEEDBACK_ERROR_CRITICAL]', err);
+        res.status(500).json({ error: 'System error', details: err.message });
     }
 });
 
@@ -162,22 +220,66 @@ app.post('/api/delete-plan', async (req, res) => {
     }
 });
 
+app.get('/api/recommendations/:userId', async (req, res) => {
+    try {
+        const recommendations = await itineraryService.getRecommendations(supabase, req.params.userId);
+        res.json(recommendations);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 2. EVENTS
 app.get('/api/events', async (req, res) => {
-    const events = await fetchEvents(req.query.city, req.query.category, 15, process.env.TICKETMASTER_API_KEY);
+    const keys = {
+        ticketmaster: process.env.TICKETMASTER_API_KEY,
+        serpapi: process.env.SERP_API_KEY,
+        seatgeek: process.env.SEATGEEK_CLIENT_ID
+    };
+    const events = await fetchEvents(supabase, req.query.city, req.query.category, 15, keys);
     res.json(events);
 });
 
 // 3. PAYMENTS
 app.post('/api/create-checkout-session', async (req, res) => {
     try {
+        const { planType, userId, email } = req.body;
+        
+        // Map planType to Price ID and Mode
+        let priceId = process.env.STRIPE_PRICE_PASS; 
+        let mode = 'payment'; // 24H Pass is a one-time payment
+
+        if (planType === 'ELITE' || planType === 'PLUS') {
+            priceId = process.env.STRIPE_PRICE_ELITE;
+            mode = 'subscription';
+        }
+
+        console.log(`[Payment] Creating ${mode} session for ${email} (${planType}) -> ${priceId}`);
+
         const session = await paymentService.createCheckoutSession({
-            ...req.body,
+            userId,
+            priceId,
+            mode,
+            customerEmail: email,
             successUrl: `${process.env.VITE_APP_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${process.env.VITE_APP_URL}/pricing`
+            cancelUrl: `${process.env.VITE_APP_URL}/dashboard`
         });
         res.json({ url: session.url });
-    } catch (err) { res.status(500).json({ error: 'Payment failed' }); }
+    } catch (err) { 
+        console.error('[CHECKOUT_SESSION_ERROR]', err);
+        res.status(500).json({ error: 'Payment failed', details: err.message }); 
+    }
+});
+
+app.post('/api/create-portal-session', async (req, res) => {
+    try {
+        const { email } = req.body;
+        const url = await paymentService.createPortalSession(email, `${process.env.VITE_APP_URL}/dashboard`);
+        res.json({ url });
+    } catch (err) {
+        console.error('[PORTAL_SESSION_ERROR]', err);
+        res.status(500).json({ error: 'Portal failed', details: err.message });
+    }
 });
 
 // 4. USERS & ACCOUNT
@@ -197,6 +299,26 @@ app.get('/api/user-usage/:userId', async (req, res) => {
         res.json(usage);
     } catch (err) {
         console.error('[USER_USAGE_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/forgot-username', async (req, res) => {
+    try {
+        const { email } = req.body;
+        await emailService.sendForgotUsernameEmail({ userEmail: email });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/send-welcome', async (req, res) => {
+    try {
+        const { email, firstName } = req.body;
+        await emailService.sendWelcomeEmail({ userEmail: email, firstName });
+        res.json({ success: true });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

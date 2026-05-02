@@ -60,7 +60,7 @@ async def generate_with_gemini(prompt: str):
         raise Exception("Gemini provider not configured")
     
     response = gemini_client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-2.0-flash',
         contents=prompt
     )
     return response.text
@@ -88,46 +88,52 @@ async def generate_itinerary(request: ItineraryRequest):
     
     if request.prompt:
         # Use raw copilot prompt
-        final_prompt = f"""
-        You are the 'Date Architect' for DateSpark. 
-        User Request: "{request.prompt}"
-        
-        Plan a perfect date based on this request. If the location is missing, assume New York City but mention it.
-        Return a structured JSON with:
-        - title: Catchy name for the date
-        - description: A romantic/fun summary
-        - schedule: Array of 3 activities with 'time', 'activity', and 'reason'.
-        """
+        context = f"User Request: \"{request.prompt}\""
+        city_context = "If the location is missing, assume New York City but mention it."
     else:
         # Use structured builder data
-        final_prompt = f"""
-        You are the 'Date Architect' for DateSpark. 
-        Plan a perfect date in {request.city or 'NYC'} with a {request.vibe or 'chill'} vibe.
-        Budget: {request.budget or 'flexible'}. 
-        Additional Preferences: {request.preferences or 'None'}.
-        
-        Return a structured JSON with:
-        - title: Catchy name for the date
-        - description: A romantic/fun summary
-        - schedule: Array of 3 activities with 'time', 'activity', and 'reason'.
+        context = f"""
+        City: {request.city or 'NYC'}
+        Vibe: {request.vibe or 'chill'}
+        Budget: {request.budget or 'flexible'}
+        Preferences: {request.preferences or 'None'}
         """
+        city_context = ""
+
+    final_prompt = f"""
+    You are the 'Date Architect' for DateSpark. 
+    {context}
+    {city_context}
+    
+    CRITICAL INSTRUCTIONS:
+    1. DO NOT make up venue names (e.g., don't say 'The Romantic Bistro'). Use 'REAL PLACE TBD' as the venue.
+    2. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
+       Example: 'Best romantic rooftop bar with Empire State views in {request.city or 'NYC'}'
+    3. Ensure the 'activity' is descriptive but concise.
+    
+    Return a structured JSON with:
+    - title: Catchy name for the date (max 5 words)
+    - description: A romantic/fun summary (max 20 words)
+    - steps: Array of 3 activities. Each step MUST include:
+        * 'time': e.g., '7:00 PM'
+        * 'activity': A CONCISE category (e.g., 'Dinner', 'Cocktails', 'Stroll'). Max 3 words. DO NOT put the description here.
+        * 'venue': 'REAL PLACE TBD'
+        * 'description': A short, enticing blurb.
+        * 'search_query': A high-intent, short Google Maps search string (e.g. 'Best speakeasy in East Village, NYC').
+    """
     
     # Try Gemini First
     try:
-        logger.info(f"Attempting generation with Gemini for {request.city or 'Copilot Prompt'}")
-        content = await generate_with_gemini(final_prompt)
-        return {"raw_itinerary": content, "provider": "gemini"}
+        response = await generate_with_gemini(final_prompt)
+        return {"raw_itinerary": response, "provider": "gemini"}
     except Exception as e:
-        logger.error(f"Gemini failed: {str(e)}")
         
         # Fallback to OpenAI
         if OPENAI_API_KEY:
             try:
-                logger.info(f"Falling back to OpenAI for {request.city or 'Copilot Prompt'}")
                 content = await generate_with_openai(final_prompt)
                 return {"raw_itinerary": content, "provider": "openai"}
             except Exception as oe:
-                logger.error(f"OpenAI fallback failed: {str(oe)}")
                 raise HTTPException(status_code=500, detail="All AI providers failed")
         else:
             raise HTTPException(status_code=500, detail=f"Gemini failed and no OpenAI fallback available: {str(e)}")
@@ -140,7 +146,7 @@ async def chat_with_architect(request: ChatRequest):
     try:
         if gemini_client:
             response = gemini_client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.0-flash',
                 contents=request.message
             )
             return {"reply": response.text, "provider": "gemini"}

@@ -7,8 +7,8 @@ const BottomNav = ({ currentTab, onTabChange, avatarUrl, userInitial, appTheme =
     const isDark = appTheme === 'dark';
     
     const tabs = [
-        { id: 'events',    label: 'Events',    icon: Ticket,  badge: null },
         { id: 'home',      label: 'Home',      icon: Home,    badge: null },
+        { id: 'events',    label: 'Events',    icon: Ticket,  badge: null },
     ];
 
     return (

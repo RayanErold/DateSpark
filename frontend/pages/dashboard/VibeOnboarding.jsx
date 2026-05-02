@@ -198,7 +198,7 @@ const VibeOnboarding = () => {
                 .from('profiles')
                 .select('onboarding_completed')
                 .eq('id', u.id)
-                .single();
+                .maybeSingle();
             if (profile?.onboarding_completed) navigate('/dashboard');
         };
         init();

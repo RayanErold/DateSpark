@@ -27,14 +27,27 @@ export const generatePlanFlow = async (supabase, userId, params, type = 'classic
     return savedPlan;
 };
 
-export const recreatePlanFlow = async (supabase, userId, planId, type = 'classic') => {
-    // 1. Check Usage Limits
+export const recreatePlanFlow = async (supabase, userId, planId, typeOverride = null) => {
+    // 1. Get original plan to determine type if not provided
+    const { data: original, error: fetchError } = await supabase
+        .from('plans')
+        .select('generation_type')
+        .eq('id', planId)
+        .single();
+    
+    if (fetchError || !original) {
+        throw new Error('Original plan not found');
+    }
+
+    const type = typeOverride || original.generation_type || 'classic';
+
+    // 2. Check Usage Limits
     const usage = await userService.checkUsageLimits(supabase, userId, type);
     if (!usage.allowed) {
         throw { status: 403, message: 'Limit reached', code: 'LIMIT_REACHED' };
     }
 
-    // 2. Recreate Plan (ItineraryService handles the lookup and re-generation)
+    // 3. Recreate Plan (ItineraryService handles the lookup and re-generation)
     const newPlan = await itineraryService.recreatePlan(supabase, planId);
 
     return newPlan;

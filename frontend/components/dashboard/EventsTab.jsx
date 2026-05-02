@@ -16,6 +16,9 @@ const CATEGORIES = [
     { id: 'theater', label: 'Theater',    emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
     { id: 'comedy',  label: 'Comedy',     emoji: '😂', color: 'from-yellow-500 to-orange-500' },
     { id: 'family',  label: 'Family',     emoji: '👨‍👩‍👧', color: 'from-sky-500 to-blue-600' },
+    { id: 'classes', label: 'Classes',    emoji: '🎨', color: 'from-indigo-500 to-purple-600' },
+    { id: 'tech',    label: 'Tech',       emoji: '💻', color: 'from-cyan-500 to-blue-500' },
+    { id: 'community', label: 'Groups',   emoji: '🤝', color: 'from-orange-400 to-red-500' },
 ];
 
 const SEGMENT_COLORS = {
@@ -24,6 +27,8 @@ const SEGMENT_COLORS = {
     'Arts & Theatre': 'from-emerald-600 to-teal-600 shadow-emerald-500/20',
     Family:           'from-sky-500 to-blue-600 shadow-blue-500/20',
     Comedy:           'from-yellow-500 to-orange-500 shadow-yellow-500/20',
+    Community:        'from-orange-400 to-red-500 shadow-orange-500/20',
+    Activity:         'from-indigo-500 to-purple-600 shadow-indigo-500/20',
 };
 
 const segmentColor = (seg) => SEGMENT_COLORS[seg] || 'from-violet-600 to-fuchsia-600';

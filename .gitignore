@@ -27,6 +27,8 @@ dist-ssr
 test*
 
 # Maintenance & Debug
+brain/
+scratch/
 *.py
 !backend/ai_service/main.py
 debug-*

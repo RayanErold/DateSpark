@@ -17,12 +17,13 @@ export const checkUsageLimits = async (supabase, userId, type) => {
             .eq('type', type)
             .single();
 
-        const limits = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
+        const limits = { classic: 50, guided: 50, swap: 100, save_weekly: 100 };
         const now = new Date();
         const lastUpdate = usage ? new Date(usage.updated_at || usage.created_at) : null;
 
         const cooldownMs = type.endsWith('_weekly') ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
         const isCooldownActive = lastUpdate && (now - lastUpdate < cooldownMs);
+
 
         if (usage && isCooldownActive && usage.count >= limits[type]) {
             return { allowed: false, isPremium, profile };

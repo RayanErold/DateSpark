@@ -761,6 +761,9 @@ const Dashboard = () => {
     const [user, setUser] = useState(null);
     const hasFetchedRef = React.useRef(false);
     const [plans, setPlans] = useState([]);
+    const [isSharing, setIsSharing] = useState(false);
+    const [recommendations, setRecommendations] = useState([]);
+    const [isFetchingRecs, setIsFetchingRecs] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
@@ -838,6 +841,7 @@ const Dashboard = () => {
     const [shareCardPlan, setShareCardPlan] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatingStatus, setGeneratingStatus] = useState('');
+    const [feedbackText, setFeedbackText] = useState('');
 
     useEffect(() => {
         const msg = consumeFlashMessage();
@@ -1137,7 +1141,8 @@ const Dashboard = () => {
                 setSelectedPlan(newPlan);
                 setToastMessage('Sparked a new date! ⚡');
                 setAiCopilotInput('');
-                // If it was a community plan that got saved, we might want to sync that
+            } else {
+                setToastMessage('Spark could not be ignited. Please try again. 🛑');
             }
         } catch (err) {
             console.error('Direct generation error:', err);
@@ -1985,22 +1990,21 @@ const Dashboard = () => {
         setAlternatives([]);
 
         try {
-            // Priority 1: Use coordinates stored in the step (the specific venue location)
-            // Priority 2: Use plan base coordinates
-            let lat = step.lat ? Number(step.lat) : null;
-            let lng = step.lng ? Number(step.lng) : null;
+            // --- ANCHOR LOGIC: Always base alternatives on the FIRST destination to keep the date localized ---
+            const firstStep = Array.isArray(targetPlan.itinerary) ? targetPlan.itinerary[0] : targetPlan.itinerary?.steps?.[0];
+            let lat = firstStep?.lat ? Number(firstStep.lat) : null;
+            let lng = firstStep?.lng ? Number(firstStep.lng) : null;
 
+            // Fallback to plan-level coordinates if first step is missing coords
             if (!lat || !lng) {
-                // Check metadata fallback if top-level "lat" column is missing
                 lat = targetPlan.lat || targetPlan.itinerary?.metadata?.lat || null;
                 lng = targetPlan.lng || targetPlan.itinerary?.metadata?.lng || null;
+            }
 
-                // Final fallback if still null: Use first step coordinates
-                if (!lat || !lng) {
-                    const firstStep = Array.isArray(targetPlan.itinerary) ? targetPlan.itinerary[0] : targetPlan.itinerary?.steps?.[0];
-                    lat = firstStep?.lat;
-                    lng = firstStep?.lng;
-                }
+            // Secondary Fallback: Use the current step's coordinates if everything else fails
+            if (!lat || !lng) {
+                lat = step.lat ? Number(step.lat) : null;
+                lng = step.lng ? Number(step.lng) : null;
             }
 
             if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
@@ -2469,6 +2473,122 @@ const Dashboard = () => {
 
 
 
+    const renderSparkSuggestions = () => {
+        // Derive personalized prompts from user's plan history
+        const activePlans = plans.filter(p => !p.deleted_at);
+
+        const vibeFreq = {};
+        const locationFreq = {};
+        const budgets = new Set();
+
+        activePlans.forEach(p => {
+            if (p.vibe) vibeFreq[p.vibe] = (vibeFreq[p.vibe] || 0) + 1;
+            if (p.location) {
+                const city = p.location.split(',')[0].trim();
+                locationFreq[city] = (locationFreq[city] || 0) + 1;
+            }
+            if (p.budget) budgets.add(p.budget);
+        });
+
+        const topVibe = Object.entries(vibeFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const topLocation = Object.entries(locationFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const topBudget = [...budgets][0];
+
+        // Build personalized prompts
+        const personalizedPrompts = [];
+        if (topVibe && topLocation) personalizedPrompts.push({
+            emoji: '🔁', label: `Another ${topVibe} night in ${topLocation}`,
+            prompt: `Plan a ${topVibe} date night in ${topLocation}`, tag: 'Based on history', tagColor: 'bg-violet-50 text-violet-600'
+        });
+        if (topVibe) personalizedPrompts.push({
+            emoji: '✨', label: `Surprise ${topVibe} twist`,
+            prompt: `Surprise me with a unique ${topVibe} date experience`, tag: 'Your vibe', tagColor: 'bg-coral/10 text-coral'
+        });
+        if (topBudget) personalizedPrompts.push({
+            emoji: '💸', label: `${topBudget} budget date night`,
+            prompt: `Plan a creative date night with a ${topBudget} budget`, tag: 'Budget match', tagColor: 'bg-emerald-50 text-emerald-600'
+        });
+
+        // Curated fallbacks
+        const fallbacks = [
+            { emoji: '🌆', label: 'Rooftop jazz bar evening', prompt: 'Plan a romantic rooftop jazz bar evening for two', tag: 'Romantic', tagColor: 'bg-rose-50 text-rose-500' },
+            { emoji: '🌿', label: 'Hidden garden picnic', prompt: 'Plan a cozy hidden garden picnic date', tag: 'Cozy', tagColor: 'bg-emerald-50 text-emerald-600' },
+            { emoji: '🍜', label: 'Late-night food crawl', prompt: 'Plan an adventurous late-night food market crawl', tag: 'Adventurous', tagColor: 'bg-amber-50 text-amber-600' },
+            { emoji: '🎨', label: 'Art gallery & wine', prompt: 'Plan a sophisticated art gallery and wine date evening', tag: 'Artsy', tagColor: 'bg-indigo-50 text-indigo-600' },
+            { emoji: '🌊', label: 'Sunset waterfront stroll', prompt: 'Plan a romantic sunset waterfront walking date', tag: 'Scenic', tagColor: 'bg-blue-50 text-blue-600' },
+        ];
+
+        const suggestions = personalizedPrompts.length >= 2
+            ? [...personalizedPrompts, ...fallbacks.slice(0, 3 - personalizedPrompts.length)]
+            : fallbacks.slice(0, 3);
+
+        return (
+            <div className={`rounded-[2rem] p-5 shadow-xl border ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/80 backdrop-blur-xl border-white/30'}`}>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30">
+                            <Sparkles className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                            <h5 className={`text-sm font-black ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>Spark Suggestions</h5>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                {personalizedPrompts.length > 0 ? 'Personalized for you' : 'Curated picks'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-violet-50 rounded-xl border border-violet-100">
+                        <Zap className="w-3 h-3 text-violet-500" />
+                        <span className="text-[9px] font-black text-violet-600 uppercase tracking-wider">AI</span>
+                    </div>
+                </div>
+
+                {/* Suggestion Cards */}
+                <div className="space-y-2">
+                    {suggestions.map((rec, i) => (
+                        <button
+                            key={i}
+                            onClick={() => handleGeneratePlan(rec.prompt)}
+                            className={`group flex items-center gap-3 w-full p-3 rounded-2xl border transition-all duration-200 active:scale-[0.98] no-underline cursor-pointer
+                                ${appTheme === 'dark'
+                                    ? 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-coral/30'
+                                    : 'bg-white border-gray-100 hover:border-coral/30 hover:shadow-md'
+                                }`}
+                        >
+                            {/* Emoji bubble */}
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg transition-transform duration-200 group-hover:scale-110
+                                ${appTheme === 'dark' ? 'bg-white/10' : 'bg-gray-50'}`}>
+                                {rec.emoji}
+                            </div>
+
+                            {/* Text */}
+                            <div className="flex-1 min-w-0">
+                                <p className={`text-[12px] font-black truncate transition-colors group-hover:text-coral ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
+                                    {rec.label}
+                                </p>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${rec.tagColor}`}>
+                                    {rec.tag}
+                                </span>
+                            </div>
+
+                            {/* Spark arrow */}
+                            <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black flex-shrink-0 transition-all duration-200 group-hover:bg-coral group-hover:text-white
+                                ${appTheme === 'dark' ? 'bg-white/10 text-white/50' : 'bg-gray-50 text-slate-400'}`}>
+                                Spark
+                                <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                            </div>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Footer hint */}
+                <p className={`mt-3 text-center text-[9px] font-bold ${appTheme === 'dark' ? 'text-white/20' : 'text-slate-300'}`}>
+                    Tap any suggestion to launch Spark AI ⚡
+                </p>
+            </div>
+        );
+    };
+
     // --- SUB-PAGE RENDER FUNCTIONS ---
 
     const renderOverview = () => {
@@ -2578,12 +2698,99 @@ const Dashboard = () => {
                             </Link>
                         </div>
 
+                        {/* Smart Recommendations Section */}
+                        {recommendations.length > 0 && (
+                            <section className="mb-10 px-4">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-black text-navy font-outfit flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-coral" />
+                                            Smart Suggestions
+                                        </h3>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Inspired by your taste</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setCurrentTab('plans')}
+                                        className="text-[10px] font-black text-coral hover:underline uppercase tracking-tighter"
+                                    >
+                                        Explore All
+                                    </button>
+                                </div>
+                                
+                                <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 snap-x no-scrollbar">
+                                    {recommendations.map((rec) => {
+                                        // SMART IMAGE FINDER
+                                        const steps = Array.isArray(rec.itinerary) ? rec.itinerary : (rec.itinerary?.steps || rec.itinerary?.schedule || rec.itinerary?.itinerary || []);
+                                        const vibe = (rec.vibe || 'chill').toLowerCase();
+                                        
+                                        // Vibe-based Fallbacks
+                                        const fallbacks = {
+                                            romantic: 'https://images.unsplash.com/photo-1516589174184-c68526514ec0?w=600&q=80',
+                                            chill: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80',
+                                            nightlife: 'https://images.unsplash.com/photo-1514525253361-bee8d419b74e?w=600&q=80',
+                                            active: 'https://images.unsplash.com/photo-1502904550040-753d5ad069de?w=600&q=80',
+                                            foodie: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80'
+                                        };
+
+                                        const planImage = steps[0]?.photoUrl || steps[0]?.image || fallbacks[vibe] || fallbacks.chill;
+
+                                        return (
+                                            <div 
+                                                key={rec.id}
+                                                onClick={() => setSelectedPlan(rec)}
+                                                className="flex-shrink-0 w-72 h-44 rounded-[2rem] relative overflow-hidden group cursor-pointer premium-shadow-hover snap-start border border-gray-100/50"
+                                            >
+                                                <img 
+                                                    src={planImage} 
+                                                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                                                    alt="Recommendation"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-navy/90 via-navy/20 to-transparent" />
+                                                
+                                                <div className="absolute bottom-4 left-5 right-5">
+                                                    <div className="flex items-center gap-1.5 mb-2">
+                                                        <span className="px-2 py-0.5 bg-coral/90 text-white text-[8px] font-black rounded-lg uppercase tracking-widest">
+                                                            {rec.vibe || 'CHILL'}
+                                                        </span>
+                                                        <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md text-white text-[8px] font-black rounded-lg uppercase tracking-widest border border-white/20">
+                                                            {(rec.location || 'Local').split(',')[0]}
+                                                        </span>
+                                                    </div>
+                                                    <h4 className="text-white font-black text-sm line-clamp-1 drop-shadow-md font-outfit uppercase tracking-tight">
+                                                        {rec.vibe_variant || rec.title || 'Sparked Date'}
+                                                    </h4>
+                                                </div>
+                                                
+                                                <div className="absolute top-4 right-5">
+                                                    <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10">
+                                                        <Flame className="w-3 h-3 text-orange-400 fill-orange-400" />
+                                                        <span className="text-[10px] font-black text-white">{rec.boost_count || 0}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        )}
+
                         <hr className={`mx-4 border-t ${appTheme === 'dark' ? 'border-white/5' : 'border-gray-100'} mb-6`} />
 
                         {/* Current Plan */}
                         {recentPlan && (() => {
-                            const recentPlanSteps = Array.isArray(recentPlan.itinerary) ? recentPlan.itinerary : recentPlan.itinerary?.steps || [];
-                            const recentPlanImage = recentPlanSteps[0]?.photoUrl || recentPlanSteps[0]?.image || 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=1000';
+                            const recentPlanSteps = Array.isArray(recentPlan.itinerary) ? recentPlan.itinerary : (recentPlan.itinerary?.steps || recentPlan.itinerary?.schedule || recentPlan.itinerary?.itinerary || []);
+                            
+                            // SMART IMAGE FINDER for Recent Plan
+                            const recentVibe = (recentPlan.vibe || 'chill').toLowerCase();
+                            const fallbacks = {
+                                romantic: 'https://images.unsplash.com/photo-1516589174184-c68526514ec0?w=800&q=80',
+                                chill: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
+                                nightlife: 'https://images.unsplash.com/photo-1514525253361-bee8d419b74e?w=800&q=80',
+                                active: 'https://images.unsplash.com/photo-1502904550040-753d5ad069de?w=800&q=80',
+                                foodie: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80'
+                            };
+
+                            const recentPlanImage = recentPlanSteps[0]?.photoUrl || recentPlanSteps[0]?.image || fallbacks[recentVibe] || fallbacks.chill;
                             const planDate = new Date((recentPlan.itinerary?.metadata?.planDate || recentPlan.created_at) + (recentPlan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
                             const visibleStops = recentPlanSteps.slice(0, 2);
                             const extraStops = Math.max(0, recentPlanSteps.length - 2);
@@ -2848,32 +3055,80 @@ const Dashboard = () => {
                             )}
                         </div>
 
-                        {/* Mobile-only: AI Copilot mini strip */}
-                        <div className="lg:hidden px-4 mb-6">
-                            <div className="bg-gradient-to-br from-navy to-[#1a2b4a] rounded-2xl p-3 sm:p-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-7 h-7 bg-coral rounded-xl flex items-center justify-center flex-shrink-0">
-                                        <Bot className="w-3.5 h-3.5 text-white" />
+                        {/* Mobile-only Parity: AI Copilot, Maps & AI Suggestions */}
+                        <div className="lg:hidden flex flex-col gap-6 px-4 pb-10">
+                            {/* Spark AI Builder Strip */}
+                            <div className="bg-gradient-to-br from-navy to-[#1a2b4a] rounded-[2rem] p-5 shadow-xl border border-white/10">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 bg-coral rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-coral/20">
+                                        <Bot className="w-5 h-5 text-white" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-black text-white">Spark AI</p>
-                                        <p className="text-[9px] text-white/40 font-bold">What vibe tonight?</p>
+                                        <p className="text-sm font-black text-white">Spark AI Copilot</p>
+                                        <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Designing your vibe</p>
                                     </div>
-                                    <span className="flex items-center gap-1 text-[9px] font-black text-emerald-400">
+                                    <span className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full text-[10px] font-black text-emerald-400 border border-emerald-500/20">
                                         <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Online
                                     </span>
                                 </div>
-                                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+
+                                <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-5">
                                     {['✨ Romantic night', '🎲 Surprise me', '💸 Budget date', '🌙 Late night'].map(p => (
                                         <button
                                             key={p}
                                             onClick={() => handleGeneratePlan(p.replace(/^[^\s]+\s/, ''))}
-                                            className="no-underline flex-shrink-0 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold text-white/80 active:scale-95 transition-all"
+                                            className="no-underline flex-shrink-0 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95"
                                         >
                                             {p}
                                         </button>
                                     ))}
                                 </div>
+
+                                {/* Input Field */}
+                                <div className="flex gap-2">
+                                    <input
+                                        value={aiCopilotInput}
+                                        onChange={e => setAiCopilotInput(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && aiCopilotInput.trim()) {
+                                                e.preventDefault();
+                                                handleGeneratePlan(aiCopilotInput.trim());
+                                            }
+                                        }}
+                                        placeholder="Type your own vibe..."
+                                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white placeholder:text-white/30 font-medium outline-none focus:border-coral/50 transition-all"
+                                    />
+                                    <button
+                                        onClick={() => handleGeneratePlan(aiCopilotInput.trim())}
+                                        className="w-12 h-12 bg-coral flex items-center justify-center rounded-2xl shadow-lg shadow-coral/30 hover:brightness-110 active:scale-95 transition-all flex-shrink-0"
+                                    >
+                                        <Send className="w-5 h-5 text-white" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* AI Suggestions (Personalized) */}
+                            {renderSparkSuggestions()}
+
+                            {/* Map View */}
+                            <div className="relative">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-black text-navy font-outfit flex items-center gap-2">
+                                        <MapPin className="w-5 h-5 text-coral" />
+                                        Explore Nearby
+                                    </h3>
+                                    <button 
+                                        onClick={() => setCurrentTab('events')}
+                                        className="text-[10px] font-black text-coral hover:underline uppercase tracking-widest"
+                                    >
+                                        View All Events
+                                    </button>
+                                </div>
+                                <NearbyMapWidget
+                                    globalTrendingPlans={globalTrendingPlans}
+                                    isLoaded={isLoaded}
+                                    onFindEvents={() => setCurrentTab('events')}
+                                />
                             </div>
                         </div>
 
@@ -2956,121 +3211,7 @@ const Dashboard = () => {
                         </div>
 
                         {/* ── SPARK SUGGESTIONS — AI Prompt Recommender ── */}
-                        {(() => {
-                            // Derive personalized prompts from user's plan history
-                            const activePlans = plans.filter(p => !p.deleted_at);
-
-                            const vibeFreq = {};
-                            const locationFreq = {};
-                            const budgets = new Set();
-
-                            activePlans.forEach(p => {
-                                if (p.vibe) vibeFreq[p.vibe] = (vibeFreq[p.vibe] || 0) + 1;
-                                if (p.location) {
-                                    const city = p.location.split(',')[0].trim();
-                                    locationFreq[city] = (locationFreq[city] || 0) + 1;
-                                }
-                                if (p.budget) budgets.add(p.budget);
-                            });
-
-                            const topVibe = Object.entries(vibeFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
-                            const topLocation = Object.entries(locationFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
-                            const topBudget = [...budgets][0];
-
-                            // Build personalized prompts
-                            const personalizedPrompts = [];
-                            if (topVibe && topLocation) personalizedPrompts.push({
-                                emoji: '🔁', label: `Another ${topVibe} night in ${topLocation}`,
-                                prompt: `Plan a ${topVibe} date night in ${topLocation}`, tag: 'Based on history', tagColor: 'bg-violet-50 text-violet-600'
-                            });
-                            if (topVibe) personalizedPrompts.push({
-                                emoji: '✨', label: `Surprise ${topVibe} twist`,
-                                prompt: `Surprise me with a unique ${topVibe} date experience`, tag: 'Your vibe', tagColor: 'bg-coral/10 text-coral'
-                            });
-                            if (topBudget) personalizedPrompts.push({
-                                emoji: '💸', label: `${topBudget} budget date night`,
-                                prompt: `Plan a creative date night with a ${topBudget} budget`, tag: 'Budget match', tagColor: 'bg-emerald-50 text-emerald-600'
-                            });
-
-                            // Curated fallbacks
-                            const fallbacks = [
-                                { emoji: '🌆', label: 'Rooftop jazz bar evening', prompt: 'Plan a romantic rooftop jazz bar evening for two', tag: 'Romantic', tagColor: 'bg-rose-50 text-rose-500' },
-                                { emoji: '🌿', label: 'Hidden garden picnic', prompt: 'Plan a cozy hidden garden picnic date', tag: 'Cozy', tagColor: 'bg-emerald-50 text-emerald-600' },
-                                { emoji: '🍜', label: 'Late-night food crawl', prompt: 'Plan an adventurous late-night food market crawl', tag: 'Adventurous', tagColor: 'bg-amber-50 text-amber-600' },
-                                { emoji: '🎨', label: 'Art gallery & wine', prompt: 'Plan a sophisticated art gallery and wine date evening', tag: 'Artsy', tagColor: 'bg-indigo-50 text-indigo-600' },
-                                { emoji: '🌊', label: 'Sunset waterfront stroll', prompt: 'Plan a romantic sunset waterfront walking date', tag: 'Scenic', tagColor: 'bg-blue-50 text-blue-600' },
-                            ];
-
-                            const suggestions = personalizedPrompts.length >= 2
-                                ? [...personalizedPrompts, ...fallbacks.slice(0, 3 - personalizedPrompts.length)]
-                                : fallbacks.slice(0, 3);
-
-                            return (
-                                <div className={`rounded-[2rem] p-5 shadow-xl border ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/80 backdrop-blur-xl border-white/30'}`}>
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30">
-                                                <Sparkles className="w-4 h-4 text-white" />
-                                            </div>
-                                            <div>
-                                                <h5 className={`text-sm font-black ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>Spark Suggestions</h5>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                                    {personalizedPrompts.length > 0 ? 'Personalized for you' : 'Curated picks'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-violet-50 rounded-xl border border-violet-100">
-                                            <Zap className="w-3 h-3 text-violet-500" />
-                                            <span className="text-[9px] font-black text-violet-600 uppercase tracking-wider">AI</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Suggestion Cards */}
-                                    <div className="space-y-2">
-                                        {suggestions.map((rec, i) => (
-                                            <button
-                                                key={i}
-                                                onClick={() => handleGeneratePlan(rec.prompt)}
-                                                className={`group flex items-center gap-3 w-full p-3 rounded-2xl border transition-all duration-200 active:scale-[0.98] no-underline cursor-pointer
-                                                    ${appTheme === 'dark'
-                                                        ? 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-coral/30'
-                                                        : 'bg-white border-gray-100 hover:border-coral/30 hover:shadow-md'
-                                                    }`}
-                                            >
-                                                {/* Emoji bubble */}
-                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg transition-transform duration-200 group-hover:scale-110
-                                                    ${appTheme === 'dark' ? 'bg-white/10' : 'bg-gray-50'}`}>
-                                                    {rec.emoji}
-                                                </div>
-
-                                                {/* Text */}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={`text-[12px] font-black truncate transition-colors group-hover:text-coral ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
-                                                        {rec.label}
-                                                    </p>
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${rec.tagColor}`}>
-                                                        {rec.tag}
-                                                    </span>
-                                                </div>
-
-                                                {/* Spark arrow */}
-                                                <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black flex-shrink-0 transition-all duration-200 group-hover:bg-coral group-hover:text-white
-                                                    ${appTheme === 'dark' ? 'bg-white/10 text-white/50' : 'bg-gray-50 text-slate-400'}`}>
-                                                    Spark
-                                                    <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Footer hint */}
-                                    <p className={`mt-3 text-center text-[9px] font-bold ${appTheme === 'dark' ? 'text-white/20' : 'text-slate-300'}`}>
-                                        Tap any suggestion to launch Spark AI ⚡
-                                    </p>
-                                </div>
-                            );
-                        })()}
+                        {renderSparkSuggestions()}
 
 
 
@@ -3719,6 +3860,65 @@ const Dashboard = () => {
                     </div>
                 </div>
 
+                {/* ── FEEDBACK & SUPPORT ── */}
+                <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm mb-8">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
+                            <MessageSquare className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-navy tracking-tight">Share Your Feedback</h3>
+                            <p className="text-navy/40 text-[10px] font-black uppercase tracking-widest mt-0.5">Help us spark better dates</p>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <textarea
+                            value={feedbackText}
+                            onChange={(e) => setFeedbackText(e.target.value)}
+                            disabled={isSubmittingFeedback}
+                            placeholder="What would make DateSpark better for you? (e.g. 'I wish I could export to PDF', 'More vegetarian options')..."
+                            className="w-full px-6 py-5 bg-gray-50 border-2 border-transparent focus:border-coral focus:bg-white rounded-[2rem] outline-none font-medium text-navy transition-all min-h-[140px] resize-none text-sm placeholder:text-gray-300 disabled:opacity-50"
+                        />
+                        <button 
+                            onClick={async () => {
+                                if (!feedbackText.trim()) return;
+                                setIsSubmittingFeedback(true);
+                                try {
+                                    const response = await fetch('/api/feedback', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            message: feedbackText,
+                                            userId: user?.id,
+                                            userEmail: user?.email
+                                        })
+                                    });
+                                    if (response.ok) {
+                                        alert('Thank you! Your feedback has been received. 💖');
+                                        setFeedbackText('');
+                                    } else {
+                                        throw new Error('Failed to send');
+                                    }
+                                } catch (error) {
+                                    alert('Oops! Something went wrong. Please try again.');
+                                } finally {
+                                    setIsSubmittingFeedback(false);
+                                }
+                            }}
+                            disabled={isSubmittingFeedback || !feedbackText.trim()}
+                            className="w-full py-4 bg-navy text-white font-black rounded-2xl hover:bg-navy/90 active:scale-[0.98] transition-all shadow-xl shadow-navy/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {isSubmittingFeedback ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <Send className="w-5 h-5" />
+                            )}
+                            {isSubmittingFeedback ? 'Sending...' : 'Send Feedback'}
+                        </button>
+                    </div>
+                </div>
+
                 {/* Visible Logout */}
                 <button
                     onClick={handleSignOut}
@@ -3728,7 +3928,7 @@ const Dashboard = () => {
                     Sign Out Securely
                 </button>
 
-                <p className="text-[10px] text-gray-200 font-black text-center pt-8 uppercase tracking-[0.4em]">Version 2.5 Master</p>
+                <p className="text-[10px] text-gray-200 font-black text-center pt-8 uppercase tracking-[0.4em]">DateSpark v2.5 Master • Made for Couples</p>
             </div>
         );
     };
@@ -3845,6 +4045,15 @@ const Dashboard = () => {
                                 Home
                             </button>
                             <button
+                                onClick={() => setCurrentTab('events')}
+                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'events'
+                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                    }`}
+                            >
+                                Events
+                            </button>
+                            <button
                                 onClick={() => setCurrentTab('favorites')}
                                 className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'favorites'
                                     ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
@@ -3862,42 +4071,18 @@ const Dashboard = () => {
                             >
                                 Discovery
                             </button>
-                            <button
-                                onClick={() => setCurrentTab('events')}
-                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'events'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
-                                    }`}
-                            >
-                                Events
-                            </button>
                         </nav>
 
-
                         <div className="flex items-center gap-4 relative">
-                            {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) */}
-                            {(import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
-                                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border mr-2 transition-colors duration-500 ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-rose-50/50 border-rose-100'
-                                    }`}>
-                                    <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            const newVal = !isPremium;
-                                            console.log('[ ADMIN ] Premium Toggle Triggered:', newVal);
-                                            setIsPremium(newVal);
-                                            localStorage.setItem('isPremium', newVal.toString());
-                                            syncPremiumWithDB(newVal);
-                                        }}
-                                        style={{ cursor: 'pointer', pointerEvents: 'auto', zIndex: 9999, position: 'relative' }}
-                                        className={`w-10 h-5 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-coral' : 'bg-gray-300'}`}
-                                        title="Admin: Toggle Premium Status"
-                                    >
-                                        <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md absolute transition-all duration-200 ${isPremium ? 'left-6' : 'left-0.5'}`} />
-                                    </button>
-                                    <span className={`text-xs font-bold ${isPremium ? (appTheme === 'dark' ? 'text-white' : 'text-navy') : 'text-gray-400'}`}>Pro</span>
-                                </div>
+                            {/* CLEARLY VISIBLE UPGRADE ICON/BUTTON */}
+                            {!isPremium && (
+                                <button
+                                    onClick={() => setShowUpgradeModal(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/30 hover:scale-105 transition-all active:scale-95 animate-pulse"
+                                >
+                                    <Crown className="w-3.5 h-3.5 fill-white" />
+                                    Upgrade
+                                </button>
                             )}
 
                             <button
@@ -4040,6 +4225,18 @@ const Dashboard = () => {
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Events</span>}
                         </button>
 
+                        {/* Profile & Settings embedded */}
+                        <button
+                            onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'account'
+                                    ? 'bg-coral/5 text-coral'
+                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
+                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
+                        >
+                            <Settings className={`w-5 h-5 shrink-0 ${currentTab === 'account' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Settings</span>}
+                        </button>
+
                         {/* Favorites */}
                         <button
                             onClick={() => { setCurrentTab('favorites'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
@@ -4075,17 +4272,16 @@ const Dashboard = () => {
                             <History className={`w-5 h-5 shrink-0 ${currentTab === 'plans' && activeTab === 'favorites' ? 'text-coral' : 'text-slate-400'}`} />
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">History</span>}
                         </button>
-
-                        {/* Profile & Settings embedded */}
+                        {/* Discovery */}
                         <button
-                            onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'account'
+                            onClick={() => { setCurrentTab('discovery'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'discovery'
                                     ? 'bg-coral/5 text-coral'
                                     : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
                                 } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
                         >
-                            <User className={`w-5 h-5 shrink-0 ${currentTab === 'account' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Profile</span>}
+                            <Sparkles className={`w-5 h-5 shrink-0 ${currentTab === 'discovery' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Discovery</span>}
                         </button>
                     </nav>
 
@@ -4135,7 +4331,7 @@ const Dashboard = () => {
                             {currentTab === 'favorites' && renderFavorites()}
                             {currentTab === 'plans' && renderMyPlans()}
                             {currentTab === 'discovery' && renderDiscovery()}
-                            {currentTab === 'events' && <EventsTab user={user} isPremium={isPremium} />}
+                            {currentTab === 'events' && <EventsTab appTheme={appTheme} userBorough={userBorough} setToastMessage={setToastMessage} />}
                             {currentTab === 'account' && renderAccount()}
                         </motion.div>
                     </AnimatePresence>
@@ -4164,7 +4360,7 @@ const Dashboard = () => {
                                     setSelectedPlan(null);
                                     setShowMapMobile(false);
                                 }}
-                                className="absolute top-6 right-6 z-50 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors hidden md:block"
+                                className="absolute top-6 right-6 z-[60] p-2.5 bg-navy/20 hover:bg-navy/40 text-navy rounded-full transition-all hidden md:block border border-navy/5"
                             >
                                 <X className="w-6 h-6" />
                             </button>
@@ -4200,60 +4396,63 @@ const Dashboard = () => {
                                     </div>
 
                                     {/* Right: Actions + Close */}
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <button
-                                            onClick={() => handleForkPlan(selectedPlan)}
-                                            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-[10px] font-black group shadow-lg shadow-violet-500/20 font-inter"
-                                        >
-                                            <Sparkles className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
-                                            <span>Steal & Customize</span>
-                                        </button>
-                                        {/* Mobile compact Steal button */}
-                                        <button
-                                            onClick={() => handleForkPlan(selectedPlan)}
-                                            className="sm:hidden flex items-center gap-1 px-2.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-[9px] font-black font-inter"
-                                        >
-                                            <Sparkles className="w-3 h-3" />
-                                            <span>Steal</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleRecreatePlan(selectedPlan.id)}
-                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter text-indigo-600"
-                                            title="Recreate a new variation of this date"
-                                        >
-                                            <RefreshCw className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isGenerating ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform`} />
-                                            <span className="hidden sm:inline">Recreate</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleBoostPlan(selectedPlan.id)}
-                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-coral/10 hover:bg-coral/20 border border-coral/20 rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter text-coral"
-                                            title="Boost this Plan"
-                                        >
-                                            <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 group-hover:scale-125 transition-transform" />
-                                            <span className="hidden sm:inline">Boost</span>
-                                        </button>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        {/* Desktop Only Actions */}
+                                        <div className="hidden sm:flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleForkPlan(selectedPlan)}
+                                                className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all text-[11px] font-black group shadow-lg shadow-violet-500/20 font-inter"
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+                                                <span>Steal & Customize</span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleRecreatePlan(selectedPlan.id)}
+                                                className="flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-xl transition-all text-[11px] font-black group font-inter text-indigo-600"
+                                            >
+                                                <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform`} />
+                                                <span>Recreate</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Mobile/Compact Actions */}
                                         <button
                                             type="button"
                                             onClick={handleShare}
-                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-coral/90 hover:bg-coral border border-coral rounded-lg transition-all text-[9px] sm:text-[10px] font-black group font-inter text-white shadow-md shadow-coral/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f172a]"
-                                            title="Copy or share a link to this plan"
+                                            className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-coral/95 hover:bg-coral border border-coral rounded-xl transition-all text-[10px] sm:text-[11px] font-black group font-inter text-white shadow-md shadow-coral/20 min-h-[44px]"
                                         >
-                                            <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white group-hover:scale-110 transition-transform" />
-                                            <span className="hidden sm:inline">Share link</span>
-                                            <span className="sm:hidden">Share</span>
+                                            <Share2 className="w-3.5 h-3.5 text-white group-hover:scale-110 transition-transform" />
+                                            <span>Share</span>
                                         </button>
-                                        {/* Close / Back — always visible, min 44px tap target */}
+
+                                        {/* Close Button — Primary target on mobile */}
                                         <button
                                             onClick={() => {
                                                 setSelectedPlan(null);
                                                 setShowMapMobile(false);
                                             }}
-                                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
                                             aria-label="Close plan"
                                         >
                                             <X className="w-5 h-5" />
                                         </button>
                                     </div>
+                                </div>
+
+                                {/* Mobile Secondary Action Row — Hidden on desktop */}
+                                <div className="sm:hidden bg-[#0f172a]/95 backdrop-blur-xl px-3 py-2 flex items-center gap-2 border-b border-white/5">
+                                    <button
+                                        onClick={() => handleForkPlan(selectedPlan)}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-violet-600/20 border border-violet-500/30 text-violet-400 rounded-xl text-[10px] font-black uppercase tracking-wider"
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5" /> Steal & Edit
+                                    </button>
+                                    <button
+                                        onClick={() => handleRecreatePlan(selectedPlan.id)}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/5 border border-white/10 text-white/70 rounded-xl text-[10px] font-black uppercase tracking-wider"
+                                    >
+                                        <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} /> Variations
+                                    </button>
                                 </div>
 
                                 <p className="px-3 py-2.5 text-[10px] sm:text-[11px] text-white/80 font-medium bg-[#0c1222] border-b border-white/10 leading-snug">
@@ -4271,9 +4470,27 @@ const Dashboard = () => {
                                     </button>
                                 </div>
 
-                                <div className="p-6 sm:p-8 pt-8 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative mt-[-1rem]">
-                                    <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
-                                        {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [])?.map((step, idx) => {
+                                {(!selectedPlan.itinerary || 
+                                    (Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary.length === 0) ||
+                                    (typeof selectedPlan.itinerary === 'object' && 
+                                     !(selectedPlan.itinerary.steps?.length > 0) && 
+                                     !(selectedPlan.itinerary.itinerary?.length > 0) &&
+                                     !Array.isArray(selectedPlan.itinerary))
+                                ) ? (
+                                    <div className="flex flex-col items-center justify-center h-full py-20 text-center px-6">
+                                        <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+                                            <Sparkles className="w-10 h-10 text-gray-200" />
+                                        </div>
+                                        <h3 className="text-xl font-black text-navy mb-2">No Plan Details Found</h3>
+                                        <p className="text-gray-400 font-medium">Wait, where's the plan? Try sparking it again or check your connection. 🛑</p>
+                                    </div>
+                                ) : (
+                                    <div className="p-6 sm:p-8 pt-10 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative mt-[-1.5rem] min-h-screen">
+                                        <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
+                                            {(Array.isArray(selectedPlan.itinerary)
+                                            ? selectedPlan.itinerary
+                                            : (selectedPlan.itinerary?.steps || selectedPlan.itinerary?.itinerary || selectedPlan.itinerary?.schedule || [])
+                                        )?.map((step, idx) => {
                                             // Gating Rule: If it's a preview plan, free users only see 2 stops (idx 0, 1). 3rd stop (idx 2) is locked.
                                             const isPreview = selectedPlan.itinerary?.metadata?.isPreviewPlan || selectedPlan.is_preview || false;
                                             const isLockedStep = !isPremium && isPreview && idx >= 2;
@@ -4367,12 +4584,15 @@ const Dashboard = () => {
                                                         </p>
 
                                                         {step.photoUrl && (
-                                                            <div className="overflow-hidden rounded-2xl border border-gray-50 shadow-sm mt-1">
+                                                            <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm mt-1 relative bg-gray-50">
                                                                 <img
                                                                     src={step.photoUrl}
                                                                     alt={step.venue}
                                                                     className="w-full h-48 sm:h-56 object-cover hover:scale-105 transition-transform duration-700"
                                                                     loading="lazy"
+                                                                    onError={(e) => {
+                                                                        e.target.style.display = 'none'; // Hide broken image
+                                                                    }}
                                                                 />
                                                             </div>
                                                         )}
@@ -4704,19 +4924,17 @@ const Dashboard = () => {
                                             ❗ I Tried This Plan — Leave a Review
                                         </button>
                                     </div>
-
-
                                 </div>
-                            </div>
+                            )}
+                        </div>
 
-                            {/* Right Column: Embedded Google Map */}
-                            <motion.div
-                                initial={{ x: 50, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                transition={{ delay: 0.3, duration: 0.5, ease: 'easeOut' }}
-                                className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50 touch-none pointer-events-auto' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}
-                            >
-                                {showMapMobile && (
+                        <motion.div
+                            initial={{ x: 50, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            transition={{ delay: 0.3, duration: 0.5, ease: 'easeOut' }}
+                            className={`${showMapMobile ? 'flex flex-1 min-h-[80vh] z-50 touch-none pointer-events-auto' : 'absolute inset-0 z-0 md:relative md:flex pointer-events-none md:pointer-events-auto'} md:flex-col w-full md:w-[350px] lg:w-[450px] bg-gray-50 border-l border-gray-200`}
+                        >
+                            {showMapMobile && (
                                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 md:hidden">
                                         <button
                                             onClick={() => setShowMapMobile(false)}
@@ -5022,12 +5240,14 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            <BottomNav
-                currentTab={currentTab}
-                onTabChange={setCurrentTab}
-                avatarUrl={user?.user_metadata?.avatar_url}
-                userInitial={user?.user_metadata?.first_name?.[0] || 'K'}
-            />
+            <div className="lg:hidden">
+                <BottomNav
+                    currentTab={currentTab}
+                    onTabChange={setCurrentTab}
+                    avatarUrl={user?.user_metadata?.avatar_url}
+                    userInitial={user?.user_metadata?.first_name?.[0] || 'K'}
+                />
+            </div>
 
             {/* GLOBAL TOAST NOTIFICATION */}
             <AnimatePresence>
