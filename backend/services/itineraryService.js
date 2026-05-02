@@ -441,14 +441,27 @@ export const recreatePlan = async (supabase, planId) => {
 // --- PLAN DISCOVERY & MANAGEMENT ---
 
 export const getTrendingPlans = async (supabase) => {
-    const { data } = await supabase
-        .from('plans')
-        .select('*')
-        .is('deleted_at', null)
-        .not('itinerary', 'is', null)
-        .order('boost_count', { ascending: false })
-        .limit(20);
-    return data || [];
+    try {
+        // Fetch the top 50 highly-boosted plans to create a healthy rotation pool
+        const { data } = await supabase
+            .from('plans')
+            .select('*')
+            .is('deleted_at', null)
+            .not('itinerary', 'is', null)
+            .order('boost_count', { ascending: false })
+            .limit(50);
+
+        if (!data || data.length === 0) return [];
+
+        // Dynamic Rotation: Shuffle the results so the feed feels fresh on every refresh
+        const rotated = [...data].sort(() => Math.random() - 0.5);
+        
+        // Return a fresh batch of 20 (or fewer if pool is small)
+        return rotated.slice(0, 20);
+    } catch (err) {
+        console.error('[Trending Rotation Error]', err);
+        return [];
+    }
 };
 
 export const searchPlans = async (supabase, query) => {
