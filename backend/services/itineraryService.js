@@ -167,7 +167,7 @@ export const generateAIDate = async (params) => {
             return await generateGoogleDate(params);
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
         const context = params.prompt 
             ? `User Request: "${params.prompt}". If location is missing, assume ${params.city || 'NYC'}.`
