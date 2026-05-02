@@ -1045,25 +1045,36 @@ const Dashboard = () => {
 
     const handleBuyPass = async (planType) => {
         try {
+            // Re-fetch session to ensure we have valid user data for the payment
+            const { data: { session: authSession } } = await supabase.auth.getSession();
+            const activeUser = authSession?.user || user;
+
+            if (!activeUser?.id || !activeUser?.email) {
+                alert("Please sign in again to continue with the payment.");
+                return;
+            }
+
             const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-            if (!stripe) throw new Error("Stripe Failed to Load");
+            if (!stripe) throw new Error("Stripe Failed to Load. Please check your internet connection.");
 
             const response = await axios.post('/api/create-checkout-session', {
                 planType,
-                userId: user?.id,
-                email: user?.email
+                userId: activeUser.id,
+                email: activeUser.email
             });
             const { id, url } = response.data;
 
-            // Redirect to Stripe Checkout using session URL or ID
             if (url) {
-                window.location.href = url; // Standard redirect
-            } else {
+                window.location.href = url;
+            } else if (id) {
                 await stripe.redirectToCheckout({ sessionId: id });
+            } else {
+                throw new Error("Invalid checkout session response from server.");
             }
         } catch (err) {
             console.error('Checkout error:', err);
-            alert(`Payment failed: ${err.response?.data?.error || err.message}`);
+            const errorMsg = err.response?.data?.error || err.message;
+            alert(`Payment setup failed: ${errorMsg}`);
         }
     };
 

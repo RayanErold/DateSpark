@@ -245,6 +245,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
     try {
         const { planType, userId, email } = req.body;
         
+        if (!userId || !email) {
+            console.error('[Payment] Missing userId or email in request');
+            return res.status(400).json({ error: 'Please sign in again. Missing user identification.' });
+        }
+
         // Map planType to Price ID and Mode
         let priceId = process.env.STRIPE_PRICE_PASS; 
         let mode = 'payment'; // 24H Pass is a one-time payment
@@ -256,13 +261,16 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
         console.log(`[Payment] Creating ${mode} session for ${email} (${planType}) -> ${priceId}`);
 
+        // Use the request's origin for redirects to support mobile/network testing
+        const origin = req.get('origin') || process.env.VITE_APP_URL;
+
         const session = await paymentService.createCheckoutSession({
             userId,
             priceId,
             mode,
             customerEmail: email,
-            successUrl: `${process.env.VITE_APP_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${process.env.VITE_APP_URL}/dashboard`
+            successUrl: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${origin}/dashboard`
         });
         res.json({ url: session.url });
     } catch (err) { 
