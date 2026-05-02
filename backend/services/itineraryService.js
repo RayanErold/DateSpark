@@ -41,77 +41,69 @@ const VIBE_IMAGE_MAPPING = {
  * Semantic Bridge: Takes AI search queries and fetches REAL venues from Google Places.
  * Ensures the date plan is actionable and physically real.
  */
-const enrichWithRealPlaces = async (steps, location = 'NYC') => {
-    if (!Array.isArray(steps)) return steps;
-
+export const enrichWithRealPlaces = async (steps, location) => {
+    const city = location || 'NYC';
+    
     const enrichedSteps = await Promise.all(steps.map(async (step) => {
-        let query = step.search_query || `${step.activity} ${step.venue || ''}`.trim();
-        if (!query) return step;
-
-        // Ensure location is in the query for better accuracy
-        const locationLower = location.toLowerCase();
-        if (!query.toLowerCase().includes(locationLower)) {
-            query = `${query} in ${location}`;
-        }
-
         try {
+            // --- STEP 1: Determine the best Search Query ---
+            const isPlaceholder = !step.venue || 
+                                 step.venue.includes('TBD') || 
+                                 step.venue.includes('REAL PLACE') || 
+                                 step.venue.includes('Search for');
+            
+            let query = isPlaceholder 
+                ? (step.search_query || `${step.activity} in ${city}`)
+                : `${step.venue} in ${city}`;
+
             let response = await axios.post(
                 'https://places.googleapis.com/v1/places:searchText',
-                {
-                    textQuery: query,
-                    maxResultCount: 1
-                },
-                { 
-                    headers: { 
-                        'X-Goog-Api-Key': GOOGLE_API_KEY, 
-                        'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' 
-                    } 
-                }
+                { textQuery: query, maxResultCount: 1 },
+                { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
             );
 
             let place = response.data.places?.[0];
 
-            // --- FALLBACK STRATEGY ---
-            if (!place) {
-                // Clean activity for fallback: take only first 3 words to avoid "search pollution"
-                const cleanActivity = (step.activity || 'interesting place').split(' ').slice(0, 3).join(' ');
-                const fallbackQuery = `top rated ${cleanActivity} in ${location}`;
-                
+            // --- STEP 2: Fallback Strategies ---
+            
+            // Fallback A: If we searched by venue name and failed, try the search_query
+            if (!place && !isPlaceholder && step.search_query) {
                 response = await axios.post(
                     'https://places.googleapis.com/v1/places:searchText',
-                    {
-                        textQuery: fallbackQuery,
-                        maxResultCount: 1
-                    },
-                    { 
-                        headers: { 
-                            'X-Goog-Api-Key': GOOGLE_API_KEY, 
-                            'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' 
-                        } 
-                    }
+                    { textQuery: step.search_query, maxResultCount: 1 },
+                    { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
+                );
+                place = response.data.places?.[0];
+            }
+
+            // Fallback B: Search by activity and city
+            if (!place) {
+                const activityQuery = `${step.activity} near ${city}`;
+                response = await axios.post(
+                    'https://places.googleapis.com/v1/places:searchText',
+                    { textQuery: activityQuery, maxResultCount: 1 },
+                    { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
                 );
                 place = response.data.places?.[0];
             }
 
             if (!place) {
-                return step;
+                return { ...step, verified: false };
             }
 
-            // Construct Google Photo URL if available
+            // --- STEP 3: Normalization ---
             let googlePhotoUrl = null;
             if (place.photos && place.photos.length > 0) {
                 const photoName = place.photos[0].name;
                 googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${GOOGLE_API_KEY}&maxWidthPx=800`;
             }
 
-            // Map Google Reviews
             const reviews = (place.reviews || []).map(r => ({
                 text: r.text?.text || '',
                 author: r.authorAttribution?.displayName || 'Guest',
                 rating: r.rating
             }));
 
-            // Merge real data into the AI step
             return {
                 ...step,
                 venue: place.displayName?.text || step.venue,
@@ -121,13 +113,14 @@ const enrichWithRealPlaces = async (steps, location = 'NYC') => {
                 lat: place.location?.latitude,
                 lng: place.location?.longitude,
                 photoUrl: googlePhotoUrl || step.photoUrl,
-                googlePlaceId: place.name?.split('/').pop(), // Extract just the ID
+                googlePlaceId: place.name?.split('/').pop(),
                 websiteUrl: place.websiteUri,
                 reviews: reviews.length > 0 ? reviews : (step.reviews || []),
                 verified: true
             };
         } catch (err) {
-            return step;
+            console.warn(`[Enrichment Error] ${step.activity}:`, err.message);
+            return { ...step, verified: false };
         }
     }));
 
@@ -201,10 +194,8 @@ export const generateAIDate = async (params) => {
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-2.0-flash", 
-            "gemini-2.0-flash-exp", 
-            "gemini-1.5-flash", 
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-pro"
+            "gemini-1.5-pro",
+            "gemini-1.5-flash"
         ];
 
         let lastError;
@@ -442,22 +433,58 @@ export const recreatePlan = async (supabase, planId) => {
 
 export const getTrendingPlans = async (supabase) => {
     try {
-        // Fetch the top 50 highly-boosted plans to create a healthy rotation pool
+        // Fetch a larger pool of boosted plans to ensure better rotation (Top 100)
         const { data } = await supabase
             .from('plans')
             .select('*')
             .is('deleted_at', null)
             .not('itinerary', 'is', null)
+            .gt('boost_count', 0) // Only include plans that have been "boosted" (tried)
             .order('boost_count', { ascending: false })
-            .limit(50);
+            .limit(100);
 
-        if (!data || data.length === 0) return [];
+        if (!data || data.length === 0) {
+            // Fallback: If no boosted plans, just get any public plans
+            const { data: fallbacks } = await supabase
+                .from('plans')
+                .select('*')
+                .is('deleted_at', null)
+                .not('itinerary', 'is', null)
+                .limit(50);
+            return (fallbacks || []).sort(() => Math.random() - 0.5).slice(0, 20);
+        }
 
-        // Dynamic Rotation: Shuffle the results so the feed feels fresh on every refresh
-        const rotated = [...data].sort(() => Math.random() - 0.5);
+        // --- ON-THE-FLY IMAGE FIXER ---
+        // Ensure every trending plan has at least one photoUrl to avoid "grey boxes"
+        // --- ON-THE-FLY IMAGE FIXER & ROTATION ---
+        // Ensure every trending plan has high-quality images and randomize the display batch
+        const plansWithImages = data.map(plan => {
+            let itinerary = plan.itinerary;
+            let steps = Array.isArray(itinerary) ? itinerary : (itinerary?.steps || []);
+            
+            // Apply enrichment to every step to fill in any missing images
+            const updatedSteps = enrichStepsWithImages(steps);
+            
+            if (Array.isArray(itinerary)) {
+                itinerary = updatedSteps;
+            } else if (itinerary?.steps) {
+                itinerary.steps = updatedSteps;
+            }
+            
+            return { ...plan, itinerary };
+        });
+
+        // Dynamic Rotation Strategy:
+        // 1. Separate into "Super Boosted" (top 10) and "Rising" (rest)
+        // 2. Take all top 5 guaranteed
+        // 3. Shuffle the rest and take 15 random ones
+        const superBoosted = plansWithImages.slice(0, 10);
+        const rising = plansWithImages.slice(10);
         
-        // Return a fresh batch of 20 (or fewer if pool is small)
-        return rotated.slice(0, 20);
+        const guaranteed = superBoosted.slice(0, 5);
+        const candidates = [...superBoosted.slice(5), ...rising].sort(() => Math.random() - 0.5);
+        
+        return [...guaranteed, ...candidates].slice(0, 20);
     } catch (err) {
         console.error('[Trending Rotation Error]', err);
         return [];

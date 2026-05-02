@@ -144,11 +144,11 @@ const EventCard = ({ evt, isDark, idx }) => {
 };
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
-const EventsTab = ({ appTheme, userBorough, setToastMessage }) => {
+const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
     const isDark = appTheme === 'dark';
     const [category, setCategory]   = useState('all');
-    const [city, setCity]           = useState(userBorough || 'New York');
-    const [cityInput, setCityInput] = useState(userBorough || 'New York');
+    const [city, setCity]           = useState(userCity || 'New York');
+    const [cityInput, setCityInput] = useState(userCity || 'New York');
     const [events, setEvents]       = useState([]);
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState(null);
