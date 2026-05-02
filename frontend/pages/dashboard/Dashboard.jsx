@@ -872,7 +872,7 @@ const Dashboard = () => {
     const [replyText, setReplyText] = useState('');
     const [isPostingReply, setIsPostingReply] = useState(false);
     const [likingReview, setLikingReview] = useState(null); // { planId, reviewIndex }
-    const [userBorough, setUserBorough] = useState('Manhattan');
+    const [userCity, setUserCity] = useState('New York');
 
     useEffect(() => {
         if ("geolocation" in navigator) {
@@ -880,41 +880,47 @@ const Dashboard = () => {
                 const { latitude: lat, longitude: lng, accuracy } = position.coords;
                 console.log(`[Dashboard GPS] Detected: ${lat}, ${lng} (Accuracy: ${accuracy}m)`);
 
-                // Service Area Bounding Box (NYC + New Jersey)
-                const isWithinCoords = lat >= 38.9 && lat <= 41.4 && lng >= -75.6 && lng <= -73.7;
+                // Service Area Check (NYC + New Jersey)
+                const isWithinNYCNJ = lat >= 38.9 && lat <= 41.4 && lng >= -75.6 && lng <= -73.7;
 
-                if (!isWithinCoords && accuracy < 5000) {
-                    console.log('User appears to be outside NYC/NJ service area. Defaulting to Manhattan for discovery.');
-                    setUserBorough('Manhattan');
-                    return;
-                }
-
-                // Accurate Borough/City Detection
-                const boroughs = [
-                    { name: 'Manhattan', lat: 40.7831, lng: -73.9712 },
-                    { name: 'Brooklyn', lat: 40.6782, lng: -73.9442 },
-                    { name: 'Queens', lat: 40.7282, lng: -73.7949 },
-                    { name: 'Bronx', lat: 40.8448, lng: -73.8648 },
-                    { name: 'Staten Island', lat: 40.5795, lng: -74.1502 },
-                    { name: 'Jersey City', lat: 40.7178, lng: -74.0431 },
-                    { name: 'Hoboken', lat: 40.7440, lng: -74.0324 }
-                ];
-
-                let closest = boroughs[0];
-                let minDist = Infinity;
-                boroughs.forEach(b => {
-                    // Haversine would be better but simple distance handles these small deltas fine
-                    const dist = Math.sqrt(Math.pow(b.lat - lat, 2) + Math.pow(b.lng - lng, 2));
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closest = b;
+                if (isWithinNYCNJ) {
+                    const boroughs = [
+                        { name: 'Manhattan', lat: 40.7831, lng: -73.9712 },
+                        { name: 'Brooklyn', lat: 40.6782, lng: -73.9442 },
+                        { name: 'Queens', lat: 40.7282, lng: -73.7949 },
+                        { name: 'Bronx', lat: 40.8448, lng: -73.8648 },
+                        { name: 'Staten Island', lat: 40.5795, lng: -74.1502 },
+                        { name: 'Jersey City', lat: 40.7178, lng: -74.0431 },
+                        { name: 'Hoboken', lat: 40.7440, lng: -74.0324 }
+                    ];
+                    let closest = boroughs[0];
+                    let minDist = Infinity;
+                    boroughs.forEach(b => {
+                        const dist = Math.sqrt(Math.pow(b.lat - lat, 2) + Math.pow(b.lng - lng, 2));
+                        if (dist < minDist) { minDist = dist; closest = b; }
+                    });
+                    console.log(`[Dashboard GPS] Resolved to NYC Area: ${closest.name}`);
+                    setUserCity(closest.name);
+                } else {
+                    // OUTSIDE NYC/NJ: Use Reverse Geocoding to get the real city
+                    if (window.google?.maps?.Geocoder) {
+                        new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (results, status) => {
+                            if (status === 'OK' && results[0]) {
+                                const cityComp = results[0].address_components.find(c =>
+                                    c.types.includes('locality') || c.types.includes('sublocality')
+                                );
+                                if (cityComp) {
+                                    console.log(`[Dashboard GPS] Resolved to Global City: ${cityComp.long_name}`);
+                                    setUserCity(cityComp.long_name);
+                                } else {
+                                    setUserCity('New York'); // Hard fallback
+                                }
+                            }
+                        });
                     }
-                });
-
-                console.log(`[Dashboard GPS] Resolved to: ${closest.name}`);
-                setUserBorough(closest.name);
+                }
             },
-                (err) => console.log('Location access denied or timed out, defaulting to Manhattan.'),
+                (err) => console.log('Location access denied, defaulting to New York.'),
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
             );
         }
@@ -1144,6 +1150,7 @@ const Dashboard = () => {
                 prompt,
                 userId: user?.id,
                 email: user?.email,
+                city: userCity,
                 type: 'classic'
             });
 
