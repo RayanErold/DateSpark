@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
  * ItineraryService — The Bridge Module.
@@ -7,9 +8,13 @@ import axios from 'axios';
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 let GOOGLE_API_KEY;
+let genAI;
 
 export const initItineraryService = (config) => {
     GOOGLE_API_KEY = config.GOOGLE_API_KEY;
+    if (process.env.GEMINI_API_KEY) {
+        genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    }
 };
 
 // --- ASSET ENRICHMENT CONFIG ---
@@ -156,62 +161,61 @@ const enrichStepsWithImages = (steps) => {
 
 export const generateAIDate = async (params) => {
     try {
-        const aiResponse = await axios.post(`${AI_SERVICE_URL}/generate-itinerary`, {
-            city: params.city || params.location,
-            vibe: params.vibe,
-            budget: params.budget,
-            preferences: params.preferences || params.interests,
-            prompt: params.prompt // Natural language prompt from Copilot
-        });
-        
-        // The Python service returns { raw_itinerary: "..." }
-        let itineraryData = aiResponse.data.raw_itinerary;
-        try {
-            if (typeof itineraryData === 'string') {
-                // Find the first and last structural characters to extract JSON
-                const firstBrace = itineraryData.indexOf('{');
-                const lastBrace = itineraryData.lastIndexOf('}');
-                const firstBracket = itineraryData.indexOf('[');
-                const lastBracket = itineraryData.lastIndexOf(']');
-
-                // Try to find an object first, then an array
-                if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-                    const jsonCandidate = itineraryData.substring(firstBrace, lastBrace + 1);
-                    itineraryData = JSON.parse(jsonCandidate);
-                } else if (firstBracket !== -1 && lastBracket !== -1) {
-                    const jsonCandidate = itineraryData.substring(firstBracket, lastBracket + 1);
-                    itineraryData = JSON.parse(jsonCandidate);
-                } else {
-                    const cleanJson = itineraryData.replace(/```json\n?|\n?```/g, '').trim();
-                    itineraryData = JSON.parse(cleanJson);
-                }
-            }
-        } catch (e) {
-            
+        // --- 1. AI GENERATION (Native Gemini Integration) ---
+        if (!genAI) {
+            console.warn('[AI Service] Gemini not configured, falling back to Google Places');
+            return await generateGoogleDate(params);
         }
 
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        
+        const context = params.prompt 
+            ? `User Request: "${params.prompt}". If location is missing, assume ${params.city || 'NYC'}.`
+            : `City: ${params.city || 'NYC'}, Vibe: ${params.vibe || 'chill'}, Budget: ${params.budget || 'flexible'}, Preferences: ${params.preferences || 'None'}`;
+
+        const finalPrompt = `
+            You are the 'Date Architect' for DateSpark. 
+            ${context}
+            
+            CRITICAL INSTRUCTIONS:
+            1. DO NOT make up venue names (e.g., don't say 'The Romantic Bistro'). Use 'REAL PLACE TBD' as the venue.
+            2. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
+               Example: 'Best romantic rooftop bar with Empire State views in ${params.city || 'NYC'}'
+            3. Ensure the 'activity' is descriptive but concise.
+            
+            Return ONLY a valid JSON object with:
+            - title: Catchy name for the date (max 5 words)
+            - description: A romantic/fun summary (max 20 words)
+            - steps: Array of 3 activities. Each step MUST include:
+                * 'time': e.g., '7:00 PM'
+                * 'activity': A CONCISE category (e.g., 'Dinner', 'Cocktails', 'Stroll'). Max 3 words.
+                * 'venue': 'REAL PLACE TBD'
+                * 'description': A short, enticing blurb.
+                * 'search_query': A high-intent, short Google Maps search string.
+        `;
+
+        const result = await model.generateContent(finalPrompt);
+        const response = await result.response;
+        let itineraryDataRaw = response.text();
+        
+        // Clean JSON formatting
+        let itineraryData;
+        try {
+            const jsonMatch = itineraryDataRaw.match(/\{[\s\S]*\}/);
+            itineraryData = JSON.parse(jsonMatch ? jsonMatch[0] : itineraryDataRaw);
+        } catch (e) {
+            console.error('[AI_PARSE_ERROR]', e);
+            throw new Error("Failed to parse AI response");
+        }
+
+        // --- 2. ENRICHMENT & PERSISTENCE ---
         let foundKey = null;
         const findStepsArray = (obj) => {
             if (Array.isArray(obj)) return obj;
             if (!obj || typeof obj !== 'object') return null;
-            
-            const keys = ['steps', 'itinerary', 'activities', 'plan', 'date_steps', 'items', 'schedule'];
+            const keys = ['steps', 'itinerary', 'activities', 'plan', 'items'];
             for (const key of keys) {
-                if (Array.isArray(obj[key]) && obj[key].length > 0) {
-                    foundKey = key;
-                    return obj[key];
-                }
-            }
-            
-            for (const key in obj) {
-                if (Array.isArray(obj[key]) && obj[key].length > 0) {
-                    foundKey = key;
-                    return obj[key];
-                }
-                if (typeof obj[key] === 'object') {
-                    const found = findStepsArray(obj[key]);
-                    if (found) return found;
-                }
+                if (Array.isArray(obj[key])) { foundKey = key; return obj[key]; }
             }
             return null;
         };
@@ -219,37 +223,23 @@ export const generateAIDate = async (params) => {
         const rawSteps = findStepsArray(itineraryData);
 
         if (rawSteps) {
-            
-            // Step 1: Real-World Venue Enrichment (Google Maps)
             const city = params.city || params.location || 'NYC';
             const enrichedSteps = await enrichWithRealPlaces(rawSteps, city);
-            
-            // Step 2: Visual Asset Enrichment (Mapping Vibes to Photos)
             const finalSteps = enrichStepsWithImages(enrichedSteps);
             
-            // Step 3: CRITICAL FIX - Overwrite the original data key so the frontend sees the updates
-            // We also set 'steps' as a primary key just in case
-            if (foundKey) {
-                itineraryData[foundKey] = finalSteps;
-            }
+            if (foundKey) itineraryData[foundKey] = finalSteps;
             itineraryData.steps = finalSteps; 
 
-            
             return { 
-                source: 'AI_MICROSERVICE', 
+                source: 'NATIVE_AI', 
                 data: itineraryData, 
                 enriched: true 
             };
         }
 
-        return { 
-            source: 'AI_SERVICE', 
-            data: itineraryData, 
-            enriched: true 
-        };
+        return { source: 'NATIVE_AI', data: itineraryData, enriched: false };
     } catch (err) {
-        console.warn(`[AI Service] Failed, falling back to Google Places: ${err.message}`);
-        // Fallback to Google Places generator if AI Service is unreachable
+        console.warn(`[Native AI] Failed, falling back to Google Places: ${err.message}`);
         return await generateGoogleDate(params);
     }
 };
