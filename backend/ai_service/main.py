@@ -60,7 +60,7 @@ async def generate_with_gemini(prompt: str):
         raise Exception("Gemini provider not configured")
     
     response = gemini_client.models.generate_content(
-        model='gemini-2.0-flash',
+        model='gemini-2.5-pro',
         contents=prompt
     )
     return response.text
@@ -146,7 +146,7 @@ async def chat_with_architect(request: ChatRequest):
     try:
         if gemini_client:
             response = gemini_client.models.generate_content(
-                model='gemini-2.0-flash',
+                model='gemini-2.5-pro',
                 contents=request.message
             )
             return {"reply": response.text, "provider": "gemini"}
