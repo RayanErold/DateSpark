@@ -193,13 +193,30 @@ export const generateAIDate = async (params) => {
         `;
 
         let result;
-        try {
-            const model20 = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-            result = await model20.generateContent(finalPrompt);
-        } catch (err) {
-            console.warn('[AI Service] Gemini 2.0-flash failed, falling back to 1.5-flash');
-            const model15 = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            result = await model15.generateContent(finalPrompt);
+        const modelsToTry = [
+            "gemini-2.0-flash", 
+            "gemini-2.0-flash-exp", 
+            "gemini-1.5-flash", 
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-pro"
+        ];
+
+        let lastError;
+        for (const modelName of modelsToTry) {
+            try {
+                console.log(`[AI Service] Attempting ${modelName}...`);
+                const model = genAI.getGenerativeModel({ model: modelName });
+                result = await model.generateContent(finalPrompt);
+                console.log(`[AI Service] Success with ${modelName}`);
+                break; // Exit loop on success
+            } catch (err) {
+                lastError = err;
+                console.warn(`[AI Service] ${modelName} failed: ${err.message}`);
+            }
+        }
+
+        if (!result) {
+            throw new Error(`All Gemini models failed. Last error: ${lastError?.message}`);
         }
         
         const response = await result.response;
