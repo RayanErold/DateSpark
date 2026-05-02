@@ -122,19 +122,12 @@ app.post('/api/feedback', async (req, res) => {
                 .from('feedback')
                 .insert([{ 
                     user_id: userId, 
-                    email: userEmail, // Trying 'email' as a common alternative to 'user_email'
-                    message: message 
+                    email: userEmail, 
+                    text: message 
                 }]);
             
             if (dbError) {
-                // Try one more time with 'user_email' if 'email' failed
-                await supabaseAdmin
-                    .from('feedback')
-                    .insert([{ 
-                        user_id: userId, 
-                        user_email: userEmail, 
-                        message: message 
-                    }]);
+                console.error('[Feedback] DB Error:', dbError.message);
             }
         } catch (dbErr) {
             console.error('[Feedback] Database insertion failed:', dbErr.message);

@@ -185,10 +185,10 @@ const EventsTab = ({ appTheme, userBorough, setToastMessage }) => {
         setLoading(true);
         setError(null);
         
-        // Ticketmaster is picky: "Manhattan"/"Brooklyn" -> "New York"
+        // Ticketmaster/SeatGeek metro logic: boroughs & neighbors -> "New York"
         let searchCity = c;
-        const nycKeywords = ['manhattan', 'brooklyn', 'queens', 'bronx', 'staten island'];
-        if (nycKeywords.includes(c.toLowerCase())) {
+        const metroKeywords = ['manhattan', 'brooklyn', 'queens', 'bronx', 'staten island', 'jersey city', 'hoboken'];
+        if (metroKeywords.includes(c.toLowerCase())) {
             searchCity = 'New York';
         }
 

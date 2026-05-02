@@ -122,7 +122,7 @@ export const fetchEvents = async (supabase, city, category, size = 15, keys = {}
     // Merge and shuffle
     const all = [...tmEvents, ...sgEvents, ...serpEvents].sort(() => Math.random() - 0.5);
 
-    // 5. ASYNC CACHE SAVE (Don't wait for it to return to speed up UI)
+    // 5. ASYNC CACHE SAVE
     if (all.length > 0) {
         supabase.from('event_cache').upsert({
             city,
@@ -130,9 +130,11 @@ export const fetchEvents = async (supabase, city, category, size = 15, keys = {}
             data: all,
             expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         }, { onConflict: 'city,category' }).then(({ error }) => {
-            if (error) console.warn('[EventCache] ⚠️ Save Error:', error.message);
-            else console.log(`[EventCache] 💾 Saved ${all.length} events for "${cat}" in ${city}`);
+            if (error) console.error(`[EventCache] ❌ Save Error for "${cat}" in ${city}:`, error.message);
+            else console.log(`[EventCache] 💾 Cached ${all.length} events for "${cat}" in ${city}`);
         });
+    } else {
+        console.warn(`[EventService] ⚠️ No events found for "${cat}" in ${city} across all sources.`);
     }
 
     return all;
