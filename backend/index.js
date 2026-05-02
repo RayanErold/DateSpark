@@ -23,7 +23,8 @@ const PORT = process.env.PORT || 5000;
 
 // Initialize Services (Inject Dependencies)
 itineraryService.initItineraryService({ 
-    GOOGLE_API_KEY: process.env.VITE_GOOGLE_MAPS_API_KEY 
+    GOOGLE_API_KEY: process.env.VITE_GOOGLE_MAPS_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY
 });
 paymentService.initPaymentService(process.env.STRIPE_SECRET_KEY);
 

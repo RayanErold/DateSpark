@@ -12,8 +12,11 @@ let genAI;
 
 export const initItineraryService = (config) => {
     GOOGLE_API_KEY = config.GOOGLE_API_KEY;
-    if (process.env.GEMINI_API_KEY) {
-        genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    if (config.GEMINI_API_KEY) {
+        console.log('[ItineraryService] Initializing with Gemini API Key');
+        genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
+    } else {
+        console.warn('[ItineraryService] No GEMINI_API_KEY provided in config');
     }
 };
 
@@ -194,6 +197,9 @@ export const generateAIDate = async (params) => {
 
         let result;
         const modelsToTry = [
+            "gemini-2.5-pro",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
             "gemini-2.0-flash", 
             "gemini-2.0-flash-exp", 
             "gemini-1.5-flash", 
