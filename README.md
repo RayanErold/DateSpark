@@ -1,10 +1,11 @@
 # 💎 DateSpark | Premium AI Date Planner
 
 [![Dynamic Design](https://img.shields.io/badge/Design-Premium-rose)](https://datespark.live)
-[![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node%20%7C%20Supabase-blue)](https://datespark.live)
-[![AI Powered](https://img.shields.io/badge/AI-Google%20Gemini-pink)](https://datespark.live)
+[![Tech Stack](https://img.shields.io/badge/Stack-React%2019%20%7C%20Node%20%7C%20Python-blue)](https://datespark.live)
+[![AI Powered](https://img.shields.io/badge/AI-Gemini%202.5%20Pro-pink)](https://datespark.live)
+[![Architecture](https://img.shields.io/badge/Architecture-Microservices-orange)](https://datespark.live)
 
-**DateSpark** is a social discovery platform focused on helping people create meaningful connections through curated real-life experiences.
+**DateSpark** is a high-performance social discovery platform that leverages state-of-the-art AI to orchestrate curated real-life experiences.
 
 Supported in NYC & NJ Now
 ---
@@ -12,7 +13,7 @@ Supported in NYC & NJ Now
 ## 👋 The Experience
 
 ### 🤖 AI-Guided Planning
-Multi-stop date nights tailored to your "vibe," budget, and location using **Google Gemini 2.5 Flash**.
+Multi-stop date nights tailored to your "vibe," budget, and location using **Google Gemini 2.5 Pro** for industry-leading reasoning and creativity.
 
 ### 📱 Mastered Mobile Layout
 Optimized for the modern iPhone and Android experience:
@@ -20,8 +21,12 @@ Optimized for the modern iPhone and Android experience:
 - **Responsive Itinerary Cards**: Dynamic `snap-alignment` grid that eliminates whitespace gaps and provides a "peek" into upcoming plans.
 - **Micro-Animations**: Glassmorphism and ambient glow effects for a premium, native-app feel.
 
-### 📍 Local Intelligence
-Every venue is vetted via official Google Places data for high-resolution photos, real-time ratings, and live hours.
+### 📍 Local Intelligence & Event Discovery
+DateSpark features a custom **Hybrid Discovery Engine** that goes beyond basic map data to find real-time, high-intent local activities:
+- **Multi-Source Aggregation**: Seamlessly merges live data from **Ticketmaster**, **SeatGeek**, and **SerpApi (Google Events)**.
+- **Niche Discovery**: Specialized logic for finding local-heavy categories like **Tech Networking**, **Art Classes**, and **Community Meetups** that major ticket platforms ignore.
+- **Performance Caching**: Supabase-backed `event_cache` system with 24-hour TTL to ensure lightning-fast responses while protecting API quotas.
+- **Smart Fallbacks**: Automatically triggers deep-web searches (via SerpApi) only when standard sources return low-density results.
 
 ### 💳 Monetization Ready
 Production-ready **Stripe** integration for:
@@ -32,19 +37,27 @@ Production-ready **Stripe** integration for:
 
 ## 🛠️ Technology Stack
 
-| Layer | Technology |
-| :--- | :--- |
-| **Frontend** | React, Vite, Tailwind CSS v4, Lucide Icons |
-| **Backend** | Node.js, Express (Secure AI Proxy) |
-| **Core Storage** | Supabase (PostgreSQL & Real-time) |
-| **AI Magic** | Google Cloud Vertex AI (Gemini 1.5) |
-| **Payment Hub** | Stripe (Live Mode Ready) |
-| **Engagement** | Resend (Automated Transactional Emails) |
-| **Database & Auth** | Supabase (PostgreSQL) |
-| **Intelligence** | Google Cloud (Vertex AI / Gemini 1.5) |
-| **Geolocation** | Google Maps & Places API |
-| **Payments** | Stripe (Live Mode Ready) |
-| **Email** | Resend |
+| Layer | Technology | Description |
+| :--- | :--- | :--- |
+| **Frontend** | **React 19 / Vite 7** | Modern, high-performance UI foundation |
+| **Styling** | **Tailwind CSS v4** | Next-gen utility-first CSS with native performance |
+| **AI Core** | **Gemini 2.5 Pro** | Advanced multimodal reasoning for itinerary generation |
+| **AI Service** | **Python** | Dedicated microservice for AI orchestration and prompts |
+| **Backend** | **Node.js / Express 5** | Scalable API Gateway and service orchestration |
+| **Discovery** | **TM / SeatGeek / SerpApi** | Multi-source hybrid event intelligence engine |
+| **Database** | **Supabase (Postgres)** | Real-time data synchronization and secure storage |
+| **Auth** | **Supabase Auth** | Enterprise-grade JWT-based authentication |
+| **Payments** | **Stripe** | Production-ready payment processing (Passes & Plus) |
+| **Engagement** | **Resend** | Automated transactional email delivery |
+| **Maps** | **Google Places API** | Real-time venue intelligence and geolocation |
+
+---
+
+## 🏗️ Microservices Architecture
+
+- **Gateway Service (Node.js)**: Orchestrates requests between the frontend and internal services.
+- **AI Microservice (Python)**: Decoupled logic for prompt engineering and Gemini 2.5 Pro interfacing.
+- **Core Services**: Modularized handlers for Itineraries, Events, Payments, and Users.
 
 ---
 
