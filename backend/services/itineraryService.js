@@ -41,10 +41,24 @@ const VIBE_IMAGE_MAPPING = {
  * Semantic Bridge: Takes AI search queries and fetches REAL venues from Google Places.
  * Ensures the date plan is actionable and physically real.
  */
-export const enrichWithRealPlaces = async (steps, location) => {
+export const enrichWithRealPlaces = async (steps, location, coords = null) => {
     const city = location || 'NYC';
     
+    // --- LOCATION BIAS CONFIG ---
+    // If exact coordinates are provided, bias the search to a 10km circle around the user.
+    const locationBias = (coords && coords.lat && coords.lng) ? {
+        circle: {
+            center: { latitude: coords.lat, longitude: coords.lng },
+            radius: 15000 // 15km radius (approx 9 miles)
+        }
+    } : null;
+
     const enrichedSteps = await Promise.all(steps.map(async (step) => {
+        // Skip enrichment if already verified with a Google photo or place ID
+        if (step.googlePlaceId || (step.photoUrl || '').includes('google')) {
+            return step;
+        }
+
         try {
             // --- STEP 1: Determine the best Search Query ---
             const isPlaceholder = !step.venue || 
@@ -52,25 +66,35 @@ export const enrichWithRealPlaces = async (steps, location) => {
                                  step.venue.includes('REAL PLACE') || 
                                  step.venue.includes('Search for');
             
-            let query = isPlaceholder 
-                ? (step.search_query || `${step.activity} in ${city}`)
-                : `${step.venue} in ${city}`;
+            // STEP 1: Formulate a precise search query
+            const searchContext = location || city || 'NYC';
+            const query = step.search_query || (isPlaceholder 
+                ? `${step.activity} in ${searchContext}`
+                : `${step.venue} in ${searchContext}`);
+            
+            console.log(`[Google Search] Query: "${query}"`);
 
             let response = await axios.post(
                 'https://places.googleapis.com/v1/places:searchText',
-                { textQuery: query, maxResultCount: 1 },
+                { 
+                    textQuery: query, 
+                    maxResultCount: 1,
+                    ...(locationBias && { locationBias }) // Real-time GPS Biasing
+                },
                 { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
             );
 
             let place = response.data.places?.[0];
 
-            // --- STEP 2: Fallback Strategies ---
-            
-            // Fallback A: If we searched by venue name and failed, try the search_query
+            // Fallback A: If we searched by venue name and failed, try the search_query directly if it exists
             if (!place && !isPlaceholder && step.search_query) {
                 response = await axios.post(
                     'https://places.googleapis.com/v1/places:searchText',
-                    { textQuery: step.search_query, maxResultCount: 1 },
+                    { 
+                        textQuery: step.search_query, 
+                        maxResultCount: 1,
+                        ...(locationBias && { locationBias }) 
+                    },
                     { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
                 );
                 place = response.data.places?.[0];
@@ -81,7 +105,11 @@ export const enrichWithRealPlaces = async (steps, location) => {
                 const activityQuery = `${step.activity} near ${city}`;
                 response = await axios.post(
                     'https://places.googleapis.com/v1/places:searchText',
-                    { textQuery: activityQuery, maxResultCount: 1 },
+                    { 
+                        textQuery: activityQuery, 
+                        maxResultCount: 1,
+                        ...(locationBias && { locationBias })
+                    },
                     { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
                 );
                 place = response.data.places?.[0];
@@ -95,7 +123,8 @@ export const enrichWithRealPlaces = async (steps, location) => {
             let googlePhotoUrl = null;
             if (place.photos && place.photos.length > 0) {
                 const photoName = place.photos[0].name;
-                googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${GOOGLE_API_KEY}&maxWidthPx=800`;
+                // Save WITHOUT the key - the frontend proxy will inject the correct authorized key
+                googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=800`;
             }
 
             const reviews = (place.reviews || []).map(r => ({
@@ -129,10 +158,12 @@ export const enrichWithRealPlaces = async (steps, location) => {
 
 /**
  * Enriches plan steps with high-quality images based on vibe keywords or activity names.
+ * Used only as a FINAL safety fallback when Google Places enrichment fails completely.
  */
 const enrichStepsWithImages = (steps) => {
     return steps.map((step, index) => {
-        if (step.photoUrl) {
+        // If it already has a photo (real or already enriched), keep it
+        if (step.photoUrl || step.image || step.photo) {
             return step;
         }
 
@@ -140,7 +171,7 @@ const enrichStepsWithImages = (steps) => {
         const vibe = (step.vibe_keyword || step.vibe || '').toLowerCase();
         
         // Find best match in mapping
-        let matchedImage = VIBE_IMAGE_MAPPING['chill']; // Default
+        let matchedImage = null; // Don't default to chill anymore, let it be null so we know it's empty
         
         for (const [key, url] of Object.entries(VIBE_IMAGE_MAPPING)) {
             if (vibe.includes(key) || activity.includes(key)) {
@@ -164,15 +195,16 @@ export const generateAIDate = async (params) => {
         }
 
         const context = params.prompt 
-            ? `User Request: "${params.prompt}". If location is missing, assume ${params.city || 'NYC'}.`
-            : `City: ${params.city || 'NYC'}, Vibe: ${params.vibe || 'chill'}, Budget: ${params.budget || 'flexible'}, Preferences: ${params.preferences || 'None'}`;
+            ? `User Request: "${params.prompt}". ${params.lat && params.lng ? `Exact Location (lat, lng): ${params.lat}, ${params.lng}` : `Assume city: ${params.city || 'NYC'}`}.`
+            : `City: ${params.city || 'NYC'}, Lat: ${params.lat || 'N/A'}, Lng: ${params.lng || 'N/A'}, Vibe: ${params.vibe || 'chill'}, Budget: ${params.budget || 'flexible'}, Preferences: ${params.preferences || 'None'}`;
 
         const finalPrompt = `
             You are the 'Date Architect' for DateSpark. 
             ${context}
             
             CRITICAL INSTRUCTIONS:
-            1. DO NOT make up venue names (e.g., don't say 'The Romantic Bistro'). Use 'REAL PLACE TBD' as the venue.
+            1. If exact coordinates are provided, prioritize venues within walking or short driving distance.
+            2. DO NOT make up venue names. Use 'REAL PLACE TBD' as the venue.
             2. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
                Example: 'Best romantic rooftop bar with Empire State views in ${params.city || 'NYC'}'
             3. Ensure the 'activity' is descriptive but concise.
@@ -245,7 +277,8 @@ export const generateAIDate = async (params) => {
 
         if (rawSteps) {
             const city = params.city || params.location || 'NYC';
-            const enrichedSteps = await enrichWithRealPlaces(rawSteps, city);
+            const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
+            const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords);
             const finalSteps = enrichStepsWithImages(enrichedSteps);
             
             if (foundKey) itineraryData[foundKey] = finalSteps;
@@ -433,60 +466,68 @@ export const recreatePlan = async (supabase, planId) => {
 
 export const getTrendingPlans = async (supabase) => {
     try {
-        // Fetch a larger pool of boosted plans to ensure better rotation (Top 100)
-        const { data } = await supabase
+        // Fetch a pool of plans, prioritizing boosted ones but allowing others if needed
+        const { data, error } = await supabase
             .from('plans')
             .select('*')
             .is('deleted_at', null)
             .not('itinerary', 'is', null)
-            .gt('boost_count', 0) // Only include plans that have been "boosted" (tried)
             .order('boost_count', { ascending: false })
-            .limit(100);
+            .limit(60);
 
-        if (!data || data.length === 0) {
-            // Fallback: If no boosted plans, just get any public plans
-            const { data: fallbacks } = await supabase
-                .from('plans')
-                .select('*')
-                .is('deleted_at', null)
-                .not('itinerary', 'is', null)
-                .limit(50);
-            return (fallbacks || []).sort(() => Math.random() - 0.5).slice(0, 20);
+        if (error || !data || data.length === 0) {
+            console.warn('[Trending] No plans found in database.');
+            return [];
         }
 
-        // --- ON-THE-FLY IMAGE FIXER ---
-        // Ensure every trending plan has at least one photoUrl to avoid "grey boxes"
-        // --- ON-THE-FLY IMAGE FIXER & ROTATION ---
-        // Ensure every trending plan has high-quality images and randomize the display batch
-        const plansWithImages = data.map(plan => {
+        // Shuffle and pick a display batch (20 to match Dashboard UI)
+        const selectedPlans = data.sort(() => Math.random() - 0.5).slice(0, 20);
+
+        // --- REAL PHOTO ENFORCEMENT ---
+        // We use a sequential loop here to avoid hitting Google API rate limits with 20 parallel plans.
+        const enrichedPlans = [];
+        for (const plan of selectedPlans) {
             let itinerary = plan.itinerary;
             let steps = Array.isArray(itinerary) ? itinerary : (itinerary?.steps || []);
             
-            // Apply enrichment to every step to fill in any missing images
-            const updatedSteps = enrichStepsWithImages(steps);
+            // Force enrichment if:
+            // 1. Missing Place ID
+            // 2. Not a Google URL
+            // 3. Is a Legacy URL (maps.googleapis.com) - these expire and should be migrated to the New API
+            const needsEnrichment = steps.some(s => 
+                !s.googlePlaceId || 
+                !(s.photoUrl || '').includes('google') ||
+                (s.photoUrl || '').includes('maps.googleapis.com')
+            );
             
-            if (Array.isArray(itinerary)) {
-                itinerary = updatedSteps;
-            } else if (itinerary?.steps) {
-                itinerary.steps = updatedSteps;
-            }
-            
-            return { ...plan, itinerary };
-        });
+            if (needsEnrichment && steps.length > 0) {
+                console.log(`[Trending] Found unverified steps in "${plan.title || plan.id}". Enriching...`);
+                try {
+                    const enrichedSteps = await enrichWithRealPlaces(steps, plan.location, { lat: plan.lat, lng: plan.lng });
+                    
+                    let updatedItinerary = Array.isArray(itinerary) ? enrichedSteps : { ...itinerary, steps: enrichedSteps };
+                    
+                    // Await the DB update to ensure persistence
+                    const { error } = await supabase.from('plans')
+                        .update({ itinerary: updatedItinerary })
+                        .eq('id', plan.id);
 
-        // Dynamic Rotation Strategy:
-        // 1. Separate into "Super Boosted" (top 10) and "Rising" (rest)
-        // 2. Take all top 5 guaranteed
-        // 3. Shuffle the rest and take 15 random ones
-        const superBoosted = plansWithImages.slice(0, 10);
-        const rising = plansWithImages.slice(10);
-        
-        const guaranteed = superBoosted.slice(0, 5);
-        const candidates = [...superBoosted.slice(5), ...rising].sort(() => Math.random() - 0.5);
-        
-        return [...guaranteed, ...candidates].slice(0, 20);
+                    if (!error) console.log(`[Trending Sync] Persisted real photos for ${plan.id}`);
+                    else console.error(`[Trending Sync Error] for ${plan.id}:`, error.message);
+
+                    enrichedPlans.push({ ...plan, itinerary: updatedItinerary });
+                } catch (enrichErr) {
+                    console.error(`[Trending Enrich Failed] for ${plan.id}:`, enrichErr.message);
+                    enrichedPlans.push(plan);
+                }
+            } else {
+                enrichedPlans.push(plan);
+            }
+        }
+
+        return enrichedPlans;
     } catch (err) {
-        console.error('[Trending Rotation Error]', err);
+        console.error('[Trending Error]', err);
         return [];
     }
 };

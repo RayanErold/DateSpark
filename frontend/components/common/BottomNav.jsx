@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Ticket, User } from 'lucide-react';
+import { Home, Ticket, User, Sparkles } from 'lucide-react';
 
 const BottomNav = ({ currentTab, onTabChange, avatarUrl, userInitial, appTheme = 'light' }) => {
     const [imgError, setImgError] = useState(false);
@@ -8,6 +8,7 @@ const BottomNav = ({ currentTab, onTabChange, avatarUrl, userInitial, appTheme =
     
     const tabs = [
         { id: 'home',      label: 'Home',      icon: Home,    badge: null },
+        { id: 'vibe',      label: 'Vibe',      icon: Sparkles, badge: 'New' },
         { id: 'events',    label: 'Events',    icon: Ticket,  badge: null },
     ];
 

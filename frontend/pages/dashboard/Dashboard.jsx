@@ -228,6 +228,12 @@ const Dashboard = () => {
     const [userCity, setUserCity] = useState('New York');
 
     useEffect(() => {
+        if (currentTab === 'vibe' || currentTab === 'discovery') {
+            navigate('/vibe-feed');
+        }
+    }, [currentTab]);
+
+    useEffect(() => {
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition((position) => {
                 const { latitude: lat, longitude: lng, accuracy } = position.coords;
@@ -844,24 +850,21 @@ const Dashboard = () => {
     // NEW: Fetch trending plans dynamically to ensure fresh discovery feed
     useEffect(() => {
         const fetchTrending = async () => {
-            // Fetch if not already loaded, OR if we want to refresh (simplified: fetch on mount)
-            if (globalTrendingPlans.length === 0) {
-                setIsTrendingLoading(true);
-                try {
-                    console.log('[Trending] Refreshing community favorites...');
-                    const response = await fetch('/api/trending-plans');
-                    if (response.ok) {
-                        const data = await response.json();
-                        // Backend already shuffles from top 100, but we can do a client-side shuffle too for extra randomness
-                        const shuffled = (data || []).sort(() => 0.5 - Math.random());
-                        setGlobalTrendingPlans(shuffled);
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch trending plans:', err);
-                    setGlobalTrendingPlans([]);
-                } finally {
-                    setIsTrendingLoading(false);
+            setIsTrendingLoading(true);
+            try {
+                console.log('[Trending] Refreshing community favorites...');
+                const response = await fetch('/api/trending-plans');
+                if (response.ok) {
+                    const data = await response.json();
+                    // Backend already shuffles from top 100, but we can do a client-side shuffle too for extra randomness
+                    const shuffled = (data || []).sort(() => Math.random() - 0.5);
+                    setGlobalTrendingPlans(shuffled);
                 }
+            } catch (err) {
+                console.error('Failed to fetch trending plans:', err);
+                setGlobalTrendingPlans([]);
+            } finally {
+                setIsTrendingLoading(false);
             }
         };
         
@@ -1625,6 +1628,10 @@ const Dashboard = () => {
                         src={coverImage}
                         alt="Plan Cover"
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+                        }}
                     />
                     {/* Multi-layer Gradient Overlay for readability */}
                     <div className={`absolute inset-0 z-1 ${appTheme === 'dark'

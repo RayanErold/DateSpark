@@ -230,6 +230,96 @@ app.get('/api/recommendations/:userId', async (req, res) => {
     }
 });
 
+import { GoogleGenerativeAI } from '@google/generative-ai';
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
+app.post('/api/architect-stream', async (req, res) => {
+    try {
+        if (!genAI) throw new Error('Gemini API is not configured.');
+
+        const { messages, location, lat, lng, budget, goal } = req.body;
+        
+        const systemPrompt = `You are Sparky, an expert AI Date Architect for DateSpark. 
+        Your job is to help users plan amazing dates by asking clarifying questions or generating concepts.
+        Current Context:
+        - Location: ${location || 'Unknown'}
+        - Lat/Lng: ${lat}, ${lng}
+        - Budget: ${budget || 'Flexible'}
+        - Goal: ${goal || 'Flexible'}
+        
+        Keep your responses conversational, concise, and helpful. Ask ONE clarifying question at a time.
+        If the user has provided enough information to build a plan, end your message with:
+        READY
+        {"concepts": [{"title": "Name of plan", "description": "Short description", "budgetStrategy": "How to save", "routeLogic": "Why it makes sense", "partnerFit": "Why it works"}]}
+        
+        Provide up to 2 concepts when READY.`;
+
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+        
+        const history = [
+            { role: 'user', parts: [{ text: systemPrompt }] },
+            { role: 'model', parts: [{ text: 'Understood.' }] }
+        ];
+
+        for (let i = 0; i < messages.length - 1; i++) {
+            const msg = messages[i];
+            history.push({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }]
+            });
+        }
+
+        const chat = model.startChat({ history });
+        const lastMessage = messages[messages.length - 1].content;
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const result = await chat.sendMessageStream(lastMessage);
+
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+        }
+        
+        res.write('data: [DONE]\n\n');
+        res.end();
+    } catch (err) {
+        console.error('[ARCHITECT_STREAM_ERROR]', err);
+        res.status(500).json({ error: 'Failed to generate response' });
+    }
+});
+
+app.post('/api/suggest-date-concepts', async (req, res) => {
+    try {
+        if (!genAI) throw new Error('Gemini API is not configured.');
+        const { conversationHistory, location, lat, lng, budget, goal } = req.body;
+        
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+        
+        const prompt = `Based on the following conversation, location (${location}), budget (${budget}), and goal (${goal}), suggest 2 creative date plan concepts.
+        
+        Return ONLY valid JSON matching this schema:
+        {"concepts": [{"title": "Name of plan", "description": "Short description", "budgetStrategy": "How to save", "routeLogic": "Why it makes sense", "partnerFit": "Why it works"}]}
+        
+        Conversation:
+        ${JSON.stringify(conversationHistory)}
+        `;
+
+        const result = await model.generateContent(prompt);
+        let rawText = result.response.text();
+        
+        const match = rawText.match(/\{[\s\S]*\}/);
+        const json = match ? match[0] : rawText;
+
+        res.json(JSON.parse(json));
+    } catch (err) {
+        console.error('[SUGGEST_CONCEPTS_ERROR]', err);
+        res.status(500).json({ error: 'Failed to suggest concepts' });
+    }
+});
+
 // 2. EVENTS
 app.get('/api/events', async (req, res) => {
     const keys = {

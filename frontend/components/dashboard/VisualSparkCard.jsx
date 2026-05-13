@@ -15,18 +15,83 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
     const itinerary = plan.itinerary || {};
     const steps = Array.isArray(itinerary) ? itinerary : (itinerary.steps || []);
     
-    // Extract photos and filter out invalid/null ones
-    const photos = steps
-        .map(s => s.photoUrl)
-        .filter(Boolean);
+    // Google Maps API Key for frontend-side photo reconstruction
+    const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    /**
+     * Reconstructs Google photo URLs to ensure they use the frontend's API key
+     * and have consistent sizing. This fixes issues where backend-saved URLs
+     * might have restricted keys or expired redirect signatures.
+     */
+    const getProxiedPhoto = (photoUrl) => {
+        if (!photoUrl || !googleMapsKey || photoUrl.includes('unsplash')) return photoUrl;
         
+        try {
+            // Use URL API for robust parameter handling
+            const url = new URL(photoUrl);
+            if (url.hostname.includes('googleapis.com')) {
+                // Strip existing key if present and set our fresh frontend key
+                url.searchParams.set('key', googleMapsKey);
+                
+                // Force high resolution
+                if (url.hostname.includes('places.googleapis.com')) {
+                    url.searchParams.set('maxWidthPx', '800');
+                    url.searchParams.delete('maxHeightPx'); // Prioritize width
+                } else if (url.hostname.includes('maps.googleapis.com')) {
+                    url.searchParams.set('maxwidth', '800');
+                }
+                
+                return url.toString();
+            }
+        } catch (e) {
+            // Last resort fallback for non-standard URLs
+            if (photoUrl.includes('key=')) {
+                return photoUrl.replace(/key=[^&]+/, `key=${googleMapsKey}`);
+            }
+        }
+        
+        return photoUrl;
+    };
+
+    // Optimized photo extraction: Filter out obviously broken or non-visual steps
+    const photos = (plan.itinerary?.steps || plan.itinerary || [])
+        .map(s => s.photoUrl)
+        .filter(url => url && !url.includes('placeholder'))
+        .map(getProxiedPhoto);
+
     const hasPhotos = photos.length > 0;
-    const currentPhoto = hasPhotos ? photos[photoIndex] : null;
+    const currentPhoto = photos[photoIndex];
+
+    const [imageError, setImageError] = useState(false);
+
+    const getFallbackImage = () => {
+        const v = (plan.vibe || 'chill').toLowerCase();
+        if (v.includes('romantic')) return 'https://images.unsplash.com/photo-1516589174184-c68526514ec0?w=600&q=80';
+        if (v.includes('chill') || v.includes('cozy')) return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80';
+        if (v.includes('night') || v.includes('bar')) return 'https://images.unsplash.com/photo-1514525253361-bee8d419b74e?w=600&q=80';
+        if (v.includes('active') || v.includes('outdoor')) return 'https://images.unsplash.com/photo-1502904550040-753d5ad069de?w=600&q=80';
+        return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80';
+    };
+
+    // Auto-advance if a photo fails (preventing broken trending images)
+    const handleImageError = () => {
+        console.warn(`[VisualSparkCard] Photo ${photoIndex + 1}/${photos.length} failed for ${plan.id}. Status: ${imageError ? 'FALLBACK' : 'SKIPPING'}`);
+        
+        // Ensure we have multiple photos to skip through
+        if (photos && photos.length > 1 && photoIndex < photos.length - 1) {
+            // Try the next photo in the itinerary sequence
+            setPhotoIndex(prev => prev + 1);
+        } else {
+            // No more photos left in this plan, trigger the Unsplash fallback
+            setImageError(true);
+        }
+    };
 
     const handleNext = (e) => {
         e.stopPropagation();
         if (photos.length > 0) {
             setPhotoIndex(prev => (prev + 1) % photos.length);
+            setImageError(false);
         }
     };
 
@@ -34,6 +99,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
         e.stopPropagation();
         if (photos.length > 0) {
             setPhotoIndex(prev => (prev - 1 + photos.length) % photos.length);
+            setImageError(false);
         }
     };
 
@@ -43,12 +109,13 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
             className={`flex-shrink-0 w-[75vw] sm:w-[280px] rounded-3xl border overflow-hidden shadow-xl transition-all duration-300 ${theme === 'dark' ? 'bg-navy border-white/10' : 'bg-white border-gray-100'}`}
         >
             {/* Visual Header (Rectangular Photo) */}
-            <div className="relative h-44 overflow-hidden group/photo">
-                {hasPhotos ? (
+            <div className="relative h-44 overflow-hidden group/photo bg-navy/20">
+                {hasPhotos && !imageError ? (
                     <>
                         <img
                             src={currentPhoto}
                             alt={plan.vibe}
+                            onError={handleImageError}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover/photo:scale-105"
                         />
                         {/* Glassmorphism Overlays */}
@@ -95,6 +162,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setPhotoIndex(idx);
+                                        setImageError(false);
                                     }}
                                 />
                             ))}
@@ -104,16 +172,13 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
                 ) : (
                     <div className="relative h-full w-full">
                         <img 
-                            src={(() => {
-                                const v = (plan.vibe || 'chill').toLowerCase();
-                                if (v.includes('romantic')) return 'https://images.unsplash.com/photo-1516589174184-c68526514ec0?w=600&q=80';
-                                if (v.includes('chill') || v.includes('cozy')) return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80';
-                                if (v.includes('night') || v.includes('bar')) return 'https://images.unsplash.com/photo-1514525253361-bee8d419b74e?w=600&q=80';
-                                if (v.includes('active') || v.includes('outdoor')) return 'https://images.unsplash.com/photo-1502904550040-753d5ad069de?w=600&q=80';
-                                return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80';
-                            })()} 
+                            src={getFallbackImage()} 
                             className="w-full h-full object-cover opacity-60 grayscale-[20%]"
                             alt="Fallback"
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                            }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-br from-navy/80 via-navy/40 to-coral/30 flex flex-col items-center justify-center gap-3 p-8">
                             <MapPin className="w-12 h-12 text-white/40" />

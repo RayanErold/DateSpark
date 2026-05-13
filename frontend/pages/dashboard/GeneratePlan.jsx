@@ -52,6 +52,7 @@ const GeneratePlan = () => {
     const initialMode = (searchParams.get('mode') === 'ai' || urlPrompt) ? 'ai_custom' : 'classic';
     const [mode, setMode] = useState(initialMode); // 'classic' or 'ai_custom'
     const [isSelectionSkipped, setIsSelectionSkipped] = useState(searchParams.get('mode') === 'ai' || !!urlPrompt);
+    
     // --- FREEMIUM LOGIC STATE ---
     const [isPremium, setIsPremium] = useState(() => {
         // Admin Override Initialization
@@ -378,10 +379,8 @@ const GeneratePlan = () => {
 
     // AI Flow states
     const [initialPrompt, setInitialPrompt] = useState(urlPrompt || '');
-    const [refinePrompt, setRefinePrompt] = useState('');
     const [conversationHistory, setConversationHistory] = useState([]);
     const [aiConcepts, setAiConcepts] = useState([]);
-    const [, setAiQuestions] = useState([]);
     const [selectedConceptIndex, setSelectedConceptIndex] = useState(null);
     const [refinementCount, setRefinementCount] = useState(0);
     const [aiBudget, setAiBudget] = useState('');
@@ -434,30 +433,24 @@ const GeneratePlan = () => {
                 const { latitude, longitude, accuracy } = position.coords;
                 console.log(`[GPS] Detected: ${latitude}, ${longitude} (Accuracy: ${accuracy}m)`);
                 
-                // If accuracy is very poor (> 3km), warn the user
                 if (accuracy > 3000) {
                     console.warn("Low GPS accuracy detected. Reverting to manual if results look wrong.");
                 }
 
-                // Use Geocoder to turn coordinates into a friendly name
                 if (window.google?.maps?.Geocoder) {
                     const geocoder = new window.google.maps.Geocoder();
                     geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
                         let readableLocation = 'Current Location';
                         
                         if (status === 'OK' && results[0]) {
-                            // Find the most specific component that isn't just a generic address
                             const neighborhood = results[0].address_components.find(c => c.types.includes('neighborhood'))?.long_name;
                             const sublocality = results[0].address_components.find(c => c.types.includes('sublocality_level_1'))?.long_name 
                                 || results[0].address_components.find(c => c.types.includes('sublocality'))?.long_name;
                             const locality = results[0].address_components.find(c => c.types.includes('locality'))?.long_name;
                             const area = results[0].address_components.find(c => c.types.includes('administrative_area_level_2'))?.long_name;
                             
-                            // prioritize: Neighborhood -> Borough/Sublocality -> City -> County -> Formatted
                             readableLocation = neighborhood || sublocality || locality || area || results[0].formatted_address.split(',')[0];
                         }
-
-                        // GATING: Check if this detected point is in our service area
 
                         setFormData(prev => ({
                             ...prev,
@@ -469,8 +462,6 @@ const GeneratePlan = () => {
                         setLocationLoading(false);
                     });
                 } else {
-                    // Fallback without Geocoder
-
                     setFormData(prev => ({
                         ...prev,
                         lat: latitude,
@@ -550,10 +541,7 @@ const GeneratePlan = () => {
             return;
         }
 
-        // Transition to Architect Chat
         setIsArchitectActive(true);
-        // We set a dummy concept to trigger the "chat" view if needed, 
-        // but better to just use isArchitectActive in the render logic.
         setAiConcepts(['INIT']); 
     };
 
@@ -563,8 +551,8 @@ const GeneratePlan = () => {
         const conceptToUse = forcedConcept || (selectedConceptIndex !== null ? aiConcepts[selectedConceptIndex] : null);
         if (!conceptToUse) return;
 
-        if (!isPremium && usage.guided >= limits.guided) {
-            setLimitType('guided');
+        if (!isPremium && usage.classic >= limits.classic) {
+            setLimitType('classic');
             setShowPremiumModal(true);
             return;
         }
@@ -587,8 +575,8 @@ const GeneratePlan = () => {
                     budgetMode: formData.budgetMode,
                     radius: forcedSettings?.radius || customRadius,
                     location: forcedSettings?.location || formData.location,
-                    lat: formData.lat,
-                    lng: formData.lng,
+                    lat: forcedSettings?.lat !== undefined ? forcedSettings.lat : formData.lat,
+                    lng: forcedSettings?.lng !== undefined ? forcedSettings.lng : formData.lng,
                     dietary: formData.dietary,
                     neighborhoods: formData.neighborhoods,
                     interests: formData.interests,
@@ -600,7 +588,7 @@ const GeneratePlan = () => {
                 const errData = await response.json();
                 if (response.status === 403 || errData.code === 'LIMIT_REACHED') {
                     setIsGenerating(false);
-                    setLimitType('guided');
+                    setLimitType('classic');
                     setShowPremiumModal(true);
                     return;
                 }
@@ -611,7 +599,7 @@ const GeneratePlan = () => {
             const firstPlanId = result.plan?.id || (Array.isArray(result) ? result[0]?.id : null);
 
             if (!isPremium) {
-                setUsage(prev => ({ ...prev, guided: prev.guided + 1 }));
+                setUsage(prev => ({ ...prev, classic: prev.classic + 1 }));
             }
 
             setFlashMessage('Plan ready — opening your itinerary.');
@@ -624,15 +612,15 @@ const GeneratePlan = () => {
             setError(err.message);
             setIsGenerating(false);
             if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('reached')) {
-                setLimitType('guided');
+                setLimitType('classic');
                 setShowPremiumModal(true);
             }
         }
     };
+
     const handleSubmitClassic = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
 
-        // Manual validation override
         if (!formData.location || !formData.date || !formData.time || !formData.endTime) {
             setError("Please fill out all required fields under 'Where & When'.");
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -641,9 +629,8 @@ const GeneratePlan = () => {
 
         setError(null);
 
-
-        if (!isPremium && usage.classic >= limits.classic) {
-            setLimitType('classic');
+        if (!isPremium && usage.guided >= limits.guided) {
+            setLimitType('guided');
             setShowPremiumModal(true);
             return;
         }
@@ -652,7 +639,6 @@ const GeneratePlan = () => {
             setIsGenerating(true);
             try {
                 if (!isOnline) throw new Error('You appear to be offline. Check your connection.');
-
 
                 const currentUser = user || (await supabase.auth.getUser()).data.user;
                 if (!currentUser) throw new Error('You must be logged in.');
@@ -663,7 +649,6 @@ const GeneratePlan = () => {
                     body: JSON.stringify({
                         userId: currentUser.id,
                         ...formData,
-                        // Send vibe profile so the server can personalize venue queries
                         vibeProfile: vibeProfile || null,
                     })
                 });
@@ -672,23 +657,20 @@ const GeneratePlan = () => {
                     const result = await response.json();
                     if (response.status === 403 || result.code === 'LIMIT_REACHED') {
                         setIsGenerating(false);
-                        setLimitType('classic');
+                        setLimitType('guided');
                         setShowPremiumModal(true);
                         return;
                     }
-                    // Silent auto-retry for 500 errors
                     if (response.status >= 500 && retryCount < 1) {
-                        console.warn('Silent retry for generation failure (5xx)...');
                         return performGenerate(retryCount + 1);
                     }
                     throw new Error(result.error || 'Failed to generate plan.');
                 }
 
                 const createdPlans = await response.json();
-                const firstPlanId = Array.isArray(createdPlans) ? createdPlans[0]?.id : null;
-
+                
                 if (!isPremium) {
-                    setUsage(prev => ({ ...prev, classic: prev.classic + 1 }));
+                    setUsage(prev => ({ ...prev, guided: prev.guided + 1 }));
                 }
 
                 setFlashMessage('Plan ready — opening your dashboard!');
@@ -697,7 +679,7 @@ const GeneratePlan = () => {
                 setError(err.message === 'Failed to fetch' ? 'Network error. We will save your data so you can retry!' : err.message);
                 setIsGenerating(false);
                 if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('reached')) {
-                    setLimitType('classic');
+                    setLimitType('guided');
                     setShowPremiumModal(true);
                 }
             }
@@ -732,19 +714,16 @@ const GeneratePlan = () => {
                         </div>
                         <span className="text-xl font-black text-navy tracking-tight">DateSpark</span>
                     </div>
-                    {/* Mock Toggle - ADMIN ONLY (rayanerold@gmail.com) — never shown to guests */}
+                    {/* Mock Toggle - ADMIN ONLY */}
                     {(import.meta.env.DEV && (user?.email?.toLowerCase() === 'rayanerold@gmail.com' || localStorage.getItem('userEmail')?.toLowerCase() === 'rayanerold@gmail.com')) && (
                         <div className="hidden md:flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
                             <span className={`text-xs font-bold ${!isPremium ? 'text-coral' : 'text-gray-400'}`}>Free</span>
                             <button
                                 onClick={(e) => {
                                     e.preventDefault();
-                                    e.stopPropagation();
                                     const newVal = !isPremium;
-                                    console.log('[ ADMIN ] Premium Toggle Triggered:', newVal);
                                     setIsPremium(newVal);
                                     localStorage.setItem('isPremium', newVal.toString());
-                                    // Local state sync
                                     syncPremiumWithDB(newVal);
                                 }}
                                 className={`w-10 h-5 rounded-full transition-all duration-200 relative flex items-center shadow-inner ${isPremium ? 'bg-navy' : 'bg-gray-300'}`}
@@ -755,7 +734,6 @@ const GeneratePlan = () => {
                             <span className={`text-xs font-bold ${isPremium ? 'text-navy' : 'text-gray-400'}`}>Pro</span>
                         </div>
                     )}
-
                     <div className="w-8 flex justify-end" />
                 </div>
             </header>
@@ -774,7 +752,6 @@ const GeneratePlan = () => {
                     </p>
                 </div>
 
-                {/* Skip selection if mode is preset via query param */}
                 {!isSelectionSkipped && (
                     <>
                         <div className="flex bg-gray-200/50 backdrop-blur-sm p-1 sm:p-1.5 rounded-2xl sm:rounded-[1.5rem] mb-8 sm:mb-12 border border-white shadow-xl shadow-navy/5">
@@ -852,10 +829,14 @@ const GeneratePlan = () => {
                             <DateArchitectChat 
                                 userId={user?.id}
                                 location={formData.location}
+                                lat={formData.lat}
+                                lng={formData.lng}
                                 budget={aiBudget}
                                 radius={customRadius}
-                                onSettingsChange={({ location, budget, radius }) => {
-                                    setFormData(prev => ({ ...prev, location }));
+                                initialPrompt={searchParams.get('prompt')}
+                                initialVibe={searchParams.get('vibe')}
+                                onSettingsChange={({ location, budget, radius, lat, lng }) => {
+                                    setFormData(prev => ({ ...prev, location, lat, lng }));
                                     setAiBudget(budget);
                                     setCustomRadius(radius);
                                 }}
@@ -863,7 +844,7 @@ const GeneratePlan = () => {
                                     setAiConcepts([concept]);
                                     setSelectedConceptIndex(0);
                                     if (settings) {
-                                        setFormData(prev => ({ ...prev, location: settings.location }));
+                                        setFormData(prev => ({ ...prev, location: settings.location, lat: settings.lat, lng: settings.lng }));
                                         setAiBudget(settings.budget);
                                         setCustomRadius(settings.radius);
                                     }
@@ -1169,98 +1150,96 @@ const GeneratePlan = () => {
                             {/* MAIN SUBMIT BUTTONS */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12 mb-6">
                                 <button
-                                    type="button"
-                                    onClick={handleSubmitClassic}
+                                    type="submit"
                                     disabled={isGenerating}
                                     className="w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group sm:col-span-2"
                                 >
                                     {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" />Generate Itineraries</>}
                                 </button>
 
-                                        <div className="sm:col-span-2 flex items-center gap-3 px-4 py-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
-                                                className={`w-12 h-6 rounded-full transition-all duration-300 relative flex items-center p-1 shadow-inner ${formData.is_favorite ? 'bg-coral' : 'bg-gray-300'}`}
-                                            >
-                                                <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.is_favorite ? 'translate-x-6' : 'translate-x-0'}`} />
-                                            </button>
-                                            <span className="text-[14px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
-                                                <Heart className={`w-4 h-4 ${formData.is_favorite ? 'fill-coral text-coral' : 'text-gray-400'}`} />
-                                                Save to Favorites Automatically
-                                            </span>
-                                        </div>
-                                        
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any', budget: '$200' }));
-                                                handleSubmitClassic({ preventDefault: () => { } });
-                                            }}
-                                            className="w-full bg-white text-coral border-2 border-coral/20 hover:border-coral/40 hover:bg-coral/5 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 group"
-                                        >
-                                            <Sparkles className="w-4 h-4 text-coral opacity-50 group-hover:opacity-100" /> Surprise Me!
-                                        </button>
-                                        
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate('/dashboard')}
-                                            className="w-full bg-gray-100 text-gray-500 hover:bg-gray-200 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95"
-                                        >
-                                            Cancel
-                                        </button>
-
-                                {/* Smart Loading Overlay */}
-                                 {isGenerating && (
-                                    <motion.div 
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        className="fixed inset-0 bg-white/40 backdrop-blur-2xl z-[100] flex flex-col items-center justify-center p-6 text-center"
+                                <div className="sm:col-span-2 flex items-center gap-3 px-4 py-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
+                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative flex items-center p-1 shadow-inner ${formData.is_favorite ? 'bg-coral' : 'bg-gray-300'}`}
                                     >
-                                        <div className="relative mb-12">
-                                            <motion.div 
-                                                animate={{ rotate: 360 }}
-                                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                                className="w-32 h-32 border-[3px] border-coral/10 border-t-coral rounded-full"
-                                            />
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <motion.div
-                                                    animate={{ scale: [1, 1.2, 1] }}
-                                                    transition={{ duration: 2, repeat: Infinity }}
-                                                >
-                                                    <Heart className="w-10 h-10 fill-coral text-coral" />
-                                                </motion.div>
-                                            </div>
-                                        </div>
-                                        
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.2 }}
-                                            className="space-y-4"
-                                        >
-                                            <h2 className="text-4xl font-black text-navy tracking-tight">Crafting Your Evening</h2>
-                                            <p className="text-coral font-black text-xl animate-pulse min-h-[1.5em]">
-                                                {loadingMessages[loadingStage]}
-                                            </p>
-                                        </motion.div>
-
-                                        <div className="mt-16 max-w-sm w-full bg-navy/5 h-1.5 rounded-full overflow-hidden">
-                                            <motion.div 
-                                                className="h-full bg-gradient-to-r from-coral to-pink-500 rounded-full"
-                                                animate={{ width: `${((loadingStage + 1) / loadingMessages.length) * 100}%` }}
-                                                transition={{ duration: 1 }}
-                                            />
-                                        </div>
-                                        <p className="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-navy/30">Step {loadingStage + 1} of {loadingMessages.length}</p>
-                                    </motion.div>
-                                )}
+                                        <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.is_favorite ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
+                                    <span className="text-[14px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
+                                        <Heart className={`w-4 h-4 ${formData.is_favorite ? 'fill-coral text-coral' : 'text-gray-400'}`} />
+                                        Save to Favorites Automatically
+                                    </span>
+                                </div>
+                                
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any', budget: '$200' }));
+                                        handleSubmitClassic({ preventDefault: () => { } });
+                                    }}
+                                    className="w-full bg-white text-coral border-2 border-coral/20 hover:border-coral/40 hover:bg-coral/5 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 group"
+                                >
+                                    <Sparkles className="w-4 h-4 text-coral opacity-50 group-hover:opacity-100" /> Surprise Me!
+                                </button>
+                                
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/dashboard')}
+                                    className="w-full bg-gray-100 text-gray-500 hover:bg-gray-200 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95"
+                                >
+                                    Cancel
+                                </button>
                             </div>
                         </form>
                     </div>
                 )}
-            </main>
 
+                {/* Smart Loading Overlay */}
+                {isGenerating && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="fixed inset-0 bg-white/40 backdrop-blur-2xl z-[100] flex flex-col items-center justify-center p-6 text-center"
+                    >
+                        <div className="relative mb-12">
+                            <motion.div 
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                className="w-32 h-32 border-[3px] border-coral/10 border-t-coral rounded-full"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <motion.div
+                                    animate={{ scale: [1, 1.2, 1] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                >
+                                    <Heart className="w-10 h-10 fill-coral text-coral" />
+                                </motion.div>
+                            </div>
+                        </div>
+                        
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="space-y-4"
+                        >
+                            <h2 className="text-4xl font-black text-navy tracking-tight">Crafting Your Evening</h2>
+                            <p className="text-coral font-black text-xl animate-pulse min-h-[1.5em]">
+                                {loadingMessages[loadingStage]}
+                            </p>
+                        </motion.div>
+
+                        <div className="mt-16 max-w-sm w-full bg-navy/5 h-1.5 rounded-full overflow-hidden">
+                            <motion.div 
+                                className="h-full bg-gradient-to-r from-coral to-pink-500 rounded-full"
+                                animate={{ width: `${((loadingStage + 1) / loadingMessages.length) * 100}%` }}
+                                transition={{ duration: 1 }}
+                            />
+                        </div>
+                        <p className="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-navy/30">Step {loadingStage + 1} of {loadingMessages.length}</p>
+                    </motion.div>
+                )}
+            </main>
 
             {/* AI Add-On Modal */}
             {showAiAddonModal && (
@@ -1291,7 +1270,15 @@ const GeneratePlan = () => {
                 </div>
             )}
 
-            <BottomNav onProfileClick={() => navigate('/dashboard')} />
+            <BottomNav 
+                currentTab="generate" 
+                onTabChange={(tab) => {
+                    if (tab === 'home') navigate('/dashboard');
+                    if (tab === 'vibe') navigate('/vibe-feed');
+                    if (tab === 'account') navigate('/dashboard'); 
+                }}
+                appTheme="light"
+            />
 
             <PremiumExperienceModal 
                 isOpen={showPremiumModal} 

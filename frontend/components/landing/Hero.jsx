@@ -3,9 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight, Play, Calendar, Ticket, MapPin } from 'lucide-react';
 import dashboardMockup from '../../assets/dashboard-mockup.png';
+import { trackABEvent } from '../../lib/hooks/useABTest';
 
 const Hero = () => {
     const navigate = useNavigate();
+    const TEST_KEY = 'landing-hero-v1';
+
+    const handleCTAClick = () => {
+        trackABEvent(TEST_KEY, 'A', 'cta_click');
+        navigate('/signup');
+    };
 
     return (
         <section className="relative min-h-[90vh] lg:min-h-screen flex items-center pt-24 lg:pt-20 mesh-bg overflow-hidden">
@@ -42,7 +49,7 @@ const Hero = () => {
 
                             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mb-10 sm:mb-12">
                                 <button 
-                                    onClick={() => navigate('/signup')}
+                                    onClick={handleCTAClick}
                                     className="btn-primary w-full sm:w-auto"
                                 >
                                     Start Planning Free <ArrowRight className="w-5 h-5" />

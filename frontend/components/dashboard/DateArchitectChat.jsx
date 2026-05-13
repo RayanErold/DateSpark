@@ -55,20 +55,20 @@ const DATE_GOALS = [
 
 const STARTER_PROMPTS = [
     {
+        label: 'Quick plan',
+        prompt: 'I need a quick, no-fuss plan for tonight. Casual food and drinks.',
+    },
+    {
+        label: 'Nearby plan',
+        prompt: 'Use my current location and give me a nearby plan within walking distance.',
+    },
+    {
         label: 'Cozy conversation',
         prompt: 'We want a cozy night with quiet conversation, warm drinks, and a dessert ending.',
     },
     {
         label: 'Food crawl',
         prompt: 'Build a three-stop food crawl with appetizers, a main bite, and dessert, all close together.',
-    },
-    {
-        label: 'Hidden gems',
-        prompt: 'Show us local hidden gems that do not feel touristy and make the night feel special.',
-    },
-    {
-        label: 'Late night',
-        prompt: 'Plan a late-night date after 9 PM with flexible spots that are still open.',
     },
     {
         label: 'Playful date',
@@ -81,7 +81,7 @@ const QUICK_LOCATIONS = ['Manhattan', 'Brooklyn', 'Queens', 'Jersey City', 'Hobo
 
 const radiusLabel = (radius) => `${(radius / 1609.34).toFixed(1)} mi`;
 
-const DateArchitectChat = ({ userId, location: initialLocation, budget: initialBudget, radius: initialRadius, onConceptSelected, onSettingsChange }) => {
+const DateArchitectChat = ({ userId, location: initialLocation, budget: initialBudget, radius: initialRadius, initialPrompt, initialVibe, onConceptSelected, onSettingsChange }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
@@ -90,6 +90,8 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
     const [isForceGenerating, setIsForceGenerating] = useState(false);
     const [selectedGoal, setSelectedGoal] = useState('first_date');
     const [location, setLocation] = useState(initialLocation || '');
+    const [lat, setLat] = useState(null);
+    const [lng, setLng] = useState(null);
     const [budget, setBudget] = useState(initialBudget || '$100');
     const [radius, setRadius] = useState(initialRadius || 8046);
     const [showBasics, setShowBasics] = useState(!initialLocation);
@@ -106,19 +108,24 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
     }, [onSettingsChange]);
 
     useEffect(() => {
-        onSettingsChangeRef.current?.({ location, budget, radius });
-    }, [location, budget, radius]);
+        onSettingsChangeRef.current?.({ location, budget, radius, lat, lng });
+    }, [location, budget, radius, lat, lng]);
 
     useEffect(() => {
         if (messages.length === 0) {
-            setMessages([
-                {
-                    role: 'assistant',
-                    content: `Hi, I'm Sparky. I can turn a rough idea into a real date plan with budget, route flow, backup options, and partner-friendly choices. Start by choosing a goal or tell me what kind of night you want.`,
-                },
-            ]);
+            const welcomeMsg = {
+                role: 'assistant',
+                content: initialPrompt 
+                    ? `Sparking a plan for your date at ${initialPrompt.split('Date at ')[1] || 'this venue'}! I've noted the vibe is ${initialVibe || 'custom'}. What else should I know to make it perfect?`
+                    : `Hi, I'm Sparky. I can turn a rough idea into a real date plan with budget, route flow, backup options, and partner-friendly choices. Start by choosing a goal or tell me what kind of night you want.`,
+            };
+            setMessages([welcomeMsg]);
+            
+            if (initialPrompt) {
+                setMessages(prev => [...prev, { role: 'user', content: initialPrompt }]);
+            }
         }
-    }, [messages.length]);
+    }, [messages.length, initialPrompt, initialVibe]);
 
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -159,56 +166,91 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
     };
 
     const handlePreciseLocation = () => {
-        setLocationLoading(true);
-        if (!navigator.geolocation) {
-            setLocationLoading(false);
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`);
-                    const data = await response.json();
-                    if (data.results?.[0]) setLocation(data.results[0].formatted_address);
-                } catch (err) {
-                    console.error('Geocoding error', err);
-                } finally {
+        return new Promise((resolve, reject) => {
+            setLocationLoading(true);
+            if (!navigator.geolocation) {
+                setLocationLoading(false);
+                reject(new Error("No geolocation"));
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setLat(latitude);
+                    setLng(longitude);
+                    try {
+                        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`);
+                        const data = await response.json();
+                        if (data.results?.[0]) {
+                            setLocation(data.results[0].formatted_address);
+                            resolve({ lat: latitude, lng: longitude, location: data.results[0].formatted_address });
+                        } else {
+                            resolve({ lat: latitude, lng: longitude, location: null });
+                        }
+                    } catch (err) {
+                        console.error('Geocoding error', err);
+                        resolve({ lat: latitude, lng: longitude, location: null });
+                    } finally {
+                        setLocationLoading(false);
+                    }
+                },
+                (err) => {
                     setLocationLoading(false);
+                    reject(err);
                 }
-            },
-            () => setLocationLoading(false)
-        );
+            );
+        });
     };
 
     const sendPrompt = async (overrideInput = null) => {
         const textToSend = typeof overrideInput === 'string' ? overrideInput : input;
         if (!textToSend.trim() || isStreaming) return;
 
-        if (!location.trim()) {
-            if (textToSend.toLowerCase() === 'use current location') {
-                handlePreciseLocation();
+        let loc = location;
+        let finalLat = lat;
+        let finalLng = lng;
+
+        if (!loc.trim()) {
+            if (textToSend.toLowerCase().includes('current location')) {
                 setMessages(prev => [
                     ...prev,
                     { role: 'user', content: textToSend },
-                    { role: 'assistant', content: 'I am checking your current location. If the browser asks, allow location access, or type a neighborhood like Manhattan or Williamsburg.' },
+                    { role: 'assistant', content: 'Checking your current location...' },
+                ]);
+                setInput('');
+                try {
+                    const result = await handlePreciseLocation();
+                    if (result && result.location) {
+                        loc = result.location;
+                        finalLat = result.lat;
+                        finalLng = result.lng;
+                        setMessages(prev => prev.slice(0, -1)); // Remove the checking message
+                    } else {
+                        setMessages(prev => [
+                            ...prev.slice(0, -1),
+                            { role: 'assistant', content: 'I could not determine your exact location. Please type a neighborhood manually.' }
+                        ]);
+                        return;
+                    }
+                } catch(e) {
+                     setMessages(prev => [
+                        ...prev.slice(0, -1),
+                        { role: 'assistant', content: 'Location access denied or unavailable. Please type your neighborhood or city manually.' }
+                    ]);
+                    return;
+                }
+            } else if (isLocationAnswer(textToSend)) {
+                acceptLocationAnswer(textToSend);
+                return;
+            } else {
+                setMessages(prev => [
+                    ...prev,
+                    { role: 'user', content: textToSend },
+                    { role: 'assistant', content: 'Tell me the neighborhood or city first, then I can suggest real places that make sense together. [OPTIONS: Use current location | Manhattan | Brooklyn]' },
                 ]);
                 setInput('');
                 return;
             }
-
-            if (isLocationAnswer(textToSend)) {
-                acceptLocationAnswer(textToSend);
-                return;
-            }
-
-            setMessages(prev => [
-                ...prev,
-                { role: 'user', content: textToSend },
-                { role: 'assistant', content: 'Tell me the neighborhood or city first, then I can suggest real places that make sense together. [OPTIONS: Use current location | Manhattan | Brooklyn]' },
-            ]);
-            setInput('');
-            return;
         }
 
         const goal = DATE_GOALS.find(item => item.id === selectedGoal);
@@ -231,7 +273,9 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                 body: JSON.stringify({
                     messages: nextMessages,
                     userId,
-                    location,
+                    location: loc,
+                    lat: finalLat,
+                    lng: finalLng,
                     budget,
                     radius,
                     goal: goal?.label || 'Flexible date',
@@ -293,13 +337,15 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                 body: JSON.stringify({
                     conversationHistory: messages,
                     location,
+                    lat,
+                    lng,
                     userId,
                     budget,
                     goal: DATE_GOALS.find(item => item.id === selectedGoal)?.label || 'Flexible date',
                 }),
             });
             const data = await response.json();
-            onConceptSelected(data.concepts?.[0] || { title: 'Custom Date Plan', description: 'A partner-ready itinerary based on your chat with Sparky.' }, { location, budget, radius });
+            onConceptSelected(data.concepts?.[0] || { title: 'Custom Date Plan', description: 'A partner-ready itinerary based on your chat with Sparky.' }, { location, budget, radius, lat, lng });
         } catch (err) {
             console.error('Failed to force generate', err);
             onConceptSelected({ title: 'Custom Date Plan', description: 'A partner-ready itinerary based on your chat with Sparky.' }, { location, budget, radius });
@@ -597,7 +643,7 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                                             <button
                                                 type="button"
                                                 key={concept.title}
-                                                onClick={() => onConceptSelected(concept, { location, budget, radius })}
+                                                onClick={() => onConceptSelected(concept, { location, budget, radius, lat, lng })}
                                                 className="group rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-left transition hover:border-violet-300 hover:bg-white active:scale-[0.99]"
                                             >
                                                 <div className="flex items-start justify-between gap-3">
