@@ -1,57 +1,96 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Star, ArrowUpRight, ArrowRight } from 'lucide-react';
+import { Star, ArrowUpRight, ArrowRight, Sparkles, MapPin } from 'lucide-react';
+import axios from 'axios';
 
 const PopularPlans = () => {
-    const plans = [
-        {
-            title: 'Classic Romance',
-            location: 'SOHO, MANHATTAN, NY',
-            rating: 4.9,
-            reviews: 12,
-            tag: '#1 IN MANHATTAN',
-            image: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&q=80&w=400',
-            status: 'RISING',
-            category: 'CLASSIC ROMANCE'
-        },
-        {
-            title: 'A Curated Playful Evening',
-            location: 'EAST BRONX',
-            rating: 4.9,
-            reviews: 4,
-            tag: 'TOP RATED',
-            image: 'https://images.unsplash.com/photo-1522336572468-97b06e8ef143?auto=format&fit=crop&q=80&w=400',
-            status: 'RISING',
-            category: 'PLAYFUL EVENING'
-        },
-        {
-            title: 'The Ultimate Chill Experience',
-            location: 'MANHATTAN',
-            rating: 4.9,
-            reviews: 7,
-            tag: 'TRENDING',
-            image: 'https://images.unsplash.com/photo-1493770348161-369560ae357d?auto=format&fit=crop&q=80&w=400',
-            status: 'RISING',
-            category: 'CHILL EXPERIENCE'
-        },
-        {
-            title: 'Classic Romance',
-            location: 'SOUTHEAST YONKERS',
-            rating: 4.0,
-            reviews: 3,
-            tag: 'NEW',
-            image: 'https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?auto=format&fit=crop&q=80&w=400',
-            status: 'RISING',
-            category: 'ROMANCE'
+    const navigate = useNavigate();
+    const [plans, setPlans] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    const getProxiedPhoto = (photoUrl) => {
+        if (!photoUrl || photoUrl.includes('unsplash')) return null;
+        
+        // Use the backend proxy for Google Places photos to bypass CORS/referrer restrictions
+        if (photoUrl.includes('googleapis.com')) {
+            return `/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
-    ];
+        
+        return photoUrl;
+    };
+
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const response = await axios.get(`${API_URL}/api/trending-plans`);
+                if (response.data && response.data.length > 0) {
+                    // Map the DB plan structure to the component's expected structure
+                    const mappedPlans = response.data.slice(0, 4).map(plan => {
+                        const steps = plan.itinerary?.steps || [];
+                        const firstPhoto = steps.find(s => s.photoUrl && !s.photoUrl.includes('unsplash'))?.photoUrl;
+                        
+                        return {
+                            title: plan.title || 'Curated Date',
+                            location: plan.location || 'NYC',
+                            rating: parseFloat(plan.avg_rating || 4.9).toFixed(1),
+                            reviews: plan.boost_count || plan.total_tries || Math.floor(Math.random() * 20) + 5,
+                            tag: plan.boost_count > 10 ? 'TRENDING' : 'NEW',
+                            image: getProxiedPhoto(firstPhoto),
+                            status: plan.total_tries > 50 ? 'HOT' : 'RISING',
+                            category: (plan.vibe || 'Date').toUpperCase()
+                        };
+                    });
+                    setPlans(mappedPlans);
+                }
+            } catch (error) {
+                console.error('Failed to fetch trending plans:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchPlans();
+    }, []);
+
+    const handlePlanClick = () => {
+        navigate('/signup');
+    };
+
+    if (isLoading) {
+        return (
+            <section className="py-16 md:py-24 bg-gray-50/50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="h-8 w-48 bg-gray-200 animate-pulse rounded-lg mb-12" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="bg-white rounded-[2rem] h-[400px] animate-pulse shadow-sm" />
+                        ))}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    if (plans.length === 0) return null;
 
     return (
         <section className="py-16 md:py-24 bg-gray-50/50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between mb-8 md:mb-12">
-                    <h2 className="text-3xl font-black text-navy tracking-tight">Popular Plans</h2>
-                    <button className="flex items-center gap-1.5 text-coral font-black text-sm uppercase tracking-widest group">
+                    <div className="space-y-1">
+                        <h2 className="text-3xl font-black text-navy tracking-tight flex items-center gap-3">
+                            Popular Plans <Sparkles className="w-6 h-6 text-coral" />
+                        </h2>
+                        <p className="text-gray-400 font-bold text-sm uppercase tracking-widest pl-1">Real venues, real photos from Google</p>
+                    </div>
+                    <button 
+                        onClick={() => navigate('/signup')}
+                        className="flex items-center gap-1.5 text-coral font-black text-sm uppercase tracking-widest group"
+                    >
                         View all <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </button>
                 </div>
@@ -64,15 +103,28 @@ const PopularPlans = () => {
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
                             transition={{ delay: i * 0.1 }}
-                            className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                            onClick={handlePlanClick}
+                            className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
                         >
                             {/* Image Container */}
-                            <div className="relative h-64 overflow-hidden">
-                                <img 
-                                    src={plan.image} 
-                                    alt={plan.title}
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                />
+                            <div className="relative h-64 overflow-hidden bg-navy/5">
+                                {plan.image ? (
+                                    <img 
+                                        key={plan.image}
+                                        src={plan.image} 
+                                        alt={plan.title}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.parentElement.classList.add('bg-gradient-to-br', 'from-navy', 'to-coral/20');
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-navy to-coral/20 flex flex-col items-center justify-center p-6 text-center gap-3">
+                                        <MapPin className="w-10 h-10 text-white/20" />
+                                        <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">Photo from Google Places</span>
+                                    </div>
+                                )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                                 
                                 {/* Overlay Tags */}
@@ -108,7 +160,7 @@ const PopularPlans = () => {
                                     </div>
                                 </div>
 
-                                <button className="w-full py-4 bg-gray-50 text-navy border border-gray-100 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-navy hover:text-white hover:border-navy transition-all flex items-center justify-center gap-2 group">
+                                <button className="w-full py-4 bg-gray-50 text-navy border border-gray-100 rounded-xl text-[11px] font-black uppercase tracking-widest group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-all flex items-center justify-center gap-2 group">
                                     View Full Itinerary <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>

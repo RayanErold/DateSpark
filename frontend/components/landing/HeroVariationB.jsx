@@ -59,7 +59,13 @@ const HeroVariationB = () => {
                         >
                             Claim Your First Plan <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </button>
-                        <div className="flex flex-col items-center lg:items-start">
+                        <button 
+                            onClick={() => navigate('/signup')}
+                            className="bg-white/5 text-white border border-white/10 px-8 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:bg-white/10 flex items-center justify-center gap-3"
+                        >
+                            <Zap className="w-4 h-4 text-coral" /> Events Near You
+                        </button>
+                        <div className="flex flex-col items-center lg:items-start ml-2">
                             <div className="flex -space-x-2 mb-1">
                                 {[1,2,3,4].map(i => (
                                     <div key={i} className="w-8 h-8 rounded-full border-2 border-navy bg-gray-200 overflow-hidden">

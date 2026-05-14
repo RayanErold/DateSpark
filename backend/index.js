@@ -16,7 +16,7 @@ import * as userService from './services/userService.js';
 import * as generationService from './services/generationService.js';
 import * as emailService from './services/emailService.js';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -482,7 +482,91 @@ app.post('/api/upload-avatar', express.raw({ type: 'image/*', limit: '5mb' }), a
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+/**
+ * Google Places Photo Proxy
+ * 
+ * The browser cannot load Google Places photo URLs directly — Google restricts
+ * cross-origin requests to these media endpoints. This proxy fetches the image
+ * server-side (where the API key works without referrer restrictions) and streams
+ * the raw image bytes to the browser.
+ * 
+ * Frontend usage:
+ *   /api/photo-proxy?url=<encoded_google_photo_url>
+ */
+const { pipeline } = await import('stream/promises');
+
+app.get('/api/photo-proxy', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'Missing url parameter' });
+
+    try {
+        let googleUrl = url;
+        const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
+        
+        // Security: Only proxy requests to Google APIs
+        if (!googleUrl.includes('places.googleapis.com') && !googleUrl.includes('maps.googleapis.com')) {
+            return res.status(403).json({ error: 'Forbidden: Only Google API URLs are allowed.' });
+        }
+
+        // AUTO-FIX: Inject API key if missing (common for legacy database entries)
+        if (!googleUrl.includes('key=') && apiKey) {
+            const separator = googleUrl.includes('?') ? '&' : '?';
+            googleUrl = `${googleUrl}${separator}key=${apiKey}`;
+            console.log('[PhotoProxy] 🔑 Auto-injected API Key into legacy URL');
+        }
+        
+        const axios = (await import('axios')).default;
+        console.log(`[PhotoProxy] Fetching: ${googleUrl.split('?')[0]}...`);
+        
+        const response = await axios.get(googleUrl, {
+            responseType: 'stream',
+            timeout: 20000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/*'
+            }
+        });
+
+        const contentType = response.headers['content-type'] || 'image/jpeg';
+        res.set('Content-Type', contentType);
+        res.set('Cache-Control', 'public, max-age=86400');
+        
+        // Use pipeline for safe streaming (prevents crashes on connection drop)
+        await pipeline(response.data, res);
+        console.log('[PhotoProxy] ✅ Successfully streamed image.');
+        
+    } catch (err) {
+        console.error('[PHOTO_PROXY_ERROR]', err.message);
+        
+        // --- SMART FALLBACK ---
+        // If Google fails (expired photo, 400, 403), serve a premium brand fallback
+        // instead of letting the UI break.
+        try {
+            console.log('[PhotoProxy] 🔄 Serving premium fallback image...');
+            const fallbackUrls = [
+                'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=1000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?q=80&w=1000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1470337458703-46ad1756a187?q=80&w=1000&auto=format&fit=crop'
+            ];
+            const fallbackUrl = fallbackUrls[Math.floor(Math.random() * fallbackUrls.length)];
+            
+            const axios = (await import('axios')).default;
+            const fallbackRes = await axios.get(fallbackUrl, { responseType: 'stream', timeout: 10000 });
+            
+            res.set('Content-Type', 'image/jpeg');
+            res.set('X-Proxy-Fallback', 'true');
+            return fallbackRes.data.pipe(res);
+        } catch (fallbackErr) {
+            console.error('[CRITICAL_FALLBACK_FAIL]', fallbackErr.message);
+            if (!res.headersSent) {
+                res.status(502).json({ error: 'All image sources failed' });
+            }
+        }
+    }
+});
+
 app.get('/api/health', (req, res) => res.json({ status: 'running', timestamp: new Date() }));
+
 
 // 5. SERVE FRONTEND (Production)
 const distPath = path.join(__dirname, '../dist');
@@ -504,5 +588,8 @@ app.use((err, req, res, next) => {
     console.error('[SERVER_CRITICAL_ERROR]', err);
     res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
+
+// Keep the event loop alive explicitly (safety for nodemon + Windows)
+setInterval(() => {}, 1000 * 60 * 60);
 
 app.listen(PORT, () => console.log(`🚀 Gateway API running on port ${PORT}`));

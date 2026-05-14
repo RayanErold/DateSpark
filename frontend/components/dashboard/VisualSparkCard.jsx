@@ -19,70 +19,50 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
     const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
     /**
-     * Reconstructs Google photo URLs to ensure they use the frontend's API key
-     * and have consistent sizing. This fixes issues where backend-saved URLs
-     * might have restricted keys or expired redirect signatures.
+     * Routes Google Places photo URLs through the backend proxy.
+     * 
+     * WHY: Google Places photo endpoints block direct browser requests due to
+     * CORS/referrer restrictions. Requests MUST be made server-to-server.
+     * The backend /api/photo-proxy fetches the image and streams it back.
      */
     const getProxiedPhoto = (photoUrl) => {
-        if (!photoUrl || !googleMapsKey || photoUrl.includes('unsplash')) return photoUrl;
+        if (!photoUrl || photoUrl.includes('unsplash')) return null;
         
-        try {
-            // Use URL API for robust parameter handling
-            const url = new URL(photoUrl);
-            if (url.hostname.includes('googleapis.com')) {
-                // Strip existing key if present and set our fresh frontend key
-                url.searchParams.set('key', googleMapsKey);
-                
-                // Force high resolution
-                if (url.hostname.includes('places.googleapis.com')) {
-                    url.searchParams.set('maxWidthPx', '800');
-                    url.searchParams.delete('maxHeightPx'); // Prioritize width
-                } else if (url.hostname.includes('maps.googleapis.com')) {
-                    url.searchParams.set('maxwidth', '800');
-                }
-                
-                return url.toString();
-            }
-        } catch (e) {
-            // Last resort fallback for non-standard URLs
-            if (photoUrl.includes('key=')) {
-                return photoUrl.replace(/key=[^&]+/, `key=${googleMapsKey}`);
-            }
+        // If it's a Google Places URL, route through our backend proxy
+        if (photoUrl.includes('places.googleapis.com') || photoUrl.includes('maps.googleapis.com')) {
+            return `/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         
+        // For any other valid URL, return as-is
         return photoUrl;
     };
 
     // Optimized photo extraction: Filter out obviously broken or non-visual steps
-    const photos = (plan.itinerary?.steps || plan.itinerary || [])
+    const photos = steps
         .map(s => s.photoUrl)
         .filter(url => url && !url.includes('placeholder'))
-        .map(getProxiedPhoto);
+        .map(getProxiedPhoto)
+        .filter(Boolean); // Remove nulls from unsplash/invalid URLs
+
 
     const hasPhotos = photos.length > 0;
     const currentPhoto = photos[photoIndex];
 
     const [imageError, setImageError] = useState(false);
 
-    const getFallbackImage = () => {
-        const v = (plan.vibe || 'chill').toLowerCase();
-        if (v.includes('romantic')) return 'https://images.unsplash.com/photo-1516589174184-c68526514ec0?w=600&q=80';
-        if (v.includes('chill') || v.includes('cozy')) return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80';
-        if (v.includes('night') || v.includes('bar')) return 'https://images.unsplash.com/photo-1514525253361-bee8d419b74e?w=600&q=80';
-        if (v.includes('active') || v.includes('outdoor')) return 'https://images.unsplash.com/photo-1502904550040-753d5ad069de?w=600&q=80';
-        return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80';
-    };
-
     // Auto-advance if a photo fails (preventing broken trending images)
-    const handleImageError = () => {
-        console.warn(`[VisualSparkCard] Photo ${photoIndex + 1}/${photos.length} failed for ${plan.id}. Status: ${imageError ? 'FALLBACK' : 'SKIPPING'}`);
+    const handleImageError = (e) => {
+        const errorUrl = e.target.src;
+        console.warn(`[VisualSparkCard] Photo ${photoIndex + 1}/${photos.length} failed for ${plan.id}. URL: ${errorUrl.split('?')[0]}...`);
         
         // Ensure we have multiple photos to skip through
         if (photos && photos.length > 1 && photoIndex < photos.length - 1) {
             // Try the next photo in the itinerary sequence
             setPhotoIndex(prev => prev + 1);
+            // Reset error state for the new attempt
+            setImageError(false);
         } else {
-            // No more photos left in this plan, trigger the Unsplash fallback
+            // No more photos left in this plan, trigger the premium gradient fallback
             setImageError(true);
         }
     };
@@ -113,6 +93,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
                 {hasPhotos && !imageError ? (
                     <>
                         <img
+                            key={currentPhoto || `${plan.id}-${photoIndex}`}
                             src={currentPhoto}
                             alt={plan.vibe}
                             onError={handleImageError}
@@ -170,19 +151,23 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                     </>
                 ) : (
-                    <div className="relative h-full w-full">
-                        <img 
-                            src={getFallbackImage()} 
-                            className="w-full h-full object-cover opacity-60 grayscale-[20%]"
-                            alt="Fallback"
-                            onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.style.display = 'none';
-                            }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-br from-navy/80 via-navy/40 to-coral/30 flex flex-col items-center justify-center gap-3 p-8">
-                            <MapPin className="w-12 h-12 text-white/40" />
-                            <span className="text-white/60 text-xs font-black uppercase tracking-widest text-center shadow-sm">Visualizing {plan.vibe}...</span>
+                    <div className="premium-gradient-fallback relative h-full w-full flex flex-col items-center justify-center gap-4 p-8 overflow-hidden">
+                        {/* Abstract Animated Mesh Background */}
+                        <div className="absolute inset-0 opacity-20">
+                            <div className="absolute top-0 -left-1/4 w-full h-full bg-emerald-500/20 blur-[120px] animate-pulse-slow" />
+                            <div className="absolute bottom-0 -right-1/4 w-full h-full bg-navy/40 blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
+                        </div>
+
+                        <div className="relative z-10 flex flex-col items-center gap-3">
+                            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl flex items-center justify-center shadow-2xl">
+                                <MapPin className="w-8 h-8 text-emerald-400/60" />
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <span className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Authentic Experience</span>
+                                <span className="text-white/40 text-[9px] font-bold uppercase tracking-wider text-center max-w-[150px] leading-relaxed">
+                                    Visualizing {plan.vibe || 'this experience'}...
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )}

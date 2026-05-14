@@ -24,6 +24,7 @@ app = FastAPI(title="DateSpark AI Service")
 # Configure AI Providers
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+AI_SERVICE_URL = os.getenv("AI_SERVICE_URL") or 'http://localhost:8001'
 
 gemini_client = None
 if GEMINI_API_KEY:
@@ -169,4 +170,4 @@ async def chat_with_architect(request: ChatRequest):
 if __name__ == "__main__":
     # pyrefly: ignore [missing-import]
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

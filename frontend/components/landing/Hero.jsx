@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Play, Calendar, Ticket, MapPin } from 'lucide-react';
+import { Sparkles, ArrowRight, Calendar, Ticket, MapPin } from 'lucide-react';
 import dashboardMockup from '../../assets/dashboard-mockup.png';
 import { trackABEvent } from '../../lib/hooks/useABTest';
 
@@ -54,8 +54,11 @@ const Hero = () => {
                                 >
                                     Start Planning Free <ArrowRight className="w-5 h-5" />
                                 </button>
-                                <button className="btn-secondary w-full sm:w-auto">
-                                    <Play className="w-4 h-4 fill-navy" /> See How It Works
+                                <button 
+                                    onClick={() => navigate('/signup')}
+                                    className="btn-secondary w-full sm:w-auto border-coral/20 text-coral hover:bg-coral/5"
+                                >
+                                    <MapPin className="w-4 h-4 text-coral" /> Nearby Plans
                                 </button>
                             </div>
 

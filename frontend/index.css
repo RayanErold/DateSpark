@@ -250,4 +250,9 @@ button, a, [role="button"], input, select, textarea {
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
 }
+
+.premium-gradient-fallback {
+  background: linear-gradient(135deg, #0a192f 0%, #0f172a 40%, #064e3b 100%);
+}
+
 

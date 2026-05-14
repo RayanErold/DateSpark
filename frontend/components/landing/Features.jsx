@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, Ticket, Sparkles, MapPin } from 'lucide-react';
 
 const Features = () => {
+    const navigate = useNavigate();
     const features = [
         {
             icon: <Calendar className="w-6 h-6 text-coral" />,
@@ -47,7 +49,8 @@ const Features = () => {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: i * 0.1 }}
-                            className="flex flex-col items-center text-center space-y-4 group"
+                            onClick={() => navigate('/signup')}
+                            className="flex flex-col items-center text-center space-y-4 group cursor-pointer"
                         >
                             <div className={`w-16 h-16 rounded-full ${feature.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                                 {feature.icon}

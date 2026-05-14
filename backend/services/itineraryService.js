@@ -6,7 +6,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
  * Now acts as a proxy to the Python AI Microservice and handles Plan discovery.
  */
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8001';
 let GOOGLE_API_KEY;
 let genAI;
 
@@ -21,21 +21,8 @@ export const initItineraryService = (config) => {
 };
 
 // --- ASSET ENRICHMENT CONFIG ---
-const VIBE_IMAGE_MAPPING = {
-    'rooftop': 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&q=80&w=800',
-    'jazz': 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&q=80&w=800',
-    'picnic': 'https://images.unsplash.com/photo-1550586678-f7225f03c44b?auto=format&fit=crop&q=80&w=800',
-    'museum': 'https://images.unsplash.com/photo-1518998053502-517e239eeef0?auto=format&fit=crop&q=80&w=800',
-    'romantic': 'https://images.unsplash.com/photo-1516062423079-7ca13cdc7f5a?auto=format&fit=crop&q=80&w=800',
-    'chill': 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&q=80&w=800',
-    'adventure': 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&q=80&w=800',
-    'dinner': 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&q=80&w=800',
-    'drinks': 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=800',
-    'park': 'https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&q=80&w=800',
-    'walk': 'https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&q=80&w=800',
-    'movie': 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&q=80&w=800',
-    'speakeasy': 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&q=80&w=800'
-};
+// We no longer use static Unsplash mappings to ensure 100% authenticity.
+const VIBE_IMAGE_MAPPING = {};
 
 /**
  * Semantic Bridge: Takes AI search queries and fetches REAL venues from Google Places.
@@ -115,6 +102,24 @@ export const enrichWithRealPlaces = async (steps, location, coords = null) => {
                 place = response.data.places?.[0];
             }
 
+            // Final Fallback C: Generic high-level search for the activity in that city
+            if (!place) {
+                const genericQuery = `${step.activity} in ${city}`;
+                try {
+                    response = await axios.post(
+                        'https://places.googleapis.com/v1/places:searchText',
+                        { 
+                            textQuery: genericQuery, 
+                            maxResultCount: 1 
+                        },
+                        { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.photos,places.displayName,places.name' } }
+                    );
+                    place = response.data.places?.[0];
+                } catch (err) {
+                    console.warn(`[Final Fallback Error] ${genericQuery}:`, err.message);
+                }
+            }
+
             if (!place) {
                 return { ...step, verified: false };
             }
@@ -123,8 +128,11 @@ export const enrichWithRealPlaces = async (steps, location, coords = null) => {
             let googlePhotoUrl = null;
             if (place.photos && place.photos.length > 0) {
                 const photoName = place.photos[0].name;
-                // Save WITHOUT the key - the frontend proxy will inject the correct authorized key
-                googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=800`;
+                // Safety Check: Ensure we have the full resource name (New API format)
+                if (photoName && photoName.startsWith('places/')) {
+                    // Save WITH the key as a robust default - frontend can still override/proxy
+                    googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=800&key=${GOOGLE_API_KEY}`;
+                }
             }
 
             const reviews = (place.reviews || []).map(r => ({
@@ -141,7 +149,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null) => {
                 userRatingCount: place.userRatingCount || 100,
                 lat: place.location?.latitude,
                 lng: place.location?.longitude,
-                photoUrl: googlePhotoUrl || step.photoUrl,
+                photoUrl: googlePhotoUrl || (step.photoUrl && !step.photoUrl.includes('unsplash') && !step.photoUrl.includes('maps.googleapis.com') ? step.photoUrl : null),
                 googlePlaceId: place.name?.split('/').pop(),
                 websiteUrl: place.websiteUri,
                 reviews: reviews.length > 0 ? reviews : (step.reviews || []),
@@ -492,12 +500,13 @@ export const getTrendingPlans = async (supabase) => {
             
             // Force enrichment if:
             // 1. Missing Place ID
-            // 2. Not a Google URL
-            // 3. Is a Legacy URL (maps.googleapis.com) - these expire and should be migrated to the New API
+            // 2. Not a Google URL (e.g. Unsplash or null)
+            // 3. Is a Legacy URL (maps.googleapis.com)
             const needsEnrichment = steps.some(s => 
                 !s.googlePlaceId || 
-                !(s.photoUrl || '').includes('google') ||
-                (s.photoUrl || '').includes('maps.googleapis.com')
+                !(s.photoUrl || '').includes('places.googleapis.com') ||
+                (s.photoUrl || '').includes('maps.googleapis.com') ||
+                (s.photoUrl || '').includes('unsplash')
             );
             
             if (needsEnrichment && steps.length > 0) {
