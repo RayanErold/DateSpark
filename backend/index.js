@@ -323,15 +323,55 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
     }
 });
 
-// 2. EVENTS
-app.get('/api/events', async (req, res) => {
-    const keys = {
-        ticketmaster: process.env.TICKETMASTER_API_KEY,
-        serpapi: process.env.SERP_API_KEY,
-        seatgeek: process.env.SEATGEEK_CLIENT_ID
-    };
-    const events = await fetchEvents(supabase, req.query.city, req.query.category, 15, keys);
-    res.json(events);
+// 2. WISHLIST
+app.post('/api/wishlist-parse', async (req, res) => {
+    try {
+        if (!genAI) throw new Error('Gemini API is not configured.');
+        const { wishlistPrompt, partnerName, relationType } = req.body;
+        
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+        
+        const prompt = `You are a creative Date Planner and Wishlist Architect.
+        The user has provided a wishlist of activities they want to experience with their partner/friend/date.
+        
+        Wishlist input: "${wishlistPrompt}"
+        Relation Type: ${relationType || 'partner'}
+        Partner/Friend Name: ${partnerName || 'Companion'}
+
+        Parse and expand this wishlist into a beautifully structured, highly inspiring JSON array.
+        Be creative, enrich each activity with a description, vibe tags, estimated cost category ($, $$, $$$), and an appropriate emoji.
+        Also suggest 2 ADDITIONAL unique activities that perfectly complement their wishlist and vibe!
+
+        Return ONLY a valid JSON object matching this schema exactly, with NO additional text, code blocks, or explanations:
+        {
+          "companionName": "${partnerName || 'Companion'}",
+          "relationType": "${relationType || 'partner'}",
+          "items": [
+            {
+              "id": "item-1",
+              "title": "Title of the activity",
+              "description": "Short, beautiful, romantic or fun description of how to experience this activity",
+              "cost": "$",
+              "vibe": "Cozy / Romantic / Adventure / Creative",
+              "emoji": "🌟",
+              "type": "requested"
+            }
+          ]
+        }`;
+
+        const result = await model.generateContent(prompt);
+        let rawText = result.response.text();
+        
+        // Ensure clean JSON parsing
+        const match = rawText.match(/\{[\s\S]*\}/);
+        const jsonString = match ? match[0] : rawText;
+        const parsed = JSON.parse(jsonString);
+
+        res.json({ success: true, wishlist: parsed });
+    } catch (err) {
+        console.error('[WISHLIST_PARSE_ERROR]', err);
+        res.status(500).json({ error: 'Failed to generate wishlist JSON', details: err.message });
+    }
 });
 
 // 3. PAYMENTS

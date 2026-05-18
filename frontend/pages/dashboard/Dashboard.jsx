@@ -70,7 +70,7 @@ import { useGoogleMaps } from '../../lib/googleMaps';
 import { loadStripe } from '@stripe/stripe-js';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import BottomNav from '../../components/common/BottomNav';
-import EventsTab from '../../components/dashboard/EventsTab';
+import WishlistTab from '../../components/dashboard/WishlistTab';
 import PremiumExperienceModal from '../../components/modals/PremiumExperienceModal';
 import UsageBadge from '../../components/common/UsageBadge';
 import { consumeFlashMessage } from '../../lib/flashMessage';
@@ -2438,16 +2438,16 @@ const Dashboard = () => {
                                         Explore Nearby
                                     </h3>
                                     <button 
-                                        onClick={() => setCurrentTab('events')}
+                                        onClick={() => setCurrentTab('wishlist')}
                                         className="text-[10px] font-black text-coral hover:underline uppercase tracking-widest"
                                     >
-                                        View All Events
+                                        Spark Wishlist ⚡
                                     </button>
                                 </div>
                                 <NearbyMapWidget
                                     globalTrendingPlans={globalTrendingPlans}
                                     isLoaded={isLoaded}
-                                    onFindEvents={() => setCurrentTab('events')}
+                                    onFindEvents={() => setCurrentTab('wishlist')}
                                 />
                             </div>
 
@@ -2498,7 +2498,7 @@ const Dashboard = () => {
                         <NearbyMapWidget
                             globalTrendingPlans={globalTrendingPlans}
                             isLoaded={isLoaded}
-                            onFindEvents={() => setCurrentTab('events')}
+                            onFindEvents={() => setCurrentTab('wishlist')}
                         />
 
                         {/* Spark AI UI (DateArchitectChat) under the Map for Desktop */}
@@ -2542,8 +2542,8 @@ const Dashboard = () => {
                                         <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Community ideas from other couples — preview here, or save from Discovery.</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setCurrentTab('events')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
-                                    See Events <ChevronRight className="w-4 h-4" />
+                                <button onClick={() => setCurrentTab('wishlist')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
+                                    Spark Wishlist <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="flex overflow-x-auto gap-4 md:gap-8 px-4 md:px-0 pb-10 snap-x snap-mandatory scrollbar-hide">
@@ -3529,16 +3529,16 @@ const Dashboard = () => {
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Dashboard</span>}
                         </button>
 
-                        {/* Events */}
+                        {/* Wishlist */}
                         <button
-                            onClick={() => { setCurrentTab('events'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'events'
+                            onClick={() => { setCurrentTab('wishlist'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'wishlist'
                                     ? 'bg-coral/5 text-coral'
                                     : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
                                 } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
                         >
-                            <Ticket className={`w-5 h-5 shrink-0 ${currentTab === 'events' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Events</span>}
+                            <Gift className={`w-5 h-5 shrink-0 ${currentTab === 'wishlist' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Wishlist</span>}
                         </button>
 
                         {/* Profile & Settings embedded */}
@@ -3647,7 +3647,7 @@ const Dashboard = () => {
                             {currentTab === 'favorites' && renderFavorites()}
                             {currentTab === 'plans' && renderMyPlans()}
                             {currentTab === 'discovery' && renderDiscovery()}
-                            {currentTab === 'events' && <EventsTab appTheme={appTheme} userCity={userCity} setToastMessage={setToastMessage} />}
+                            {(currentTab === 'events' || currentTab === 'wishlist') && <WishlistTab appTheme={appTheme} setToastMessage={setToastMessage} />}
                             {currentTab === 'account' && renderAccount()}
                         </motion.div>
                     </AnimatePresence>
