@@ -323,55 +323,15 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
     }
 });
 
-// 2. WISHLIST
-app.post('/api/wishlist-parse', async (req, res) => {
-    try {
-        if (!genAI) throw new Error('Gemini API is not configured.');
-        const { wishlistPrompt, partnerName, relationType } = req.body;
-        
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
-        
-        const prompt = `You are a creative Date Planner and Wishlist Architect.
-        The user has provided a wishlist of activities they want to experience with their partner/friend/date.
-        
-        Wishlist input: "${wishlistPrompt}"
-        Relation Type: ${relationType || 'partner'}
-        Partner/Friend Name: ${partnerName || 'Companion'}
-
-        Parse and expand this wishlist into a beautifully structured, highly inspiring JSON array.
-        Be creative, enrich each activity with a description, vibe tags, estimated cost category ($, $$, $$$), and an appropriate emoji.
-        Also suggest 2 ADDITIONAL unique activities that perfectly complement their wishlist and vibe!
-
-        Return ONLY a valid JSON object matching this schema exactly, with NO additional text, code blocks, or explanations:
-        {
-          "companionName": "${partnerName || 'Companion'}",
-          "relationType": "${relationType || 'partner'}",
-          "items": [
-            {
-              "id": "item-1",
-              "title": "Title of the activity",
-              "description": "Short, beautiful, romantic or fun description of how to experience this activity",
-              "cost": "$",
-              "vibe": "Cozy / Romantic / Adventure / Creative",
-              "emoji": "🌟",
-              "type": "requested"
-            }
-          ]
-        }`;
-
-        const result = await model.generateContent(prompt);
-        let rawText = result.response.text();
-        
-        // Ensure clean JSON parsing
-        const match = rawText.match(/\{[\s\S]*\}/);
-        const jsonString = match ? match[0] : rawText;
-        const parsed = JSON.parse(jsonString);
-
-        res.json({ success: true, wishlist: parsed });
-    } catch (err) {
-        console.error('[WISHLIST_PARSE_ERROR]', err);
-        res.status(500).json({ error: 'Failed to generate wishlist JSON', details: err.message });
-    }
+// 2. EVENTS
+app.get('/api/events', async (req, res) => {
+    const keys = {
+        ticketmaster: process.env.TICKETMASTER_API_KEY,
+        serpapi: process.env.SERP_API_KEY,
+        seatgeek: process.env.SEATGEEK_CLIENT_ID
+    };
+    const events = await fetchEvents(supabase, req.query.city, req.query.category, 15, keys);
+    res.json(events);
 });
 
 // 3. PAYMENTS
@@ -605,6 +565,89 @@ app.get('/api/photo-proxy', async (req, res) => {
                 res.status(502).json({ error: 'All image sources failed' });
             }
         }
+    }
+});
+
+// 6. WISHLIST ROUTES
+app.get('/api/wishlist', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) return res.status(400).json({ error: 'Missing userId parameter' });
+        
+        const { data, error } = await supabaseAdmin
+            .from('plans_wishlist')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+            
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error('[GET_WISHLIST_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/wishlist', async (req, res) => {
+    try {
+        const { userId, title, category, notes, budget, priority } = req.body;
+        if (!userId || !title) return res.status(400).json({ error: 'Missing required fields' });
+        
+        const { data, error } = await supabaseAdmin
+            .from('plans_wishlist')
+            .insert([{
+                user_id: userId,
+                title,
+                category: category || 'Other',
+                notes,
+                budget: budget || '$$',
+                priority: priority || 3,
+                is_completed: false
+            }])
+            .select()
+            .single();
+            
+        if (error) throw error;
+        res.json({ success: true, item: data });
+    } catch (err) {
+        console.error('[POST_WISHLIST_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/wishlist/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        
+        const { data, error } = await supabaseAdmin
+            .from('plans_wishlist')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+            
+        if (error) throw error;
+        res.json({ success: true, item: data });
+    } catch (err) {
+        console.error('[PATCH_WISHLIST_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/wishlist/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabaseAdmin
+            .from('plans_wishlist')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[DELETE_WISHLIST_ERROR]', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
