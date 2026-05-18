@@ -34,11 +34,25 @@ const SEGMENT_COLORS = {
 const segmentColor = (seg) => SEGMENT_COLORS[seg] || 'from-violet-600 to-fuchsia-600';
 
 const formatDate = (dateStr, timeStr) => {
-    if (!dateStr) return 'Date TBD';
-    const d = new Date(`${dateStr}T${timeStr || '00:00'}:00`);
-    const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const timeLabel = timeStr ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-    return timeLabel ? `${dateLabel} · ${timeLabel}` : dateLabel;
+    if (!dateStr || dateStr === 'Invalid Date') return 'Date TBD';
+    
+    // If the input date string is already a formatted, human-readable date/time (e.g. "Thu, May 28, 7:30 PM")
+    // we return it directly to preserve the beautiful presentation and prevent rendering glitches.
+    if (dateStr.includes(',') || /[a-zA-Z]/.test(dateStr)) {
+        return dateStr;
+    }
+    
+    try {
+        const d = new Date(`${dateStr}T${timeStr || '00:00'}:00`);
+        if (isNaN(d.getTime())) {
+            return dateStr;
+        }
+        const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const timeLabel = timeStr ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+        return timeLabel ? `${dateLabel} · ${timeLabel}` : dateLabel;
+    } catch (e) {
+        return dateStr;
+    }
 };
 
 const formatPrice = (min, max, currency) => {
