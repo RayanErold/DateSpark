@@ -3,7 +3,6 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Heart, Sparkles, MapPin, DollarSign, ArrowLeft, ArrowRight, Loader2, Calendar, Wand2, CheckCircle2, Lock, Compass, Utensils, ChevronDown, Check, Sliders, Target, Locate, Clock, X, Wallet, Umbrella, Martini, Footprints, BadgeDollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConceptSkeleton } from '../../components/ui/SkeletonLoader';
-import DateArchitectChat from '../../components/dashboard/DateArchitectChat';
 import { supabase } from '../../lib/supabase';
 import { useGoogleMaps } from '../../lib/googleMaps';
 import BottomNav from '../../components/common/BottomNav';
@@ -49,9 +48,8 @@ const GeneratePlan = () => {
     // Core states
     const [searchParams] = useSearchParams();
     const urlPrompt = searchParams.get('prompt') || searchParams.get('vibe') || '';
-    const initialMode = (searchParams.get('mode') === 'ai' || urlPrompt) ? 'ai_custom' : 'classic';
-    const [mode, setMode] = useState(initialMode); // 'classic' or 'ai_custom'
-    const [isSelectionSkipped, setIsSelectionSkipped] = useState(searchParams.get('mode') === 'ai' || !!urlPrompt);
+    const mode = 'classic';
+    const [isSelectionSkipped, setIsSelectionSkipped] = useState(true);
     
     // --- FREEMIUM LOGIC STATE ---
     const [isPremium, setIsPremium] = useState(() => {
@@ -752,34 +750,7 @@ const GeneratePlan = () => {
                     </p>
                 </div>
 
-                {!isSelectionSkipped && (
-                    <>
-                        <div className="flex bg-gray-200/50 backdrop-blur-sm p-1 sm:p-1.5 rounded-2xl sm:rounded-[1.5rem] mb-8 sm:mb-12 border border-white shadow-xl shadow-navy/5">
-                            <button
-                                onClick={() => handleModeSwitch('classic')}
-                                className={`flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'classic' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
-                            >
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <MapPin className={`w-4 h-4 sm:w-5 h-5 ${mode === 'classic' ? 'text-coral' : ''}`} /> Guided Builder
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => handleModeSwitch('ai_custom')}
-                                className={`relative flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-[1.25rem] font-black text-xs sm:text-lg flex flex-col items-center justify-center gap-1 transition-all duration-500 ${mode === 'ai_custom' ? 'bg-white text-navy shadow-lg shadow-navy/5 scale-[1.02] ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/40'}`}
-                            >
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <Wand2 className={`w-4 h-4 sm:w-5 h-5 ${mode === 'ai_custom' ? 'text-violet-500 animate-pulse' : ''}`} />
-                                    Sparky AI Builder
-                                </div>
-                            </button>
-                        </div>
-                        <p className="text-center text-[12px] sm:text-sm text-gray-500 font-medium px-2 -mt-4 mb-6 max-w-xl mx-auto leading-relaxed">
-                            <span className="font-bold text-navy">Guided Builder</span> — step-by-step vibe, budget, and map-friendly itinerary.
-                            {' '}
-                            <span className="font-bold text-navy">Sparky AI Builder</span> — describe the night in your words, pick an AI concept, then generate.
-                        </p>
-                    </>
-                )}
+
 
                 {error && (
                     <div className="p-4 mb-6 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100 italic flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-left-4 duration-300">
@@ -805,56 +776,7 @@ const GeneratePlan = () => {
                     </div>
                 )}
 
-                {/* --- AI MODE --- */}
-                {mode === 'ai_custom' && (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.98 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="space-y-6 pb-20"
-                        >
-                            <div className="flex items-center justify-between px-2">
-                                <h3 className="text-sm font-black text-navy uppercase tracking-wider flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-violet-600" />
-                                    Collaborating with Architect
-                                </h3>
-                                <button 
-                                    onClick={() => { setAiConcepts([]); setConversationHistory([]); setRefinementCount(0); setAiBudget(''); }} 
-                                    className="text-[11px] font-black text-gray-400 uppercase tracking-widest hover:text-navy transition-colors"
-                                >
-                                    Reset
-                                </button>
-                            </div>
 
-                            <DateArchitectChat 
-                                userId={user?.id}
-                                location={formData.location}
-                                lat={formData.lat}
-                                lng={formData.lng}
-                                budget={aiBudget}
-                                radius={customRadius}
-                                initialPrompt={searchParams.get('prompt')}
-                                initialVibe={searchParams.get('vibe')}
-                                onSettingsChange={({ location, budget, radius, lat, lng }) => {
-                                    setFormData(prev => ({ ...prev, location, lat, lng }));
-                                    setAiBudget(budget);
-                                    setCustomRadius(radius);
-                                }}
-                                onConceptSelected={(concept, settings) => {
-                                    setAiConcepts([concept]);
-                                    setSelectedConceptIndex(0);
-                                    if (settings) {
-                                        setFormData(prev => ({ ...prev, location: settings.location, lat: settings.lat, lng: settings.lng }));
-                                        setAiBudget(settings.budget);
-                                        setCustomRadius(settings.radius);
-                                    }
-                                    const fakeEvent = { preventDefault: () => {} };
-                                    setTimeout(() => handleGenerateCustom(fakeEvent, concept, settings), 100);
-                                }}
-                            />
-                        </motion.div>
-                    </div>
-                )}
 
                 {/* --- CLASSIC MODE --- */}
                 {mode === 'classic' && (

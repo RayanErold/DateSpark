@@ -122,7 +122,7 @@ const VibeCard = ({ item, isActive, isMuted, onToggleMute }) => {
                     className="flex items-center gap-3 mt-4"
                 >
                     <Link 
-                        to={`/generate?location=${encodeURIComponent(item.location)}&vibe=${encodeURIComponent(item.vibe)}&prompt=${encodeURIComponent(`A date at ${item.title}`)}`}
+                        to="/dashboard"
                         className="flex-1 bg-white text-navy py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform"
                     >
                         <Wand2 className="w-4 h-4" />

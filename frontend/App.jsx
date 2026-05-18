@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import ScrollToTop from './components/common/ScrollToTop';
 
@@ -61,16 +61,6 @@ function App() {
               <Dashboard />
             </ProtectedRoute>
           } />
-          <Route path="/generate" element={
-            <ProtectedRoute>
-              <GeneratePlan />
-            </ProtectedRoute>
-          } />
-          <Route path="/generate-plan" element={
-            <ProtectedRoute>
-              <GeneratePlan />
-            </ProtectedRoute>
-          } />
           <Route path="/onboarding" element={
             <ProtectedRoute>
               <VibeOnboarding />
@@ -81,6 +71,18 @@ function App() {
               <VibeFeed />
             </ProtectedRoute>
           } />
+
+          <Route path="/generate" element={
+            <ProtectedRoute>
+              <GeneratePlan />
+            </ProtectedRoute>
+          } />
+          
+          {/* Deprecated Routes */}
+          <Route path="/generate-plan" element={<Navigate to="/generate" replace />} />
+          
+          {/* Catch All */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </Router>

@@ -26,14 +26,15 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
      * The backend /api/photo-proxy fetches the image and streams it back.
      */
     const getProxiedPhoto = (photoUrl) => {
-        if (!photoUrl || photoUrl.includes('unsplash')) return null;
+        if (!photoUrl) return null;
         
         // If it's a Google Places URL, route through our backend proxy
+        // WHY: Google restricts direct browser access (CORS)
         if (photoUrl.includes('places.googleapis.com') || photoUrl.includes('maps.googleapis.com')) {
             return `/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         
-        // For any other valid URL, return as-is
+        // For Unsplash or any other valid public URL, return as-is
         return photoUrl;
     };
 

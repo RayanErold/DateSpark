@@ -159,7 +159,7 @@ const Pricing = () => {
                                     if (type === 'free') {
                                         try {
                                             const { data: { user } } = await supabase.auth.getUser();
-                                            window.location.href = user ? '/generate' : '/signup';
+                                            window.location.href = user ? '/dashboard' : '/signup';
                                         } catch {
                                             window.location.href = '/signup';
                                         }

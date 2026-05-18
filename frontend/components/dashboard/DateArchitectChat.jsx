@@ -9,11 +9,13 @@ import {
     Compass,
     DollarSign,
     Edit2,
+    Heart,
     HeartHandshake,
     Locate,
     Loader2,
     MapPin,
     MessageCircle,
+    Mic,
     Moon,
     Send,
     Sparkles,
@@ -100,6 +102,69 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
     const [locationLoading, setLocationLoading] = useState(false);
     const scrollRef = useRef(null);
     const inputRef = useRef(null);
+    const recognitionRef = useRef(null);
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const [isListening, setIsListening] = useState(false);
+
+    const toggleListening = () => {
+        if (isListening) {
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
+            setIsListening(false);
+            return;
+        }
+
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                let currentTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        currentTranscript += transcript + ' ';
+                    } else {
+                        currentTranscript += transcript;
+                    }
+                }
+                setInput(prev => {
+                    // Prevent appending repeatedly if it's not final, but for simplicity we can just set
+                    // It's better to just handle final for simplicity, or append cautiously.
+                    // For now, let's just use final results to avoid weird text behavior.
+                    let finalOnly = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        if (event.results[i].isFinal) {
+                            finalOnly += event.results[i][0].transcript + ' ';
+                        }
+                    }
+                    if (finalOnly) {
+                        return prev + (prev.endsWith(' ') ? '' : ' ') + finalOnly.trim();
+                    }
+                    return prev;
+                });
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error", event.error);
+                setIsListening(false);
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+            };
+
+            recognitionRef.current = recognition;
+            recognition.start();
+            setIsListening(true);
+        } else {
+            alert('Speech recognition is not supported in this browser. Please try Chrome or Safari.');
+        }
+    };
 
     // Use ref for onSettingsChange to prevent infinite re-render loops
     const onSettingsChangeRef = useRef(onSettingsChange);
@@ -374,7 +439,7 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                                 type="button"
                                 onClick={() => sendPrompt(option)}
                                 disabled={isStreaming}
-                                className="rounded-2xl border border-violet-100 bg-violet-50 px-3 py-2.5 text-left text-[12px] font-black text-violet-700 transition hover:border-violet-300 hover:bg-white disabled:opacity-50"
+                                className="rounded-2xl border border-orange-100 bg-orange-50/80 px-3 py-2.5 text-left text-[12px] font-black text-orange-700 transition hover:border-orange-300 hover:bg-white disabled:opacity-50"
                             >
                                 {option}
                             </button>
@@ -395,177 +460,30 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
     };
 
     return (
-        <div className="overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
-            <div className="border-b border-gray-100 bg-gradient-to-br from-violet-50 via-white to-rose-50 px-4 py-5 sm:px-6">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex items-start gap-4">
-                        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-600/20">
-                            <Sparkles className="h-6 w-6" />
-                            <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-4 border-white bg-emerald-500" />
-                        </div>
-                        <div>
-                            <div className="mb-1 flex flex-wrap items-center gap-2">
-                                <h3 className="text-2xl font-black leading-none text-navy">Sparky</h3>
-                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-violet-600 shadow-sm">Dating AI assistant</span>
-                            </div>
-                            <p className="max-w-2xl text-sm font-bold leading-relaxed text-gray-500">
-                                Tell me the occasion, budget, and energy. I will turn it into a route-ready date with real venues, backup logic, and partner-friendly choices.
-                            </p>
-                        </div>
+        <div className="overflow-hidden rounded-xl border border-orange-100 bg-white shadow-[0_8px_30px_rgba(255,127,80,0.06)] max-w-2xl mx-auto flex flex-col h-[300px]">
+            {/* Orange Gradient Header with Heartbeat */}
+            <div className="border-b border-orange-100 bg-gradient-to-r from-orange-50/70 via-orange-50/20 to-white px-4 py-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-orange-500 to-coral text-white shadow-md shadow-orange-500/20">
+                        <Heart className="h-4 w-4 fill-current" />
                     </div>
-                    <div className="hidden grid-cols-4 gap-2 rounded-2xl bg-white/80 p-2 shadow-sm lg:grid lg:min-w-[320px]">
-                        {readiness.map((item) => (
-                            <div key={item.label} className={`rounded-xl px-2 py-2 text-center ${item.done ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-400'}`}>
-                                <CheckCircle2 className="mx-auto mb-1 h-4 w-4" />
-                                <span className="block text-[9px] font-black uppercase tracking-tight">{item.label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <button
-                    type="button"
-                    onClick={() => setShowBasics(!showBasics)}
-                    className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-white px-4 py-3 text-left shadow-sm transition hover:border-violet-200"
-                >
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Plan basics</p>
-                        <p className="truncate text-sm font-black text-navy">
-                            {location || 'Add location'} · {budget || 'Flexible'} · {currentGoal.label} · {radiusLabel(radius)}
+                    <div>
+                        <h3 className="text-sm font-black tracking-tight uppercase bg-gradient-to-r from-orange-600 via-orange-500 to-coral bg-clip-text text-transparent">
+                            Create with Spark AI
+                        </h3>
+                        <p className="text-[9px] font-black text-orange-500/80 uppercase tracking-widest leading-none mt-0.5">
+                            Heartbeat Engine
                         </p>
                     </div>
-                    <ChevronDown className={`h-5 w-5 shrink-0 text-violet-600 transition ${showBasics ? 'rotate-180' : ''}`} />
-                </button>
-
-                <AnimatePresence>
-                    {showBasics && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
-                        >
-                            <div className="mt-3 space-y-3 rounded-2xl border border-violet-100 bg-white p-4">
-                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_130px_auto]">
-                                    <div className="relative">
-                                        <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500" />
-                                        <input
-                                            type="text"
-                                            placeholder="City or neighborhood"
-                                            value={location}
-                                            onChange={(e) => setLocation(e.target.value)}
-                                            className="h-14 w-full rounded-2xl border-2 border-violet-100 bg-white pl-11 pr-12 text-sm font-black text-navy outline-none transition focus:border-violet-500"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={handlePreciseLocation}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-violet-600 hover:bg-violet-50"
-                                            aria-label="Use current location"
-                                        >
-                                            {locationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Locate className="h-4 w-4" />}
-                                        </button>
-                                    </div>
-                                    <div className="relative">
-                                        <DollarSign className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
-                                        <input
-                                            type="text"
-                                            placeholder="Budget"
-                                            value={budget}
-                                            onChange={(e) => setBudget(e.target.value)}
-                                            className="h-14 w-full rounded-2xl border-2 border-emerald-100 bg-white pl-10 pr-3 text-sm font-black text-navy outline-none transition focus:border-emerald-500"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowSettings(!showSettings)}
-                                        className="h-14 rounded-2xl border-2 border-gray-100 bg-white px-4 text-sm font-black text-navy transition hover:border-violet-200"
-                                    >
-                                        <Compass className="mr-2 inline h-4 w-4 text-violet-500" />
-                                        {radiusLabel(radius)}
-                                        <ChevronDown className={`ml-2 inline h-4 w-4 transition ${showSettings ? 'rotate-180' : ''}`} />
-                                    </button>
-                                </div>
-
-                                <div className="grid gap-3 md:grid-cols-2">
-                                    <div>
-                                        <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Date goal</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowGoalPicker(!showGoalPicker)}
-                                            className="flex w-full items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-left text-sm font-black text-navy"
-                                        >
-                                            {currentGoal.label}
-                                            <ChevronDown className={`h-4 w-4 text-violet-600 transition ${showGoalPicker ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        {showGoalPicker && (
-                                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                                {DATE_GOALS.map((goal) => {
-                                                    const Icon = goal.icon;
-                                                    const active = selectedGoal === goal.id;
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            key={goal.id}
-                                                            onClick={() => {
-                                                                setSelectedGoal(goal.id);
-                                                                setInput(goal.prompt);
-                                                                setShowGoalPicker(false);
-                                                                inputRef.current?.focus();
-                                                            }}
-                                                            className={`rounded-xl border px-3 py-2 text-left transition ${active ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-100 bg-white text-gray-600 hover:border-violet-200'}`}
-                                                        >
-                                                            <Icon className="mb-1 h-4 w-4" />
-                                                            <span className="block text-[12px] font-black">{goal.label}</span>
-                                                            <span className="block text-[10px] font-bold opacity-70">{goal.helper}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Budget shortcuts</span>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {BUDGET_PRESETS.map((preset) => (
-                                                <button
-                                                    type="button"
-                                                    key={preset}
-                                                    onClick={() => setBudget(preset)}
-                                                    className={`rounded-xl border px-2 py-3 text-xs font-black transition ${budget === preset ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-100 bg-gray-50 text-gray-500 hover:border-emerald-200'}`}
-                                                >
-                                                    {preset}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {showSettings && (
-                                    <div className="rounded-2xl bg-violet-50 p-4">
-                                        <div className="mb-3 flex items-center justify-between">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Search radius</span>
-                                            <span className="text-sm font-black text-violet-600">{radiusLabel(radius)}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="804"
-                                            max="32186"
-                                            step="804"
-                                            value={radius}
-                                            onChange={(e) => setRadius(Number(e.target.value))}
-                                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-violet-100 accent-violet-600"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                </div>
+                <div className="flex items-center gap-1.5 bg-orange-100/60 border border-orange-200/50 px-2 py-1 rounded-md">
+                    <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse" />
+                    <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">Live Architect</span>
+                </div>
             </div>
 
-            <div className="grid lg:grid-cols-[1fr_340px]">
-                <div className="flex min-h-[620px] flex-col">
-                    <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto bg-gray-50/60 p-4 sm:p-6">
+            <div className="flex flex-col flex-1 min-h-0">
+                <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-gray-50/50 p-3">
                         {messages.map((message, idx) => (
                             <motion.div
                                 key={`${message.role}-${idx}`}
@@ -573,11 +491,11 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                                 animate={{ opacity: 1, y: 0 }}
                                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                                <div className={`flex max-w-[92%] gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${message.role === 'user' ? 'bg-navy text-white' : 'bg-white text-violet-600 shadow-sm'}`}>
-                                        {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                                <div className={`flex max-w-[92%] gap-2 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${message.role === 'user' ? 'bg-navy text-white' : 'bg-white text-orange-500 shadow-sm'}`}>
+                                        {message.role === 'user' ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
                                     </div>
-                                    <div className={`rounded-[1.35rem] p-4 text-sm font-semibold leading-relaxed shadow-sm ${message.role === 'user' ? 'rounded-tr-sm bg-navy text-white' : 'rounded-tl-sm border border-gray-100 bg-white text-navy'}`}>
+                                    <div className={`rounded-[1rem] p-2.5 px-3 text-[11px] font-semibold leading-normal shadow-sm ${message.role === 'user' ? 'rounded-tr-sm bg-navy text-white' : 'rounded-tl-sm border border-gray-100 bg-white text-navy'}`}>
                                         {renderMessageContent(message.content, idx === messages.length - 1 && !isStreaming, message.role)}
                                     </div>
                                 </div>
@@ -585,24 +503,23 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                         ))}
 
                         {messages.length === 1 && (
-                            <div className="rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-sm">
-                                <div className="mb-3 flex items-center justify-between gap-3">
+                            <div className="rounded-xl border border-gray-100 bg-white p-2.5 shadow-sm">
+                                <div className="mb-2 flex items-center justify-between gap-3">
                                     <div>
-                                        <h4 className="text-sm font-black text-navy">Try one of these</h4>
-                                        <p className="text-xs font-bold text-gray-400">Tap a prompt, then Sparky will ask one useful follow-up.</p>
+                                        <h4 className="text-xs font-black text-navy">Quick Starter Prompts</h4>
                                     </div>
-                                    <Moon className="h-5 w-5 text-violet-500" />
+                                    <Moon className="h-4 w-4 text-orange-500" />
                                 </div>
-                                <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="grid gap-1.5 sm:grid-cols-2">
                                     {STARTER_PROMPTS.map((starter) => (
                                         <button
                                             type="button"
                                             key={starter.label}
                                             onClick={() => sendPrompt(starter.prompt)}
-                                            className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-left transition hover:border-violet-200 hover:bg-white active:scale-[0.98]"
+                                            className="rounded-xl border border-gray-100 bg-gray-50 p-2 text-left transition hover:border-orange-200 hover:bg-white active:scale-[0.98]"
                                         >
-                                            <span className="block text-[12px] font-black text-navy">{starter.label}</span>
-                                            <span className="mt-1 block text-[11px] font-bold leading-snug text-gray-400">{starter.prompt}</span>
+                                            <span className="block text-[10px] font-black text-navy">{starter.label}</span>
+                                            <span className="mt-0.5 block text-[9px] font-bold leading-snug text-gray-400">{starter.prompt}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -611,14 +528,14 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
 
                         {isStreaming && (
                             <div className="flex justify-start">
-                                <div className="flex max-w-[92%] gap-3">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-violet-600 shadow-sm">
-                                        <Bot className="h-4 w-4" />
+                                <div className="flex max-w-[92%] gap-2">
+                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 shadow-sm">
+                                        <Bot className="h-3.5 w-3.5" />
                                     </div>
-                                    <div className="rounded-[1.35rem] rounded-tl-sm border border-gray-100 bg-white p-4 text-sm font-semibold leading-relaxed text-navy shadow-sm">
+                                    <div className="rounded-[1rem] rounded-tl-sm border border-gray-100 bg-white p-2.5 px-3 text-[11px] font-semibold leading-normal shadow-sm">
                                         {streamedText ? renderMessageContent(streamedText, false, 'assistant') : (
-                                            <div className="flex items-center gap-2 text-violet-600">
-                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            <div className="flex items-center gap-2 text-orange-500">
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                                 <span>Thinking through the date flow...</span>
                                             </div>
                                         )}
@@ -632,10 +549,10 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="rounded-[1.5rem] border border-violet-100 bg-white p-4 shadow-sm"
+                                    className="rounded-[1.5rem] border border-orange-100 bg-white p-4 shadow-sm"
                                 >
                                     <div className="mb-4">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Sparky's plan options</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Sparky's plan options</p>
                                         <h4 className="text-xl font-black text-navy">Choose a direction</h4>
                                     </div>
                                     <div className="grid gap-3">
@@ -644,7 +561,7 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                                                 type="button"
                                                 key={concept.title}
                                                 onClick={() => onConceptSelected(concept, { location, budget, radius, lat, lng })}
-                                                className="group rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-left transition hover:border-violet-300 hover:bg-white active:scale-[0.99]"
+                                                className="group rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 text-left transition hover:border-orange-300 hover:bg-white active:scale-[0.99]"
                                             >
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div>
@@ -658,7 +575,7 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <ArrowRight className="mt-1 h-5 w-5 text-violet-500 transition group-hover:translate-x-1" />
+                                                    <ArrowRight className="mt-1 h-5 w-5 text-orange-500 transition group-hover:translate-x-1" />
                                                 </div>
                                             </button>
                                         ))}
@@ -668,90 +585,50 @@ const DateArchitectChat = ({ userId, location: initialLocation, budget: initialB
                         </AnimatePresence>
                     </div>
 
-                    <div className="border-t border-gray-100 bg-white p-4 sm:p-6">
-                        <div className="relative">
-                            <textarea
+                    <div className="border-t border-gray-100 bg-white p-2">
+                        <div className="relative flex items-center">
+                            <input
                                 ref={inputRef}
+                                type="text"
                                 value={input}
-                                onChange={(e) => {
-                                    setInput(e.target.value);
-                                    e.target.style.height = 'auto';
-                                    e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
-                                }}
+                                onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                    if (e.key === 'Enter') {
                                         e.preventDefault();
                                         sendPrompt();
                                     }
                                 }}
-                                placeholder="Example: Low-cost rainy date in West Village, cozy, no reservations, dessert ending..."
+                                placeholder="Example: Low-cost rainy date in West Village..."
                                 disabled={isStreaming || isForceGenerating}
-                                rows={2}
-                                className="min-h-[74px] w-full resize-none rounded-[1.5rem] border-2 border-gray-100 bg-gray-50 px-5 py-4 pr-16 text-sm font-bold text-navy outline-none transition placeholder:text-gray-400 focus:border-violet-400 focus:bg-white disabled:opacity-60"
+                                className="h-[42px] w-full rounded-full border-2 border-gray-100 bg-gray-50 pl-4 pr-20 text-xs font-bold text-navy outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:bg-white disabled:opacity-60"
                             />
-                            <button
-                                type="button"
-                                onClick={() => sendPrompt()}
-                                disabled={!input.trim() || isStreaming || isForceGenerating}
-                                className="absolute bottom-3 right-3 rounded-2xl bg-navy p-3 text-white shadow-lg transition hover:bg-violet-700 active:scale-95 disabled:opacity-40"
-                                aria-label="Send message to Sparky"
-                            >
-                                {isStreaming ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                            </button>
+                            <div className="absolute inset-y-0 right-1 flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={toggleListening}
+                                    disabled={isStreaming || isForceGenerating}
+                                    className={`rounded-full p-2 transition active:scale-95 disabled:opacity-40 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-transparent text-gray-400 hover:text-navy'}`}
+                                    aria-label="Toggle voice input"
+                                >
+                                    <Mic className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => sendPrompt()}
+                                    disabled={!input.trim() || isStreaming || isForceGenerating}
+                                    className="rounded-full bg-navy p-2 text-white shadow-md transition hover:bg-orange-600 active:scale-95 disabled:opacity-40"
+                                    aria-label="Send message to Sparky"
+                                >
+                                    {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                </button>
+                            </div>
                         </div>
-                        <p className="mt-3 text-center text-[10px] font-black uppercase tracking-widest text-gray-300">
-                            Sparky asks fewer questions when it already has enough to build.
+                        <p className="mt-1.5 text-center text-[9px] font-black uppercase tracking-widest text-orange-400/60">
+                            Sparky AI • Infinite Possibilities
                         </p>
                     </div>
                 </div>
-
-                <aside className="border-t border-gray-100 bg-white p-5 lg:border-l lg:border-t-0">
-                    <div className="sticky top-24 space-y-5">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Live brief</p>
-                            <h4 className="text-xl font-black text-navy">What Sparky knows</h4>
-                        </div>
-                        <div className="space-y-3 rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4">
-                            {readiness.map((item) => (
-                                <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2.5">
-                                    <span className="text-xs font-black uppercase tracking-widest text-gray-400">{item.label}</span>
-                                    {item.done ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="h-2 w-2 rounded-full bg-gray-200" />}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="rounded-[1.5rem] border border-violet-100 bg-violet-50 p-4">
-                            <div className="mb-3 flex items-center justify-between">
-                                <span className="text-xs font-black text-violet-700">Readiness</span>
-                                <span className="text-xs font-black text-violet-700">{readyCount}/4</span>
-                            </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-white">
-                                <motion.div
-                                    className="h-full rounded-full bg-violet-600"
-                                    animate={{ width: `${(readyCount / 4) * 100}%` }}
-                                />
-                            </div>
-                            <p className="mt-3 text-xs font-bold leading-relaxed text-violet-700/70">
-                                Once location, budget, and your vibe are clear, Sparky can create real plan options.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleForceGenerate}
-                            disabled={!canGenerate || isForceGenerating}
-                            className="w-full rounded-2xl bg-violet-600 px-4 py-4 text-sm font-black text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 active:scale-[0.98] disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none"
-                        >
-                            {isForceGenerating ? <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 inline h-4 w-4" />}
-                            Build My Date Plan
-                        </button>
-                        {!canGenerate && (
-                            <p className="text-center text-[11px] font-bold text-gray-400">
-                                Add a location, budget, and date goal first.
-                            </p>
-                        )}
-                    </div>
-                </aside>
             </div>
-        </div>
     );
 };
 

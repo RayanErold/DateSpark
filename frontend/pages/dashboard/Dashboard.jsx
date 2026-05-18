@@ -62,7 +62,8 @@ import {
     Bot,
     Wand2,
     Gem,
-    ShuffleIcon
+    ShuffleIcon,
+    Footprints
 } from 'lucide-react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { useGoogleMaps } from '../../lib/googleMaps';
@@ -78,6 +79,7 @@ import VisualSparkCard from '../../components/dashboard/VisualSparkCard';
 import ShareCardModal from '../../components/modals/ShareCardModal';
 import NearbyMapWidget from '../../components/dashboard/NearbyMapWidget';
 import SwipeCard from '../../components/dashboard/SwipeCard';
+import DateArchitectChat from '../../components/dashboard/DateArchitectChat';
 
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
@@ -108,6 +110,20 @@ const darkMapStyle = [
     { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4b5563' }] },
     { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] }
 ];
+
+// Helper to calculate distance in miles between two coordinates (Haversine formula)
+const getDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 3958.8; // Radius of the earth in miles
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    return R * c; 
+};
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -499,7 +515,7 @@ const Dashboard = () => {
         }
     };
 
-    const handleGeneratePlan = async (prompt) => {
+    const handleGeneratePlan = async (prompt, overrides = {}) => {
         if (!prompt) return;
         setIsGenerating(true);
         setGeneratingStatus('Sparking your date idea...');
@@ -509,7 +525,10 @@ const Dashboard = () => {
                 prompt,
                 userId: user?.id,
                 email: user?.email,
-                city: userCity,
+                city: overrides.location || userCity,
+                lat: overrides.lat,
+                lng: overrides.lng,
+                budget: overrides.budget,
                 type: 'classic'
             });
 
@@ -2005,6 +2024,13 @@ const Dashboard = () => {
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
+                                <Link
+                                    to="/generate"
+                                    className="h-9 px-4 bg-gradient-to-r from-coral to-orange-500 text-white font-black text-[11px] uppercase tracking-wider rounded-xl shadow-lg shadow-coral/20 hover:brightness-105 active:scale-95 transition-all flex items-center gap-1.5"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>New Plan</span>
+                                </Link>
                                 {!isPremium && (() => {
                                     const totalUsage = usageMetrics.reduce((acc, curr) => acc + (curr.current || 0), 0);
                                     const totalLimit = usageMetrics.reduce((acc, curr) => acc + (curr.limit || 1), 0);
@@ -2038,43 +2064,7 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        {/* Quick Actions Row */}
-                        <div className="px-4 mb-8 grid grid-cols-3 gap-3">
-                            <Link to="/generate" className="no-underline group flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-coral to-orange-500 rounded-2xl shadow-lg shadow-coral/25 active:scale-95 transition-all hover:brightness-105">
-                                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                                    <Plus className="w-5 h-5 text-white group-hover:rotate-90 transition-transform duration-300" />
-                                </div>
-                                <span className="text-white text-[11px] font-black text-center leading-tight">Plan New Date</span>
-                            </Link>
-                            <button
-                                onClick={() => { if (recentPlan) setSelectedPlan(recentPlan); }}
-                                className="group flex flex-col items-center gap-2 p-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md active:scale-95 transition-all"
-                            >
-                                <div className="w-9 h-9 bg-navy/5 rounded-xl flex items-center justify-center">
-                                    <RefreshCw className="w-5 h-5 text-navy group-hover:rotate-180 transition-transform duration-500" />
-                                </div>
-                                <span className="text-navy text-[11px] font-black text-center leading-tight">Recreate Last</span>
-                            </button>
-                            <button
-                                onClick={() => setCurrentTab('events')}
-                                className="group flex flex-col items-center gap-2 p-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md active:scale-95 transition-all"
-                            >
-                                <div className="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center">
-                                    <Ticket className="w-5 h-5 text-violet-500 group-hover:scale-110 transition-transform duration-300" />
-                                </div>
-                                <span className="text-navy text-[11px] font-black text-center leading-tight">Local Events</span>
-                            </button>
-                        </div>
-
-                        {/* Mobile sticky "New Plan" FAB — only on mobile */}
-                        <div className="lg:hidden fixed bottom-32 right-6 z-50">
-                            <Link
-                                to="/generate"
-                                className="no-underline flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-coral to-orange-500 rounded-2xl text-white text-sm font-black shadow-2xl shadow-coral/40 active:scale-95 transition-all hover:brightness-105"
-                            >
-                                <Plus className="w-4 h-4" /> New Plan
-                            </Link>
-                        </div>
+                        {/* Main AI Interface was moved to the right sidebar under the map */}
 
                         {/* Smart Recommendations Section */}
                         {recommendations.length > 0 && (
@@ -2352,9 +2342,9 @@ const Dashboard = () => {
                                     </div>
                                     <h4 className={`text-sm font-black mb-1 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>No plans yet</h4>
                                     <p className="text-xs text-slate-400 font-medium text-center mb-4">Start crafting your first unforgettable date experience.</p>
-                                    <Link to="/generate" className="no-underline px-5 py-2.5 bg-gradient-to-r from-coral to-orange-500 rounded-xl text-white text-xs font-black shadow-lg shadow-coral/25 hover:brightness-105 active:scale-95 transition-all flex items-center gap-2">
+                                    <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="no-underline px-5 py-2.5 bg-gradient-to-r from-coral to-orange-500 rounded-xl text-white text-xs font-black shadow-lg shadow-coral/25 hover:brightness-105 active:scale-95 transition-all flex items-center gap-2">
                                         <Plus className="w-3.5 h-3.5" /> Create First Plan
-                                    </Link>
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="flex overflow-x-auto gap-3 px-4 md:px-0 pb-4 snap-x snap-mandatory scrollbar-hide">
@@ -2435,55 +2425,7 @@ const Dashboard = () => {
 
                         {/* Mobile-only Parity: AI Copilot, Maps & AI Suggestions */}
                         <div className="lg:hidden flex flex-col gap-6 px-4 pb-10">
-                            {/* Spark AI Builder Strip */}
-                            <div className="bg-gradient-to-br from-navy to-[#1a2b4a] rounded-[2rem] p-5 shadow-xl border border-white/10">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 bg-coral rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-coral/20">
-                                        <Bot className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-black text-white">Spark AI Copilot</p>
-                                        <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Designing your vibe</p>
-                                    </div>
-                                    <span className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full text-[10px] font-black text-emerald-400 border border-emerald-500/20">
-                                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Online
-                                    </span>
-                                </div>
 
-                                <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-5">
-                                    {['✨ Romantic night', '🎲 Surprise me', '💸 Budget date', '🌙 Late night'].map(p => (
-                                        <button
-                                            key={p}
-                                            onClick={() => handleGeneratePlan(p.replace(/^[^\s]+\s/, ''))}
-                                            className="no-underline flex-shrink-0 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95"
-                                        >
-                                            {p}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Input Field */}
-                                <div className="flex gap-2">
-                                    <input
-                                        value={aiCopilotInput}
-                                        onChange={e => setAiCopilotInput(e.target.value)}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter' && aiCopilotInput.trim()) {
-                                                e.preventDefault();
-                                                handleGeneratePlan(aiCopilotInput.trim());
-                                            }
-                                        }}
-                                        placeholder="Type your own vibe..."
-                                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white placeholder:text-white/30 font-medium outline-none focus:border-coral/50 transition-all"
-                                    />
-                                    <button
-                                        onClick={() => handleGeneratePlan(aiCopilotInput.trim())}
-                                        className="w-12 h-12 bg-coral flex items-center justify-center rounded-2xl shadow-lg shadow-coral/30 hover:brightness-110 active:scale-95 transition-all flex-shrink-0"
-                                    >
-                                        <Send className="w-5 h-5 text-white" />
-                                    </button>
-                                </div>
-                            </div>
 
                             {/* AI Suggestions (Personalized) */}
                             {renderSparkSuggestions()}
@@ -2506,6 +2448,17 @@ const Dashboard = () => {
                                     globalTrendingPlans={globalTrendingPlans}
                                     isLoaded={isLoaded}
                                     onFindEvents={() => setCurrentTab('events')}
+                                />
+                            </div>
+
+                            {/* Spark AI UI (DateArchitectChat) under the Map for Mobile */}
+                            <div className="bg-white rounded-xl border border-orange-100/60 p-1.5 shadow-[0_8px_30px_rgba(255,127,80,0.04)]">
+                                <DateArchitectChat
+                                    userId={user?.id}
+                                    onConceptSelected={(concept, settings) => {
+                                        handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
+                                    }}
+                                    onSettingsChange={() => {}}
                                 />
                             </div>
                         </div>
@@ -2533,60 +2486,7 @@ const Dashboard = () => {
                             </span>
                         </div>
 
-                        {/* AI Copilot */}
-                        <div className="bg-gradient-to-br from-navy to-[#1a2b4a] rounded-[2rem] p-5 shadow-2xl border border-white/10">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-8 h-8 bg-coral rounded-xl flex items-center justify-center">
-                                    <Bot className="w-4 h-4 text-white" />
-                                </div>
-                                <div>
-                                    <h5 className="text-sm font-black text-white">Spark AI</h5>
-                                    <p className="text-[9px] text-white/40 font-bold">Your date planning copilot</p>
-                                </div>
-                                <span className="ml-auto flex items-center gap-1 text-[9px] font-black text-emerald-400">
-                                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                                    Online
-                                </span>
-                            </div>
 
-                            <div className="flex flex-col gap-2 mb-4">
-                                {[
-                                    { label: '✨ Plan a romantic night', prompt: 'Plan a romantic night' },
-                                    { label: '🎲 Surprise me!', prompt: 'Surprise me with a unique date' },
-                                    { label: '💸 Budget-friendly date', prompt: 'Budget-friendly date night' }
-                                ].map(p => (
-                                    <button
-                                        key={p.label}
-                                        onClick={() => setAiCopilotInput(p.prompt)}
-                                        className="text-left px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[11px] font-bold text-white/80 hover:text-white transition-all active:scale-95"
-                                    >
-                                        {p.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Input bar */}
-                            <div className="flex gap-2">
-                                <input
-                                    value={aiCopilotInput}
-                                    onChange={e => setAiCopilotInput(e.target.value)}
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && aiCopilotInput.trim()) {
-                                            e.preventDefault();
-                                            handleGeneratePlan(aiCopilotInput.trim());
-                                        }
-                                    }}
-                                    placeholder="What vibe are you feeling?"
-                                    className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-[11px] text-white placeholder:text-white/30 font-medium outline-none focus:border-coral/50"
-                                />
-                                <button
-                                    onClick={() => handleGeneratePlan(aiCopilotInput.trim())}
-                                    className="w-9 h-9 bg-coral flex items-center justify-center rounded-xl shadow-lg shadow-coral/30 hover:brightness-110 active:scale-95 transition-all flex-shrink-0 self-end no-underline"
-                                >
-                                    <Send className="w-4 h-4 text-white" />
-                                </button>
-                            </div>
-                        </div>
 
                         {/* ── SPARK SUGGESTIONS — AI Prompt Recommender ── */}
                         {renderSparkSuggestions()}
@@ -2600,6 +2500,17 @@ const Dashboard = () => {
                             isLoaded={isLoaded}
                             onFindEvents={() => setCurrentTab('events')}
                         />
+
+                        {/* Spark AI UI (DateArchitectChat) under the Map for Desktop */}
+                        <div className="bg-white rounded-xl border border-orange-100/60 p-1.5 shadow-[0_8px_30px_rgba(255,127,80,0.04)]">
+                            <DateArchitectChat
+                                userId={user?.id}
+                                onConceptSelected={(concept, settings) => {
+                                    handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
+                                }}
+                                onSettingsChange={() => {}}
+                            />
+                        </div>
 
                     </div> {/* End of Right Sidebar */}
                 </div> {/* End of grid-cols-3 */}
@@ -2711,9 +2622,9 @@ const Dashboard = () => {
                     </div>
                     <h3 className="text-xl font-bold text-navy mb-2">No plans yet</h3>
                     <p className="text-navy/60 mb-6">Start planning your first unforgettable date tonight.</p>
-                    <Link to="/generate" className="inline-flex items-center gap-2 px-8 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-all">
+                    <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="inline-flex items-center gap-2 px-8 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-all">
                         <Plus className="w-4 h-4" /> Create First Plan
-                    </Link>
+                    </button>
                 </div>
             ) : (
                 <div className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-5 scrollbar-hide pb-4 px-4 md:px-0">
@@ -3827,7 +3738,7 @@ const Dashboard = () => {
                                             className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-coral/95 hover:bg-coral border border-coral rounded-xl transition-all text-[10px] sm:text-[11px] font-black group font-inter text-white shadow-md shadow-coral/20 min-h-[44px]"
                                         >
                                             <Share2 className="w-3.5 h-3.5 text-white group-hover:scale-110 transition-transform" />
-                                            <span>Share</span>
+                                            <span>Share with your Date</span>
                                         </button>
 
                                         {/* Close Button — Primary target on mobile */}
@@ -3895,7 +3806,7 @@ const Dashboard = () => {
                                             {(Array.isArray(selectedPlan.itinerary)
                                             ? selectedPlan.itinerary
                                             : (selectedPlan.itinerary?.steps || selectedPlan.itinerary?.itinerary || selectedPlan.itinerary?.schedule || [])
-                                        )?.map((step, idx) => {
+                                        )?.map((step, idx, arr) => {
                                             // Gating Rule: If it's a preview plan, free users only see 2 stops (idx 0, 1). 3rd stop (idx 2) is locked.
                                             const isPreview = selectedPlan.itinerary?.metadata?.isPreviewPlan || selectedPlan.is_preview || false;
                                             const isLockedStep = !isPremium && isPreview && idx >= 2;
@@ -3982,6 +3893,12 @@ const Dashboard = () => {
                                                                     </p>
                                                                 )}
                                                             </div>
+                                                        </div>
+
+                                                        {/* Vibe Tags */}
+                                                        <div className="flex flex-wrap gap-1.5 mb-2 mt-1">
+                                                            <span className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-[10px] font-bold border border-gray-100 uppercase tracking-widest">Good for talking</span>
+                                                            <span className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-[10px] font-bold border border-gray-100 uppercase tracking-widest">Great Atmosphere</span>
                                                         </div>
 
                                                         <p className="text-[13px] text-gray-600 font-medium leading-relaxed border-t border-gray-50 pt-3">
@@ -4160,6 +4077,26 @@ const Dashboard = () => {
                                                             >
                                                                 Unlock Plan
                                                             </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Walk Time Connector */}
+                                                    {!isLockedStep && idx < arr.length - 1 && arr[idx+1] && (
+                                                        <div className="absolute -bottom-10 left-0 flex items-center gap-3 w-full opacity-60 z-10">
+                                                            <div className="w-8 h-[1px] bg-dashed bg-gray-300 ml-4"></div>
+                                                            {(() => {
+                                                                const dist = getDistance(
+                                                                    parseFloat(step.lat), parseFloat(step.lng),
+                                                                    parseFloat(arr[idx+1].lat), parseFloat(arr[idx+1].lng)
+                                                                );
+                                                                if (!dist || dist > 3) return null; // Over 3 miles, probably driving
+                                                                const walkTimeMins = Math.round(dist * 20); // rough ~20 min per mile
+                                                                return (
+                                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 shadow-sm relative">
+                                                                        <Footprints className="w-3 h-3 text-coral" /> {walkTimeMins} min walk ({dist.toFixed(1)} mi)
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
                                                 </motion.div>

@@ -28,21 +28,25 @@ const VIBE_IMAGE_MAPPING = {};
  * Semantic Bridge: Takes AI search queries and fetches REAL venues from Google Places.
  * Ensures the date plan is actionable and physically real.
  */
-export const enrichWithRealPlaces = async (steps, location, coords = null) => {
+/**
+ * Semantic Bridge: Takes AI search queries and fetches REAL venues from Google Places.
+ * Ensures the date plan is actionable and physically real.
+ */
+export const enrichWithRealPlaces = async (steps, location, coords = null, radius = 15000) => {
     const city = location || 'NYC';
     
     // --- LOCATION BIAS CONFIG ---
-    // If exact coordinates are provided, bias the search to a 10km circle around the user.
+    // If exact coordinates are provided, bias the search to the specified radius.
     const locationBias = (coords && coords.lat && coords.lng) ? {
         circle: {
             center: { latitude: coords.lat, longitude: coords.lng },
-            radius: 15000 // 15km radius (approx 9 miles)
+            radius: radius // e.g., 800m for neighborhood lock, 15000m default
         }
     } : null;
 
     const enrichedSteps = await Promise.all(steps.map(async (step) => {
         // Skip enrichment if already verified with a Google photo or place ID
-        if (step.googlePlaceId || (step.photoUrl || '').includes('google')) {
+        if (step.googlePlaceId || (step.photoUrl || '').includes('places.googleapis.com')) {
             return step;
         }
 
@@ -121,6 +125,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null) => {
             }
 
             if (!place) {
+                // IMPORTANT: Keep the old photo if search fails entirely
                 return { ...step, verified: false };
             }
 
@@ -128,9 +133,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null) => {
             let googlePhotoUrl = null;
             if (place.photos && place.photos.length > 0) {
                 const photoName = place.photos[0].name;
-                // Safety Check: Ensure we have the full resource name (New API format)
                 if (photoName && photoName.startsWith('places/')) {
-                    // Save WITH the key as a robust default - frontend can still override/proxy
                     googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=800&key=${GOOGLE_API_KEY}`;
                 }
             }
@@ -149,7 +152,8 @@ export const enrichWithRealPlaces = async (steps, location, coords = null) => {
                 userRatingCount: place.userRatingCount || 100,
                 lat: place.location?.latitude,
                 lng: place.location?.longitude,
-                photoUrl: googlePhotoUrl || (step.photoUrl && !step.photoUrl.includes('unsplash') && !step.photoUrl.includes('maps.googleapis.com') ? step.photoUrl : null),
+                // AUTHENTICITY LOGIC: Prefer new photo, otherwise keep the OLD photo
+                photoUrl: googlePhotoUrl || step.photoUrl,
                 googlePlaceId: place.name?.split('/').pop(),
                 websiteUrl: place.websiteUri,
                 reviews: reviews.length > 0 ? reviews : (step.reviews || []),
@@ -196,113 +200,68 @@ const enrichStepsWithImages = (steps) => {
 
 export const generateAIDate = async (params) => {
     try {
-        // --- 1. AI GENERATION (Native Gemini Integration) ---
+        // --- 1. AI GENERATION (Call Python Microservice) ---
+        // This is now our primary "Brain". It handles prompts, coordinates, and fallbacks.
+        console.log(`[ItineraryService] Delegating generation to AI Microservice: ${AI_SERVICE_URL}`);
+        
+        const response = await axios.post(`${AI_SERVICE_URL}/generate-itinerary`, {
+            city: params.city || params.location,
+            vibe: params.vibe,
+            budget: params.budget,
+            preferences: params.preferences || params.prompt || '',
+            lat: params.lat,
+            lng: params.lng,
+            neighborhoodLock: params.neighborhoodLock || false
+        }, { timeout: 30000 });
+
+        if (response.data && response.data.raw_itinerary) {
+            let itineraryData;
+            try {
+                // The Python service returns raw string/json, we need to parse it
+                const raw = response.data.raw_itinerary;
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                itineraryData = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+            } catch (e) {
+                console.error('[Microservice Parse Error]', e);
+                throw new Error("Invalid format from AI Microservice");
+            }
+
+            // --- 2. ENRICHMENT & PERSISTENCE ---
+            const rawSteps = itineraryData.steps || itineraryData.itinerary || [];
+            
+            if (rawSteps.length > 0) {
+                const city = params.city || params.location || 'NYC';
+                const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
+                
+                // Still use the JS side for Google Places enrichment (it's faster here)
+                const radius = params.neighborhoodLock ? 800 : 15000;
+                const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords, radius);
+                itineraryData.steps = enrichedSteps; 
+
+                return { 
+                    source: `AI_MICROSERVICE_${response.data.provider || 'UNKNOWN'}`, 
+                    data: itineraryData, 
+                    enriched: true 
+                };
+            }
+        }
+
+        throw new Error("Empty response from AI Microservice");
+
+    } catch (err) {
+        console.warn(`[AI Microservice Failed] falling back to Native Gemini: ${err.message}`);
+        
+        // --- EMERGENCY FALLBACK: Native Gemini (If Microservice is down) ---
         if (!genAI) {
-            console.warn('[AI Service] Gemini not configured, falling back to Google Places');
             return await generateGoogleDate(params);
         }
 
-        const context = params.prompt 
-            ? `User Request: "${params.prompt}". ${params.lat && params.lng ? `Exact Location (lat, lng): ${params.lat}, ${params.lng}` : `Assume city: ${params.city || 'NYC'}`}.`
-            : `City: ${params.city || 'NYC'}, Lat: ${params.lat || 'N/A'}, Lng: ${params.lng || 'N/A'}, Vibe: ${params.vibe || 'chill'}, Budget: ${params.budget || 'flexible'}, Preferences: ${params.preferences || 'None'}`;
-
-        const finalPrompt = `
-            You are the 'Date Architect' for DateSpark. 
-            ${context}
-            
-            CRITICAL INSTRUCTIONS:
-            1. If exact coordinates are provided, prioritize venues within walking or short driving distance.
-            2. DO NOT make up venue names. Use 'REAL PLACE TBD' as the venue.
-            2. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
-               Example: 'Best romantic rooftop bar with Empire State views in ${params.city || 'NYC'}'
-            3. Ensure the 'activity' is descriptive but concise.
-            
-            Return ONLY a valid JSON object with:
-            - title: Catchy name for the date (max 5 words)
-            - description: A romantic/fun summary (max 20 words)
-            - steps: Array of 3 activities. Each step MUST include:
-                * 'time': e.g., '7:00 PM'
-                * 'activity': A CONCISE category (e.g., 'Dinner', 'Cocktails', 'Stroll'). Max 3 words.
-                * 'venue': 'REAL PLACE TBD'
-                * 'description': A short, enticing blurb.
-                * 'search_query': A high-intent, short Google Maps search string.
-        `;
-
-        let result;
-        const modelsToTry = [
-            "gemini-2.5-pro",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-2.0-flash", 
-            "gemini-1.5-pro",
-            "gemini-1.5-flash"
-        ];
-
-        let lastError;
-        for (const modelName of modelsToTry) {
-            try {
-                console.log(`[AI Service] Attempting ${modelName}...`);
-                const model = genAI.getGenerativeModel({ model: modelName });
-                result = await model.generateContent(finalPrompt);
-                console.log(`[AI Service] Success with ${modelName}`);
-                break; // Exit loop on success
-            } catch (err) {
-                lastError = err;
-                console.warn(`[AI Service] ${modelName} failed: ${err.message}`);
-            }
-        }
-
-        if (!result) {
-            throw new Error(`All Gemini models failed. Last error: ${lastError?.message}`);
-        }
+        const fallbackPrompt = `Generate a 3-step date plan for ${params.city || 'NYC'}. Vibe: ${params.vibe}. Return JSON.`;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(fallbackPrompt);
+        const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
         
-        const response = await result.response;
-        let itineraryDataRaw = response.text();
-        
-        // Clean JSON formatting
-        let itineraryData;
-        try {
-            const jsonMatch = itineraryDataRaw.match(/\{[\s\S]*\}/);
-            itineraryData = JSON.parse(jsonMatch ? jsonMatch[0] : itineraryDataRaw);
-        } catch (e) {
-            console.error('[AI_PARSE_ERROR]', e);
-            throw new Error("Failed to parse AI response");
-        }
-
-        // --- 2. ENRICHMENT & PERSISTENCE ---
-        let foundKey = null;
-        const findStepsArray = (obj) => {
-            if (Array.isArray(obj)) return obj;
-            if (!obj || typeof obj !== 'object') return null;
-            const keys = ['steps', 'itinerary', 'activities', 'plan', 'items'];
-            for (const key of keys) {
-                if (Array.isArray(obj[key])) { foundKey = key; return obj[key]; }
-            }
-            return null;
-        };
-
-        const rawSteps = findStepsArray(itineraryData);
-
-        if (rawSteps) {
-            const city = params.city || params.location || 'NYC';
-            const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
-            const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords);
-            const finalSteps = enrichStepsWithImages(enrichedSteps);
-            
-            if (foundKey) itineraryData[foundKey] = finalSteps;
-            itineraryData.steps = finalSteps; 
-
-            return { 
-                source: 'NATIVE_AI', 
-                data: itineraryData, 
-                enriched: true 
-            };
-        }
-
-        return { source: 'NATIVE_AI', data: itineraryData, enriched: false };
-    } catch (err) {
-        console.warn(`[Native AI] Failed, falling back to Google Places: ${err.message}`);
-        return await generateGoogleDate(params);
+        return { source: 'NATIVE_GEMINI_FALLBACK', data, enriched: false };
     }
 };
 
@@ -315,12 +274,21 @@ export const generateGoogleDate = async (params) => {
         const city = params.city || params.location || 'NYC';
         const vibe = params.vibe || 'romantic';
         
+        const radius = params.neighborhoodLock ? 800 : 15000;
+        const locationBias = (params.lat && params.lng) ? {
+            circle: {
+                center: { latitude: params.lat, longitude: params.lng },
+                radius: radius
+            }
+        } : null;
+
         // 1. Find a Restaurant
         const restResponse = await axios.post(
             'https://places.googleapis.com/v1/places:searchText',
             {
                 textQuery: `top rated ${vibe} restaurant in ${city}`,
-                maxResultCount: 1
+                maxResultCount: 1,
+                ...(locationBias && { locationBias })
             },
             { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.location,places.shortFormattedAddress,places.rating' } }
         );
@@ -330,7 +298,8 @@ export const generateGoogleDate = async (params) => {
             'https://places.googleapis.com/v1/places:searchText',
             {
                 textQuery: `${vibe} activity or attraction in ${city}`,
-                maxResultCount: 1
+                maxResultCount: 1,
+                ...(locationBias && { locationBias })
             },
             { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.location,places.shortFormattedAddress,places.rating' } }
         );
@@ -512,7 +481,8 @@ export const getTrendingPlans = async (supabase) => {
             if (needsEnrichment && steps.length > 0) {
                 console.log(`[Trending] Found unverified steps in "${plan.title || plan.id}". Enriching...`);
                 try {
-                    const enrichedSteps = await enrichWithRealPlaces(steps, plan.location, { lat: plan.lat, lng: plan.lng });
+                    const rawEnrichedSteps = await enrichWithRealPlaces(steps, plan.location, { lat: plan.lat, lng: plan.lng });
+                    const enrichedSteps = enrichStepsWithImages(rawEnrichedSteps);
                     
                     let updatedItinerary = Array.isArray(itinerary) ? enrichedSteps : { ...itinerary, steps: enrichedSteps };
                     

@@ -247,8 +247,11 @@ app.post('/api/architect-stream', async (req, res) => {
         - Budget: ${budget || 'Flexible'}
         - Goal: ${goal || 'Flexible'}
         
-        Keep your responses conversational, concise, and helpful. Ask ONE clarifying question at a time.
-        If the user has provided enough information to build a plan, end your message with:
+        CRITICAL INSTRUCTIONS:
+        1. Keep your responses conversational, concise, and helpful. Ask ONE clarifying question at a time.
+        2. You may ask a MAXIMUM of 3 clarifying questions total throughout the conversation. 
+        3. Once you have asked 3 questions, OR if the user has provided enough information to build a plan earlier, you MUST stop asking questions and generate the concepts.
+        4. When generating concepts, your final output MUST end with the word READY followed by ONLY valid JSON format matching this schema:
         READY
         {"concepts": [{"title": "Name of plan", "description": "Short description", "budgetStrategy": "How to save", "routeLogic": "Why it makes sense", "partnerFit": "Why it works"}]}
         

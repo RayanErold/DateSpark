@@ -45,6 +45,8 @@ class ItineraryRequest(BaseModel):
     budget: Optional[str] = None
     preferences: Optional[str] = None
     prompt: Optional[str] = None # For raw copilot prompts
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 class ChatRequest(BaseModel):
     message: str
@@ -65,11 +67,31 @@ async def generate_with_gemini(prompt: str):
     if not gemini_client:
         raise Exception("Gemini provider not configured")
     
-    response = gemini_client.models.generate_content(
-        model='gemini-2.5-pro',
-        contents=prompt
-    )
-    return response.text
+    models_to_try = [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash", 
+        "gemini-1.5-pro",
+        "gemini-1.5-flash"
+    ]
+    
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            logger.info(f"Attempting generation with {model_name}...")
+            response = gemini_client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            logger.info(f"Success with {model_name}")
+            return response.text, model_name
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Model {model_name} failed: {str(e)}")
+            continue
+            
+    raise Exception(f"All Gemini models failed. Last error: {str(last_error)}")
 
 async def generate_with_openai(prompt: str):
     if not openai_client:
@@ -95,7 +117,9 @@ async def generate_itinerary(request: ItineraryRequest):
     if request.prompt:
         # Use raw copilot prompt
         context = f"User Request: \"{request.prompt}\""
-        city_context = "If the location is missing, assume New York City but mention it."
+        if request.lat and request.lng:
+            context += f" (Location: {request.lat}, {request.lng})"
+        city_context = f"If the location is missing, assume {request.city or 'New York City'} but mention it."
     else:
         # Use structured builder data
         context = f"""
@@ -103,6 +127,7 @@ async def generate_itinerary(request: ItineraryRequest):
         Vibe: {request.vibe or 'chill'}
         Budget: {request.budget or 'flexible'}
         Preferences: {request.preferences or 'None'}
+        Location: {request.lat}, {request.lng} if available.
         """
         city_context = ""
 
@@ -112,10 +137,12 @@ async def generate_itinerary(request: ItineraryRequest):
     {city_context}
     
     CRITICAL INSTRUCTIONS:
-    1. DO NOT make up venue names (e.g., don't say 'The Romantic Bistro'). Use 'REAL PLACE TBD' as the venue.
-    2. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
+    1. If exact coordinates (lat, lng) are provided, prioritize venues within a short radius.
+    2. DO NOT make up venue names (e.g., don't say 'The Romantic Bistro'). Use 'REAL PLACE TBD' as the venue.
+    3. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
        Example: 'Best romantic rooftop bar with Empire State views in {request.city or 'NYC'}'
-    3. Ensure the 'activity' is descriptive but concise.
+    4. Ensure the 'activity' is descriptive but concise.
+    5. Always return 3 distinct activities for a complete date night.
     
     Return a structured JSON with:
     - title: Catchy name for the date (max 5 words)
@@ -130,15 +157,15 @@ async def generate_itinerary(request: ItineraryRequest):
     
     # Try Gemini First
     try:
-        response = await generate_with_gemini(final_prompt)
-        return {"raw_itinerary": response, "provider": "gemini"}
+        content, model_used = await generate_with_gemini(final_prompt)
+        return {"raw_itinerary": content, "provider": f"gemini ({model_used})"}
     except Exception as e:
-        
+        logger.error(f"Gemini stack failed: {str(e)}")
         # Fallback to OpenAI
         if OPENAI_API_KEY:
             try:
                 content = await generate_with_openai(final_prompt)
-                return {"raw_itinerary": content, "provider": "openai"}
+                return {"raw_itinerary": content, "provider": "openai (gpt-4o-mini)"}
             except Exception as oe:
                 raise HTTPException(status_code=500, detail="All AI providers failed")
         else:
@@ -151,20 +178,15 @@ async def chat_with_architect(request: ChatRequest):
     """
     try:
         if gemini_client:
-            response = gemini_client.models.generate_content(
-                model='gemini-2.5-pro',
-                contents=request.message
-            )
-            return {"reply": response.text, "provider": "gemini"}
+            content, model_used = await generate_with_gemini(request.message)
+            return {"reply": content, "provider": f"gemini ({model_used})"}
         elif openai_client:
-            response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": request.message}]
-            )
-            return {"reply": response.choices[0].message.content, "provider": "openai"}
+            content = await generate_with_openai(request.message)
+            return {"reply": content, "provider": "openai (gpt-4o-mini)"}
         else:
             raise HTTPException(status_code=500, detail="No AI providers available")
     except Exception as e:
+        logger.error(f"Chat failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

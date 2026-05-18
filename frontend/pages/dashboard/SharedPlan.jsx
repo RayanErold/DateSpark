@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard, Music, Camera, Palette, Trophy, Mic2, Target, CheckCircle2, Shuffle, Wallet, Umbrella } from 'lucide-react';
+import { Heart, MapPin, Calendar, Clock, Map as MapIcon, Sparkles, Utensils, Ticket, Search, Car, Compass, Star, Quote, MessageSquare, Lock, ArrowRight, X, Navigation, LayoutDashboard, Music, Camera, Palette, Trophy, Mic2, Target, CheckCircle2, Shuffle, Wallet, Umbrella, Footprints } from 'lucide-react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGoogleMaps } from '../../lib/googleMaps';
@@ -35,6 +35,18 @@ const makeSvgPin = (label, fill, isSelected) => {
         <text x="17" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="900" fill="white">${label}</text>
     </svg>`;
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
+const getDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 3958.8; // Radius of earth in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
 };
 
 const ScorePill = ({ label, value }) => (
@@ -124,6 +136,21 @@ const SharedPlan = () => {
             [key]: partnerFeedback[key] === value ? null : value
         };
         savePartnerFeedback(next);
+    };
+
+    const handleShare = async () => {
+        try {
+            const stepsText = itinerarySteps.map((s, i) => `📍 ${s.time} - ${s.activity} at ${s.venue}`).join('\n');
+            const shareText = `Date Plan: ${plan.vibe} Date\n\n${stepsText}\n\nView details: ${window.location.href}`;
+            if (navigator.share) {
+                await navigator.share({ title: 'Date Plan', text: shareText, url: window.location.href });
+            } else {
+                await navigator.clipboard.writeText(shareText);
+                alert('Itinerary copied to clipboard!');
+            }
+        } catch (err) {
+            console.error('Error sharing:', err);
+        }
     };
 
     const onMapLoad = useCallback((map) => {
@@ -292,6 +319,10 @@ const SharedPlan = () => {
                             <span className="flex items-center gap-1.5 bg-coral/10 text-coral px-3 py-1.5 rounded-lg shadow-sm border border-coral/10 font-bold uppercase text-xs tracking-wider"><Wallet className="w-4 h-4" /> {budgetMode.replace('_', ' ')}</span>
                         )}
                     </div>
+                    
+                    <button onClick={handleShare} className="mx-auto flex items-center justify-center gap-2 bg-black text-white px-6 py-3 rounded-full text-sm font-bold hover:bg-gray-800 transition-colors shadow-lg mt-4 mb-4">
+                        <MessageSquare className="w-4 h-4" /> Share with your Date
+                    </button>
                 </div>
 
                 <DateSparkScoreCard score={dateSparkScore} />
@@ -400,6 +431,12 @@ const SharedPlan = () => {
                                                     </span>
                                                 </div>
                                                 <h4 className="text-2xl font-black text-navy mb-2 font-inter">{step.venue}</h4>
+
+                                                {/* Vibe Tags */}
+                                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                                    <span className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-[10px] font-bold border border-gray-100 uppercase tracking-widest">Good for talking</span>
+                                                    <span className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-[10px] font-bold border border-gray-100 uppercase tracking-widest">Great Atmosphere</span>
+                                                </div>
 
                                                 {/* Per-Stop Community Snippet */}
                                                 {plan.reviews?.find(r => r.stop_feedback?.[step.venue]?.comment) && (
@@ -516,6 +553,26 @@ const SharedPlan = () => {
                                                     })}
                                                 </div>
                                             </div>
+                                            
+                                            {/* Walk Time Connector */}
+                                            {!isLockedStep && idx < itinerarySteps.length - 1 && itinerarySteps[idx+1] && (
+                                                <div className="absolute -bottom-8 left-0 flex items-center gap-3 w-full opacity-60 z-10">
+                                                    <div className="w-8 h-[1px] bg-dashed bg-gray-300 ml-4"></div>
+                                                    {(() => {
+                                                        const dist = getDistance(
+                                                            parseFloat(step.lat), parseFloat(step.lng),
+                                                            parseFloat(itinerarySteps[idx+1].lat), parseFloat(itinerarySteps[idx+1].lng)
+                                                        );
+                                                        if (!dist || dist > 3) return null; // Over 3 miles, probably driving
+                                                        const walkTimeMins = Math.round(dist * 20); // rough ~20 min per mile
+                                                        return (
+                                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 shadow-sm relative">
+                                                                <Footprints className="w-3 h-3 text-coral" /> {walkTimeMins} min walk ({dist.toFixed(1)} mi)
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            )}
                                         </motion.div>
                                     );
                                 })}
