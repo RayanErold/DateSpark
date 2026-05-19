@@ -3161,46 +3161,8 @@ const Dashboard = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Desktop-only Tab Navigation */}
-                        <nav className={`hidden md:flex items-center p-1 rounded-2xl border transition-colors ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-100 border-gray-200'
-                            }`}>
-                            <button
-                                onClick={() => setCurrentTab('home')}
-                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'home'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
-                                    }`}
-                            >
-                                Home
-                            </button>
-                            <button
-                                onClick={() => setCurrentTab('events')}
-                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'events'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
-                                    }`}
-                            >
-                                Events
-                            </button>
-                            <button
-                                onClick={() => setCurrentTab('favorites')}
-                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'favorites'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
-                                    }`}
-                            >
-                                Favorites
-                            </button>
-                            <button
-                                onClick={() => setCurrentTab('discovery')}
-                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'discovery'
-                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
-                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
-                                    }`}
-                            >
-                                Discovery
-                            </button>
-                        </nav>
+                        {/* Desktop-only Tab Navigation - Removed as requested */}
+
 
                         <div className="flex items-center gap-4 relative">
                             {/* CLEARLY VISIBLE UPGRADE ICON/BUTTON */}
@@ -3354,18 +3316,6 @@ const Dashboard = () => {
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Events</span>}
                         </button>
 
-                        {/* Profile & Settings embedded */}
-                        <button
-                            onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'account'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Settings className={`w-5 h-5 shrink-0 ${currentTab === 'account' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Settings</span>}
-                        </button>
-
                         {/* Favorites */}
                         <button
                             onClick={() => { setCurrentTab('favorites'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
@@ -3400,6 +3350,18 @@ const Dashboard = () => {
                         >
                             <Gift className={`w-5 h-5 shrink-0 ${currentTab === 'wishlist' ? 'text-coral' : 'text-slate-400'}`} />
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Wishlist</span>}
+                        </button>
+
+                        {/* Profile & Settings embedded */}
+                        <button
+                            onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'account'
+                                    ? 'bg-coral/5 text-coral'
+                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
+                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
+                        >
+                            <Settings className={`w-5 h-5 shrink-0 ${currentTab === 'account' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Settings</span>}
                         </button>
                     </nav>
 
