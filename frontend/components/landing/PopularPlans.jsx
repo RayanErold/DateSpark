@@ -17,7 +17,7 @@ const PopularPlans = () => {
         
         // Use the backend proxy for Google Places photos to bypass CORS/referrer restrictions
         if (photoUrl.includes('googleapis.com')) {
-            return `/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
+            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         
         return photoUrl;

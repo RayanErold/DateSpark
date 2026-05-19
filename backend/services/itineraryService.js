@@ -257,7 +257,7 @@ export const generateAIDate = async (params) => {
         }
 
         const fallbackPrompt = `Generate a 3-step date plan for ${params.city || 'NYC'}. Vibe: ${params.vibe}. Return JSON.`;
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const result = await model.generateContent(fallbackPrompt);
         const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
         

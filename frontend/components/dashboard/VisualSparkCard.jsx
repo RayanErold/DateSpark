@@ -17,6 +17,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
     
     // Google Maps API Key for frontend-side photo reconstruction
     const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
     /**
      * Routes Google Places photo URLs through the backend proxy.
@@ -31,7 +32,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
         // If it's a Google Places URL, route through our backend proxy
         // WHY: Google restricts direct browser access (CORS)
         if (photoUrl.includes('places.googleapis.com') || photoUrl.includes('maps.googleapis.com')) {
-            return `/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
+            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         
         // For Unsplash or any other valid public URL, return as-is
