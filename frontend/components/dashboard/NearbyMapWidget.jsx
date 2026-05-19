@@ -61,7 +61,7 @@ const NearbyMapWidget = ({ globalTrendingPlans, isLoaded, onFindEvents }) => {
                     <div style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;">
                         <div style="background:#0a192f;color:#ffffff;font-size:9px;font-family:'Outfit',sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:1.2px;padding:5px 10px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.25);margin-bottom:8px;white-space:nowrap;border:1.5px solid rgba(255,255,255,0.15);display:flex;align-items:center;gap:5px;transform:translateY(-4px);">
                             <span style="width:5px;height:5px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 8px #10b981;"></span>
-                            \${this._name}
+                            ${this._name}
                         </div>
                         <div style="position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
                             <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(255,107,71,0.3);animation:ds-pulse 2s ease-out infinite;"></div>
