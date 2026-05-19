@@ -257,11 +257,34 @@ export const generateAIDate = async (params) => {
         }
 
         const fallbackPrompt = `Generate a 3-step date plan for ${params.city || 'NYC'}. Vibe: ${params.vibe}. Return JSON.`;
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-        const result = await model.generateContent(fallbackPrompt);
-        const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
         
-        return { source: 'NATIVE_GEMINI_FALLBACK', data, enriched: false };
+        const fallbackModels = [
+            "gemini-2.5-pro",
+            "gemini-flash-latest",
+            "gemini-2.5-flash-lite",
+            "gemini-pro-latest"
+        ];
+        
+        let lastError = null;
+        for (const modelName of fallbackModels) {
+            try {
+                console.log(`[ItineraryService Fallback] Attempting native generation with ${modelName}...`);
+                const model = genAI.getGenerativeModel({ model: modelName });
+                const result = await model.generateContent(fallbackPrompt);
+                const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
+                console.log(`[ItineraryService Fallback] Success with ${modelName}`);
+                return { 
+                    source: `NATIVE_GEMINI_FALLBACK_${modelName.toUpperCase().replace(/-/g, '_')}`, 
+                    data, 
+                    enriched: false 
+                };
+            } catch (err) {
+                console.warn(`[ItineraryService Fallback] Model ${modelName} failed:`, err.message);
+                lastError = err;
+            }
+        }
+        
+        throw lastError || new Error("All native fallback models failed");
     }
 };
 
