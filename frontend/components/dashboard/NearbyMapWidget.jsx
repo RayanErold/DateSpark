@@ -38,6 +38,67 @@ const NearbyMapWidget = ({ globalTrendingPlans, isLoaded, onFindEvents }) => {
 
     useEffect(() => { requestLocation(); }, []);
 
+    useEffect(() => {
+        if (!mapRef || !userPos || !window.google?.maps?.OverlayView) return;
+
+        // Clean up previous overlay if it exists
+        if (mapRef._pulseDot) {
+            mapRef._pulseDot.setMap(null);
+            mapRef._pulseDot = null;
+        }
+
+        class PulseDot extends window.google.maps.OverlayView {
+            constructor(pos, name) {
+                super();
+                this._pos = pos;
+                this._name = name || 'Your Location';
+                this._el = null;
+            }
+            onAdd() {
+                this._el = document.createElement('div');
+                this._el.style.cssText = 'position:absolute;transform:translate(-50%,-50%);pointer-events:none;z-index:999;';
+                this._el.innerHTML = `
+                    <div style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                        <div style="background:#0a192f;color:#ffffff;font-size:9px;font-family:'Outfit',sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:1.2px;padding:5px 10px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.25);margin-bottom:8px;white-space:nowrap;border:1.5px solid rgba(255,255,255,0.15);display:flex;align-items:center;gap:5px;transform:translateY(-4px);">
+                            <span style="width:5px;height:5px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 8px #10b981;"></span>
+                            \${this._name}
+                        </div>
+                        <div style="position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
+                            <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(255,107,71,0.3);animation:ds-pulse 2s ease-out infinite;"></div>
+                            <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:rgba(255,107,71,0.2);animation:ds-pulse 2s ease-out 0.5s infinite;"></div>
+                            <div style="width:16px;height:16px;border-radius:50%;background:#FF6B47;border:2.5px solid #fff;box-shadow:0 2px 10px rgba(255,107,71,0.6),0 0 0 1px rgba(255,107,71,0.3);"></div>
+                        </div>
+                    </div>`;
+                this.getPanes().overlayMouseTarget.appendChild(this._el);
+            }
+            draw() {
+                const proj = this.getProjection();
+                if (!proj) return;
+                const pt = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(this._pos.lat, this._pos.lng));
+                if (pt && this._el) {
+                    this._el.style.left = pt.x + 'px';
+                    this._el.style.top = pt.y + 'px';
+                }
+            }
+            onRemove() {
+                this._el?.parentNode?.removeChild(this._el);
+                this._el = null;
+            }
+        }
+
+        const pulseDot = new PulseDot(userPos, neighborhood);
+        pulseDot.setMap(mapRef);
+        mapRef._pulseDot = pulseDot;
+
+        // Pan to user position
+        mapRef.panTo(userPos);
+
+        return () => {
+            pulseDot.setMap(null);
+            if (mapRef) mapRef._pulseDot = null;
+        };
+    }, [mapRef, userPos, neighborhood]);
+
     const nearbyMarkers = (globalTrendingPlans || []).slice(0, 8).map((p) => {
         const itinerary = p.itinerary || {};
         const steps = Array.isArray(itinerary) ? itinerary : (itinerary.steps || []);
@@ -134,48 +195,7 @@ const NearbyMapWidget = ({ globalTrendingPlans, isLoaded, onFindEvents }) => {
                         styles: miniMapStyle,
                         clickableIcons: false,
                     }}
-                >
-                    {nearbyMarkers.map((m, i) => (
-                        <Marker key={i} position={m}
-                            icon={{
-                                path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                scale: 7,
-                                fillColor: '#0a192f',
-                                fillOpacity: 0.85,
-                                strokeColor: '#ffffff',
-                                strokeWeight: 2,
-                            }}
-                        />
-                    ))}
-
-                    {userPos && window.google?.maps?.OverlayView && (() => {
-                        class PulseDot extends window.google.maps.OverlayView {
-                            constructor(pos) { super(); this._pos = pos; this._el = null; }
-                            onAdd() {
-                                this._el = document.createElement('div');
-                                this._el.style.cssText = 'position:absolute;transform:translate(-50%,-50%);pointer-events:none;';
-                                this._el.innerHTML = `
-                                    <div style="position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
-                                        <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(255,107,71,0.3);animation:ds-pulse 2s ease-out infinite;"></div>
-                                        <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:rgba(255,107,71,0.2);animation:ds-pulse 2s ease-out 0.5s infinite;"></div>
-                                        <div style="width:16px;height:16px;border-radius:50%;background:#FF6B47;border:2.5px solid #fff;box-shadow:0 2px 10px rgba(255,107,71,0.6),0 0 0 1px rgba(255,107,71,0.3);"></div>
-                                    </div>`;
-                                this.getPanes().overlayMouseTarget.appendChild(this._el);
-                            }
-                            draw() {
-                                const proj = this.getProjection();
-                                const pt = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(this._pos.lat, this._pos.lng));
-                                if (pt && this._el) { this._el.style.left = pt.x + 'px'; this._el.style.top = pt.y + 'px'; }
-                            }
-                            onRemove() { this._el?.parentNode?.removeChild(this._el); this._el = null; }
-                        }
-                        if (mapRef && !mapRef._pulseDot) {
-                            mapRef._pulseDot = new PulseDot(userPos);
-                            mapRef._pulseDot.setMap(mapRef);
-                        }
-                        return null;
-                    })()}
-                </GoogleMap>
+                />
             ) : (
                 <div className="h-full bg-gradient-to-br from-slate-100 to-blue-50 flex flex-col items-center justify-center gap-2">
                     <Loader2 className="w-6 h-6 text-navy/20 animate-spin" />
