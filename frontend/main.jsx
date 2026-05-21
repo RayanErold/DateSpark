@@ -5,7 +5,7 @@ import './index.css';
 import App from './App.jsx';
 
 // Configure central API URL for production and development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 // 1. Configure Axios global default baseURL
 axios.defaults.baseURL = API_URL;

@@ -530,6 +530,10 @@ const Dashboard = () => {
                 lat: overrides.lat,
                 lng: overrides.lng,
                 budget: overrides.budget,
+                numActivities: overrides.numActivities,
+                radius: overrides.radius,
+                planDate: overrides.planDate,
+                planTime: overrides.planTime,
                 type: 'classic'
             });
 
@@ -2460,6 +2464,11 @@ const Dashboard = () => {
                                         handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
                                     }}
                                     onSettingsChange={() => {}}
+                                    onPlanSaved={(savedPlan) => {
+                                        setPlans(prev => [savedPlan, ...prev]);
+                                        setSelectedPlan(savedPlan);
+                                        setToastMessage('Sparked a new date! ⚡');
+                                    }}
                                 />
                             </div>
                         </div>
@@ -2510,6 +2519,11 @@ const Dashboard = () => {
                                     handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
                                 }}
                                 onSettingsChange={() => {}}
+                                onPlanSaved={(savedPlan) => {
+                                    setPlans(prev => [savedPlan, ...prev]);
+                                    setSelectedPlan(savedPlan);
+                                    setToastMessage('Sparked a new date! ⚡');
+                                }}
                             />
                         </div>
 

@@ -75,6 +75,17 @@ app.post('/api/generate-custom-date', async (req, res) => {
     }
 });
 
+app.post('/api/save-draft-plan', async (req, res) => {
+    try {
+        const { userId, planData } = req.body;
+        const savedPlan = await generationService.saveDraftPlan(supabase, userId, planData);
+        res.json({ success: true, plan: savedPlan });
+    } catch (err) {
+        console.error('[SAVE_DRAFT_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/recreate-date', async (req, res) => {
     try {
         const { planId, userId, type = null } = req.body;
@@ -237,7 +248,9 @@ app.post('/api/architect-stream', async (req, res) => {
     try {
         if (!genAI) throw new Error('Gemini API is not configured.');
 
-        const { messages, location, lat, lng, budget, goal } = req.body;
+        const { messages, location, lat, lng, budget, goal, numActivities, radius, planDate, planTime } = req.body;
+        
+        const radiusStr = radius ? `${(radius / 1609.34).toFixed(1)} miles` : 'standard';
         
         const systemPrompt = `You are Sparky, an expert AI Date Architect for DateSpark. 
         Your job is to help users plan amazing dates by asking clarifying questions or generating concepts.
@@ -246,6 +259,10 @@ app.post('/api/architect-stream', async (req, res) => {
         - Lat/Lng: ${lat}, ${lng}
         - Budget: ${budget || 'Flexible'}
         - Goal: ${goal || 'Flexible'}
+        - Stops Count: ${numActivities || 3} stops
+        - Search Radius: ${radiusStr}
+        - Date: ${planDate || 'Any day'}
+        - Time: ${planTime || 'Any time'}
         
         CRITICAL INSTRUCTIONS:
         1. Keep your responses conversational, concise, and helpful. Ask ONE clarifying question at a time.
@@ -297,11 +314,14 @@ app.post('/api/architect-stream', async (req, res) => {
 app.post('/api/suggest-date-concepts', async (req, res) => {
     try {
         if (!genAI) throw new Error('Gemini API is not configured.');
-        const { conversationHistory, location, lat, lng, budget, goal } = req.body;
+        const { conversationHistory, location, lat, lng, budget, goal, numActivities, radius, planDate, planTime } = req.body;
         
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
         
+        const radiusStr = radius ? `${(radius / 1609.34).toFixed(1)} miles` : 'standard';
         const prompt = `Based on the following conversation, location (${location}), budget (${budget}), and goal (${goal}), suggest 2 creative date plan concepts.
+        
+        The plan should target exactly ${numActivities || 3} sequential activities/stops, within a search radius of ${radiusStr}, planned for ${planDate || 'any day'} at ${planTime || 'any time'}.
         
         Return ONLY valid JSON matching this schema:
         {"concepts": [{"title": "Name of plan", "description": "Short description", "budgetStrategy": "How to save", "routeLogic": "Why it makes sense", "partnerFit": "Why it works"}]}

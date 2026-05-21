@@ -17,7 +17,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
     
     // Google Maps API Key for frontend-side photo reconstruction
     const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const API_URL = import.meta.env.VITE_API_URL || '';
 
     /**
      * Routes Google Places photo URLs through the backend proxy.

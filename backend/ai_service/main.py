@@ -47,6 +47,10 @@ class ItineraryRequest(BaseModel):
     prompt: Optional[str] = None # For raw copilot prompts
     lat: Optional[float] = None
     lng: Optional[float] = None
+    numActivities: Optional[int] = 3
+    radius: Optional[float] = None
+    planDate: Optional[str] = None
+    planTime: Optional[str] = None
 
 class ChatRequest(BaseModel):
     message: str
@@ -112,11 +116,17 @@ async def generate_itinerary(request: ItineraryRequest):
     Supports both structured builder data and raw natural language copilot prompts.
     """
     
+    num_stops = request.numActivities or 3
+    radius_val = f"{(request.radius / 1609.34):.1f} miles" if request.radius else "walking distance/standard"
+    time_str = request.planTime or "Evening"
+    date_str = request.planDate or "Any date"
+
     if request.prompt:
         # Use raw copilot prompt
         context = f"User Request: \"{request.prompt}\""
         if request.lat and request.lng:
-            context += f" (Location: {request.lat}, {request.lng})"
+            context += f" (Location coordinates: {request.lat}, {request.lng})"
+        context += f"\nPlan details - Steps: {num_stops}, Radius: {radius_val}, Time: {time_str}, Date: {date_str}."
         city_context = f"If the location is missing, assume {request.city or 'New York City'} but mention it."
     else:
         # Use structured builder data
@@ -126,6 +136,10 @@ async def generate_itinerary(request: ItineraryRequest):
         Budget: {request.budget or 'flexible'}
         Preferences: {request.preferences or 'None'}
         Location: {request.lat}, {request.lng} if available.
+        Number of steps: {num_stops}
+        Preferred Radius: {radius_val}
+        Plan Time: {time_str}
+        Plan Date: {date_str}
         """
         city_context = ""
 
@@ -140,16 +154,16 @@ async def generate_itinerary(request: ItineraryRequest):
     3. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
        Example: 'Best romantic rooftop bar with Empire State views in {request.city or 'NYC'}'
     4. Ensure the 'activity' is descriptive but concise.
-    5. Always return 3 distinct activities for a complete date night.
+    5. Always return EXACTLY {num_stops} distinct sequential activities/stops for a complete date night.
     
     Return a structured JSON with:
     - title: Catchy name for the date (max 5 words)
     - description: A romantic/fun summary (max 20 words)
-    - steps: Array of 3 activities. Each step MUST include:
+    - steps: Array of exactly {num_stops} activities. Each step MUST include:
         * 'time': e.g., '7:00 PM'
         * 'activity': A CONCISE category (e.g., 'Dinner', 'Cocktails', 'Stroll'). Max 3 words. DO NOT put the description here.
         * 'venue': 'REAL PLACE TBD'
-        * 'description': A short, enticing blurb.
+        * 'description': A short, enticing, and highly specific unique blurb (max 20-30 words) tailored to this specific venue and vibe. Do NOT repeat descriptions or use generic placeholder text across steps. Make each step's description unique and descriptive of the spot!
         * 'search_query': A high-intent, short Google Maps search string (e.g. 'Best speakeasy in East Village, NYC').
     """
     

@@ -211,7 +211,12 @@ export const generateAIDate = async (params) => {
             preferences: params.preferences || params.prompt || '',
             lat: params.lat,
             lng: params.lng,
-            neighborhoodLock: params.neighborhoodLock || false
+            neighborhoodLock: params.neighborhoodLock || false,
+            // Include customizable options
+            numActivities: params.numActivities,
+            radius: params.radius,
+            planDate: params.planDate,
+            planTime: params.planTime
         }, { timeout: 30000 });
 
         if (response.data && response.data.raw_itinerary) {
@@ -234,7 +239,7 @@ export const generateAIDate = async (params) => {
                 const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
                 
                 // Still use the JS side for Google Places enrichment (it's faster here)
-                const radius = params.neighborhoodLock ? 800 : 15000;
+                const radius = params.neighborhoodLock ? 800 : (params.radius || 15000);
                 const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords, radius);
                 itineraryData.steps = enrichedSteps; 
 
@@ -256,7 +261,33 @@ export const generateAIDate = async (params) => {
             return await generateGoogleDate(params);
         }
 
-        const fallbackPrompt = `Generate a 3-step date plan for ${params.city || 'NYC'}. Vibe: ${params.vibe}. Return JSON.`;
+        const numStops = params.numActivities || 3;
+        const radiusVal = params.radius ? `${(params.radius / 1609.34).toFixed(1)} miles` : 'standard';
+        const fallbackPrompt = `Generate a ${numStops}-step date plan for ${params.city || 'NYC'}.
+        Vibe: ${params.vibe || 'chill'}.
+        Budget: ${params.budget || 'moderate'}.
+        Distance/Radius: ${radiusVal}.
+        Time of day: ${params.planTime || 'Evening'}.
+        Date: ${params.planDate || 'Anytime'}.
+        Preferences: ${params.preferences || params.prompt || 'None'}.
+        
+        The plan MUST have exactly ${numStops} sequential activity stops/steps.
+        
+        Return ONLY valid JSON matching this exact schema:
+        {
+          "title": "Catchy name for the date",
+          "description": "A romantic or fun summary",
+          "steps": [
+            {
+              "time": "e.g. 6:30 PM",
+              "activity": "A concise category of the activity (max 3 words)",
+              "venue": "A real popular matching venue name in the target city",
+              "description": "A short, concise (max 20-30 words) unique description tailored exactly to this venue and vibe, explaining why it's a stellar choice. It must be specific, distinct, and not repeated across other steps."
+            }
+          ]
+        }
+        
+        Do not return anything else except the JSON.`;
         
         const fallbackModels = [
             "gemini-2.5-pro",
@@ -340,6 +371,7 @@ export const generateGoogleDate = async (params) => {
                     venue: rest?.displayName?.text || "Local Favorite",
                     address: rest?.shortFormattedAddress || "In the heart of the city",
                     rating: rest?.rating,
+                    description: `Enjoy a delicious dinner at ${rest?.displayName?.text || "Local Favorite"}, offering an excellent menu and a perfect ${vibe} dining experience in ${city}.`,
                     vibe: vibe
                 },
                 {
@@ -348,6 +380,7 @@ export const generateGoogleDate = async (params) => {
                     venue: act?.displayName?.text || "City Landmark",
                     address: act?.shortFormattedAddress || "Nearby",
                     rating: act?.rating,
+                    description: `Cap off your date night with an incredible experience at ${act?.displayName?.text || "City Landmark"}, a stellar location highlighting the unique local culture of ${city}.`,
                     vibe: vibe
                 }
             ])
