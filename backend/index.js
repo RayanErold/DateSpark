@@ -120,7 +120,10 @@ app.get('/api/trending-plans', async (req, res) => {
 
 app.post('/api/feedback', async (req, res) => {
     try {
-        const { message, userId, userEmail, type } = req.body;
+        const userId = req.body.userId;
+        const message = req.body.message || req.body.text || req.body.messageText;
+        const userEmail = req.body.userEmail || req.body.email;
+        const type = req.body.type || 'feedback';
         
         // 1. Send the email FIRST (Guaranteed to work if Resend key is valid)
         const emailResult = await emailService.sendFeedbackEmail({ 
@@ -156,6 +159,155 @@ app.post('/api/feedback', async (req, res) => {
     } catch (err) {
         console.error('[FEEDBACK_ERROR_CRITICAL]', err);
         res.status(500).json({ error: 'System error', details: err.message });
+    }
+});
+
+// Middleware to verify admin authorization
+const verifyAdmin = async (req, res, next) => {
+    try {
+        const adminId = req.headers['x-user-id'] || req.query.adminId || req.body.adminId;
+        if (!adminId) {
+            return res.status(401).json({ error: 'Unauthorized: User ID not provided' });
+        }
+        const { data: profile, error } = await supabaseAdmin
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', adminId)
+            .single();
+
+        if (error || !profile || !profile.is_admin) {
+            return res.status(403).json({ error: 'Access denied: Admin role required' });
+        }
+        next();
+    } catch (err) {
+        res.status(500).json({ error: 'Auth system error', details: err.message });
+    }
+};
+
+// 1. Get Admin Dashboard General Stats
+app.get('/api/admin/stats', verifyAdmin, async (req, res) => {
+    try {
+        const { count: usersCount } = await supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true });
+        const { count: premiumCount } = await supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('is_premium', true);
+        const { count: feedbackCount } = await supabaseAdmin.from('feedback').select('*', { count: 'exact', head: true });
+        const { count: plansCount } = await supabaseAdmin.from('plans').select('*', { count: 'exact', head: true });
+
+        res.json({
+            success: true,
+            stats: {
+                totalUsers: usersCount || 0,
+                premiumUsers: premiumCount || 0,
+                totalFeedbacks: feedbackCount || 0,
+                totalPlans: plansCount || 0
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. Get All Users and Profiles details
+app.get('/api/admin/users', verifyAdmin, async (req, res) => {
+    try {
+        const { data: users, error } = await supabaseAdmin
+            .from('profiles')
+            .select('*')
+            .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, users });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. Toggle Premium Status
+app.post('/api/admin/toggle-premium', verifyAdmin, async (req, res) => {
+    try {
+        const { targetUserId, isPremium } = req.body;
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .update({ is_premium: isPremium, updated_at: new Date().toISOString() })
+            .eq('id', targetUserId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, profile: data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 4. Toggle Admin Status
+app.post('/api/admin/toggle-admin', verifyAdmin, async (req, res) => {
+    try {
+        const { targetUserId, isAdmin } = req.body;
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .update({ is_admin: isAdmin, updated_at: new Date().toISOString() })
+            .eq('id', targetUserId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, profile: data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5. Reset Usage Limits for a User
+app.post('/api/admin/reset-usage', verifyAdmin, async (req, res) => {
+    try {
+        const { targetUserId } = req.body;
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                classic_usage_today: 0,
+                guided_usage_today: 0,
+                swap_usage_today: 0,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', targetUserId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, profile: data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 6. Get All User Feedbacks / Tickets
+app.get('/api/admin/feedbacks', verifyAdmin, async (req, res) => {
+    try {
+        const { data: feedbacks, error } = await supabaseAdmin
+            .from('feedback')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, feedbacks });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 7. Delete/Resolve a Feedback
+app.delete('/api/admin/feedbacks/:id', verifyAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabaseAdmin
+            .from('feedback')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

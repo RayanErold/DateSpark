@@ -198,6 +198,7 @@ const Dashboard = () => {
         }
         return false; // Regular users default to false (strict DB sync)
     });
+    const [isAdmin, setIsAdmin] = useState(false);
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
@@ -402,7 +403,9 @@ const Dashboard = () => {
                 ]);
 
                 if (premRes.ok) {
-                    const { isPremium: dbStatus } = await premRes.json();
+                    const premData = await premRes.json();
+                    const dbStatus = premData.isPremium;
+                    setIsAdmin(premData.isAdmin || false);
                     if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
                         const manualChoice = localStorage.getItem('isPremium');
                         if (manualChoice !== null) setIsPremium(manualChoice === 'true');
@@ -769,7 +772,8 @@ const Dashboard = () => {
                 ]);
 
                 if (premRes.ok) {
-                    const data = await premRes.ok ? await premRes.json() : { isPremium: false };
+                    const data = await premRes.json();
+                    setIsAdmin(data.isAdmin || false);
 
                     // Admin Special Logic: Sync with DB but respect manual toggle for testing
                     if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
@@ -808,7 +812,8 @@ const Dashboard = () => {
                         const response = await fetch(`/api/user-premium/${user.id}`);
                         if (response.ok) {
                             const data = await response.json();
-                            const { isPremium: dbStatus, premium_expiry, referral_code, referral_count } = data;
+                            const { isPremium: dbStatus, isAdmin: dbAdmin, premium_expiry, referral_code, referral_count } = data;
+                            setIsAdmin(dbAdmin || false);
 
                             // Check if premium via boolean OR via active expiry
                             const now = new Date();
@@ -3061,6 +3066,17 @@ const Dashboard = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* Admin Dashboard Entry */}
+                {isAdmin && (
+                    <Link
+                        to="/admin"
+                        className="w-full mb-4 py-4 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 text-white font-black text-xs uppercase tracking-[0.2em] hover:opacity-90 rounded-2xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 group"
+                    >
+                        <Settings className="w-4 h-4 transition-transform group-hover:rotate-45" />
+                        🛡️ Administrative Console
+                    </Link>
+                )}
 
                 {/* Visible Logout */}
                 <button

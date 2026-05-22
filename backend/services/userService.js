@@ -47,6 +47,7 @@ export const getUserPremiumStatus = async (supabase, userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     return {
         isPremium: !!data?.is_premium,
+        isAdmin: !!data?.is_admin,
         premium_expiry: data?.premium_expiry,
         referral_code: data?.referral_code,
         referral_count: data?.referral_count

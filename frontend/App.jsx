@@ -18,6 +18,7 @@ const CookiePolicy = lazy(() => import('./pages/legal/CookiePolicy'));
 const VibeOnboarding = lazy(() => import('./pages/dashboard/VibeOnboarding'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const VibeFeed = lazy(() => import('./pages/dashboard/VibeFeed'));
+const AdminDashboard = lazy(() => import('./pages/dashboard/AdminDashboard'));
 
 
 const LoadingScreen = () => (
@@ -75,6 +76,12 @@ function App() {
           <Route path="/generate" element={
             <ProtectedRoute>
               <GeneratePlan />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           } />
           
