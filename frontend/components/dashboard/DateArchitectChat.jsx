@@ -353,6 +353,7 @@ const DateArchitectChat = ({
     const handleAcceptPlan = async () => {
         if (!proposedPlan) return;
         try {
+            console.log('[DateArchitectChat] Saving draft plan for user:', userId, proposedPlan);
             const response = await fetch('/api/save-draft-plan', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -362,16 +363,21 @@ const DateArchitectChat = ({
                 })
             });
             const result = await response.json();
-            if (result.success && result.plan) {
+            if (response.ok && result.success && result.plan) {
                 if (onPlanSaved) {
                     onPlanSaved(result.plan);
                 } else if (onConceptSelected) {
                     onConceptSelected(result.plan, { isSavedPlan: true });
                 }
                 resetToInitialState();
+            } else {
+                const errorMsg = result.error || 'Server rejected the save request';
+                console.error('[DateArchitectChat] Save draft failed:', errorMsg);
+                alert(`Failed to save plan: ${errorMsg}`);
             }
         } catch (err) {
             console.error('Failed to save draft plan:', err);
+            alert(`Failed to save plan due to a connection or system error: ${err.message}`);
         }
     };
 
