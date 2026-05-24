@@ -273,9 +273,20 @@ const SharedPlan = () => {
                 if (isGenericOrMissing && step.venue) {
                     try {
                         await new Promise((resolve) => {
-                            placesService.textSearch({ query: `${step.venue} ${plan.location || ''}` }, (results, status) => {
-                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
-                                    stepsWithPhotos[i] = { ...step, photoUrl: results[0].photos[0].getUrl({ maxWidth: 800 }) };
+                            const actCity = step.location || step.address || plan.location || plan.city || '';
+                            placesService.textSearch({ query: `${step.venue} ${actCity}` }, (results, status) => {
+                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                                    const place = results[0];
+                                    let newPhotoUrl = step.photoUrl;
+                                    if (place.photos && place.photos.length > 0) {
+                                        newPhotoUrl = place.photos[0].getUrl({ maxWidth: 800 });
+                                    }
+                                    stepsWithPhotos[i] = { 
+                                        ...step, 
+                                        ...(newPhotoUrl && { photoUrl: newPhotoUrl }),
+                                        lat: place.geometry?.location?.lat?.() || step.lat,
+                                        lng: place.geometry?.location?.lng?.() || step.lng
+                                    };
                                 } else {
                                     // Smart fallback if Google Places fails (e.g. at-home date "Your Kitchen")
                                     const searchString = `${step.category || ''} ${step.venue} ${step.description || ''} ${step.activity || ''}`.toLowerCase();

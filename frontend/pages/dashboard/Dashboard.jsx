@@ -4109,8 +4109,9 @@ const Dashboard = () => {
                                             mapContainerStyle={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
                                             center={
                                                 (() => {
-                                                    const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
-                                                    const firstValidStep = steps.find(s => typeof s.lat === 'number' && typeof s.lng === 'number');
+                                                    const steps = selectedPlan.activities || 
+                                                                  (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || []);
+                                                    const firstValidStep = steps.find(s => s.lat !== undefined && s.lng !== undefined && s.lat !== null && s.lng !== null);
                                                     return firstValidStep
                                                         ? { lat: Number(firstValidStep.lat), lng: Number(firstValidStep.lng) }
                                                         : { lat: 40.7128, lng: -74.0060 };
@@ -4124,15 +4125,19 @@ const Dashboard = () => {
                                             }}
                                         >
                                             {/* Markers for each step */}
-                                            {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [])
-                                                .filter(step => typeof step.lat === 'number' && typeof step.lng === 'number')
-                                                .map((step, idx) => (
-                                                    <Marker
-                                                        key={idx}
-                                                        position={{ lat: Number(step.lat), lng: Number(step.lng) }}
-                                                        label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
-                                                    />
-                                                ))}
+                                            {(() => {
+                                                const steps = selectedPlan.activities || 
+                                                              (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || []);
+                                                return steps
+                                                    .filter(step => step.lat !== undefined && step.lng !== undefined && step.lat !== null && step.lng !== null)
+                                                    .map((step, idx) => (
+                                                        <Marker
+                                                            key={idx}
+                                                            position={{ lat: Number(step.lat), lng: Number(step.lng) }}
+                                                            label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
+                                                        />
+                                                    ));
+                                            })()}
                                         </GoogleMap>
                                     </div>
                                 ) : (
