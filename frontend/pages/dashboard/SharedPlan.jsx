@@ -284,7 +284,23 @@ const SharedPlan = () => {
                     }
                 }
             }
-            if (isMounted) setEnrichedSteps(stepsWithPhotos);
+            if (isMounted) {
+                setEnrichedSteps(stepsWithPhotos);
+                
+                // Persist the fetched photos back to the database so they appear in Dashboard/Events tabs
+                const hasModifiedPhotos = stepsWithPhotos.some((step, index) => step.photoUrl !== initialSteps[index].photoUrl);
+                if (hasModifiedPhotos && id !== 'demo-preview') {
+                    const newItinerary = Array.isArray(plan.itinerary) ? stepsWithPhotos : { ...plan.itinerary, steps: stepsWithPhotos };
+                    fetch('/api/update-plan', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            planId: id,
+                            updateData: { itinerary: newItinerary }
+                        })
+                    }).catch(err => console.error("[SharedPlan] Failed to persist enriched photos to DB", err));
+                }
+            }
         };
         
         fetchPhotos();

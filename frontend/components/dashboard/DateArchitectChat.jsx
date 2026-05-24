@@ -30,6 +30,7 @@ import {
     X,
     XCircle
 } from 'lucide-react';
+import { useGoogleMaps } from '../../lib/googleMaps';
 
 const DATE_GOALS = [
     {
@@ -140,6 +141,90 @@ const DateArchitectChat = ({
     const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
     const [customTime, setCustomTime] = useState('19:00');
     const [locationLoading, setLocationLoading] = useState(false);
+
+    const { isLoaded } = useGoogleMaps();
+    const [placesService, setPlacesService] = useState(null);
+
+    useEffect(() => {
+        if (isLoaded && window.google?.maps?.places && !placesService) {
+            const dummy = document.createElement('div');
+            setPlacesService(new window.google.maps.places.PlacesService(dummy));
+        }
+    }, [isLoaded, placesService]);
+
+    // Google Places Photo Enrichment for proposedPlan preview
+    useEffect(() => {
+        if (!placesService || !proposedPlan) return;
+        
+        let isMounted = true;
+        
+        const enrichDraftPlan = async () => {
+            const steps = proposedPlan.activities || 
+                         (Array.isArray(proposedPlan.itinerary) ? proposedPlan.itinerary : (proposedPlan.itinerary?.steps || []));
+            
+            if (!steps || steps.length === 0) return;
+            
+            let modified = false;
+            const enrichedSteps = [...steps];
+            const city = proposedPlan.location || location || 'New York';
+
+            for (let i = 0; i < enrichedSteps.length; i++) {
+                if (!isMounted) break;
+                const act = enrichedSteps[i];
+                if (act._photoEnriched) continue;
+
+                const actName = act.name || act.venue || act.activity;
+                const hasPhoto = (act.photo || act.photoUrl) && String(act.photo || act.photoUrl).trim() !== '';
+                const photoSrc = hasPhoto ? (act.photo || act.photoUrl) : '';
+                
+                const isGenericOrMissing = !hasPhoto || 
+                                           photoSrc.includes('encrypted-tbn0.gstatic.com') ||
+                                           photoSrc.includes('maps.googleapis.com') ||
+                                           photoSrc.includes('staticmap');
+
+                if (isGenericOrMissing && actName) {
+                    try {
+                        await new Promise((resolve) => {
+                            placesService.textSearch({ query: `${actName} ${city}` }, (results, status) => {
+                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
+                                    enrichedSteps[i] = { 
+                                        ...act, 
+                                        photoUrl: results[0].photos[0].getUrl({ maxWidth: 800 }),
+                                        _photoEnriched: true 
+                                    };
+                                    modified = true;
+                                } else {
+                                    enrichedSteps[i] = { ...act, _photoEnriched: true };
+                                }
+                                setTimeout(resolve, 350);
+                            });
+                        });
+                    } catch (e) {
+                        console.error("Error fetching photo for", actName, e);
+                    }
+                } else {
+                    enrichedSteps[i] = { ...act, _photoEnriched: true };
+                }
+            }
+
+            if (isMounted && modified) {
+                // Determine how to save back to proposedPlan based on structure
+                const newPlan = { ...proposedPlan };
+                if (proposedPlan.activities) {
+                    newPlan.activities = enrichedSteps;
+                } else if (Array.isArray(proposedPlan.itinerary)) {
+                    newPlan.itinerary = enrichedSteps;
+                } else if (proposedPlan.itinerary?.steps) {
+                    newPlan.itinerary = { ...newPlan.itinerary, steps: enrichedSteps };
+                }
+                setProposedPlan(newPlan);
+            }
+        };
+
+        enrichDraftPlan();
+        
+        return () => { isMounted = false; };
+    }, [placesService, proposedPlan, location]);
 
     const scrollRef = useRef(null);
     const inputRef = useRef(null);
