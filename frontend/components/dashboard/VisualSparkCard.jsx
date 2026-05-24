@@ -28,6 +28,10 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName }) =
      */
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl) return null;
+        if (photoUrl.includes('unsplash')) return null;
+        if (photoUrl.includes('maps.googleapis.com') || photoUrl.includes('staticmap')) {
+            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
+        }
         return photoUrl;
     };
 

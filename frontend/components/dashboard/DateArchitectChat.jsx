@@ -102,9 +102,10 @@ const DateArchitectChat = ({
     const API_URL = import.meta.env.VITE_API_URL || '';
     
     const getProxiedPhoto = (photoUrl) => {
-        if (!photoUrl) return null;
-        // Direct loading of Google Maps URLs is preferred in <img> tags
-        // to pass the correct HTTP Referrer from the browser.
+        if (!photoUrl || photoUrl.includes('unsplash')) return null;
+        if (photoUrl.includes('maps.googleapis.com') || photoUrl.includes('staticmap')) {
+            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
+        }
         return photoUrl;
     };
 
@@ -165,7 +166,7 @@ const DateArchitectChat = ({
             
             let modified = false;
             const enrichedSteps = [...steps];
-            const city = proposedPlan.location || 'New York';
+            const city = proposedPlan.location || proposedPlan.city || location || 'New York';
 
             for (let i = 0; i < enrichedSteps.length; i++) {
                 if (!isMounted) break;
@@ -184,8 +185,9 @@ const DateArchitectChat = ({
 
                 if (isGenericOrMissing && actName) {
                     try {
+                        const actCity = act.location || act.address || city;
                         await new Promise((resolve) => {
-                            placesService.textSearch({ query: `${actName} ${city}` }, (results, status) => {
+                            placesService.textSearch({ query: `${actName} ${actCity}` }, (results, status) => {
                                 if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
                                     enrichedSteps[i] = { 
                                         ...act, 
