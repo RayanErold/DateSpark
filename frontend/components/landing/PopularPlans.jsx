@@ -14,12 +14,6 @@ const PopularPlans = () => {
 
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl || photoUrl.includes('unsplash')) return null;
-        
-        // Use the backend proxy for Google Places photos to bypass CORS/referrer restrictions
-        if (photoUrl.includes('googleapis.com')) {
-            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
-        }
-        
         return photoUrl;
     };
 
@@ -29,7 +23,7 @@ const PopularPlans = () => {
                 const response = await axios.get(`${API_URL}/api/trending-plans`);
                 if (response.data && response.data.length > 0) {
                     // Map the DB plan structure to the component's expected structure
-                    const mappedPlans = response.data.slice(0, 4).map(plan => {
+                    const mappedPlans = response.data.slice(0, 8).map(plan => {
                         const steps = plan.itinerary?.steps || [];
                         const firstPhoto = steps.find(s => s.photoUrl && !s.photoUrl.includes('unsplash'))?.photoUrl;
                         

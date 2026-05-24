@@ -690,32 +690,15 @@ app.get('/api/photo-proxy', async (req, res) => {
             console.log('[PhotoProxy] 🔑 Auto-injected API Key into legacy URL');
         }
         
-        const axios = (await import('axios')).default;
-        console.log(`[PhotoProxy] Fetching: ${googleUrl.split('?')[0]}...`);
-        
-        const response = await axios.get(googleUrl, {
-            responseType: 'stream',
-            timeout: 20000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'image/*'
-            }
-        });
-
-        const contentType = response.headers['content-type'] || 'image/jpeg';
-        res.set('Content-Type', contentType);
-        res.set('Cache-Control', 'public, max-age=86400');
-        
-        // Use pipeline for safe streaming (prevents crashes on connection drop)
-        await pipeline(response.data, res);
-        console.log('[PhotoProxy] ✅ Successfully streamed image.');
+        console.log(`[PhotoProxy] Redirecting to: ${googleUrl.split('?')[0]}...`);
+        // Instead of proxying the stream (which fails CORS/Referer checks and consumes server bandwidth),
+        // we just issue a 302 redirect so the browser fetches it natively with the correct referer.
+        return res.redirect(302, googleUrl);
         
     } catch (err) {
         console.error('[PHOTO_PROXY_ERROR]', err.message);
         
         // --- SMART FALLBACK ---
-        // If Google fails (expired photo, 400, 403), serve a premium brand fallback
-        // instead of letting the UI break.
         try {
             console.log('[PhotoProxy] 🔄 Serving premium fallback image...');
             const fallbackUrls = [
@@ -724,13 +707,7 @@ app.get('/api/photo-proxy', async (req, res) => {
                 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?q=80&w=1000&auto=format&fit=crop'
             ];
             const fallbackUrl = fallbackUrls[Math.floor(Math.random() * fallbackUrls.length)];
-            
-            const axios = (await import('axios')).default;
-            const fallbackRes = await axios.get(fallbackUrl, { responseType: 'stream', timeout: 10000 });
-            
-            res.set('Content-Type', 'image/jpeg');
-            res.set('X-Proxy-Fallback', 'true');
-            return fallbackRes.data.pipe(res);
+            return res.redirect(302, fallbackUrl);
         } catch (fallbackErr) {
             console.error('[CRITICAL_FALLBACK_FAIL]', fallbackErr.message);
             if (!res.headersSent) {

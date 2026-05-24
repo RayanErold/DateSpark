@@ -209,7 +209,12 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                                     modified = true;
                                     if (isMounted) setEvents([...currentEvents]);
                                 } else {
-                                    currentEvents[i] = { ...evt, _photoEnriched: true };
+                                    const cleanedEvt = { ...evt, _photoEnriched: true };
+                                    if (cleanedEvt.image && (cleanedEvt.image.includes('staticmap') || cleanedEvt.image.includes('maps.googleapis.com'))) {
+                                        delete cleanedEvt.image;
+                                    }
+                                    currentEvents[i] = cleanedEvt;
+                                    if (isMounted && modified) setEvents([...currentEvents]); // update if we have modifications so far
                                 }
                                 setTimeout(resolve, 350);
                             });
@@ -265,7 +270,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/events?city=${encodeURIComponent(searchCity)}&category=${cat}&size=${cat === 'all' ? 100 : 50}`);
+            const res = await fetch(`${API_BASE}/api/events?city=${encodeURIComponent(searchCity)}&category=${cat}&size=${cat === 'all' ? 100 : 100}`);
             if (res.status === 503) {
                 setApiReady(false);
                 setLoading(false);

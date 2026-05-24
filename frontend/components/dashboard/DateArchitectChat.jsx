@@ -103,9 +103,8 @@ const DateArchitectChat = ({
     
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl) return null;
-        if (photoUrl.includes('places.googleapis.com') || photoUrl.includes('maps.googleapis.com')) {
-            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
-        }
+        // Direct loading of Google Maps URLs is preferred in <img> tags
+        // to pass the correct HTTP Referrer from the browser.
         return photoUrl;
     };
 
@@ -166,7 +165,7 @@ const DateArchitectChat = ({
             
             let modified = false;
             const enrichedSteps = [...steps];
-            const city = proposedPlan.location || location || 'New York';
+            const city = proposedPlan.location || 'New York';
 
             for (let i = 0; i < enrichedSteps.length; i++) {
                 if (!isMounted) break;
