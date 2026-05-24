@@ -268,13 +268,46 @@ const SharedPlan = () => {
                 const isGenericOrMissing = !step.photoUrl || 
                                            step.photoUrl.includes('encrypted-tbn0.gstatic.com') ||
                                            step.photoUrl.includes('maps.googleapis.com') ||
-                                           step.photoUrl.includes('staticmap');
+                                           step.photoUrl.includes('staticmap') ||
+                                           step.photoUrl.includes('unsplash');
                 if (isGenericOrMissing && step.venue) {
                     try {
                         await new Promise((resolve) => {
                             placesService.textSearch({ query: `${step.venue} ${plan.location || ''}` }, (results, status) => {
                                 if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
                                     stepsWithPhotos[i] = { ...step, photoUrl: results[0].photos[0].getUrl({ maxWidth: 800 }) };
+                                } else {
+                                    // Smart fallback if Google Places fails (e.g. at-home date "Your Kitchen")
+                                    const searchString = `${step.category || ''} ${step.venue} ${step.description || ''} ${step.activity || ''}`.toLowerCase();
+                                    let fallbackImage = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=600';
+                                    
+                                    if (searchString.includes('kitchen') || searchString.includes('cook')) {
+                                        fallbackImage = 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80&w=600';
+                                    } else if (searchString.includes('balcony') || searchString.includes('porch') || searchString.includes('patio')) {
+                                        fallbackImage = 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=600';
+                                    } else if (searchString.includes('couch') || searchString.includes('movie') || searchString.includes('home') || searchString.includes('living room') || searchString.includes('netflix')) {
+                                        fallbackImage = 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&q=80&w=600';
+                                    } else if (searchString.includes('bar') || searchString.includes('drink') || searchString.includes('cocktail') || searchString.includes('club')) {
+                                        fallbackImage = 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=600';
+                                    } else if (searchString.includes('park') || searchString.includes('outdoor') || searchString.includes('walk') || searchString.includes('scenic') || searchString.includes('garden')) {
+                                        fallbackImage = 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&q=80&w=600';
+                                    } else if (searchString.includes('dessert') || searchString.includes('sweet') || searchString.includes('cafe') || searchString.includes('coffee') || searchString.includes('bakery') || searchString.includes('ice cream')) {
+                                        fallbackImage = 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?auto=format&fit=crop&q=80&w=600';
+                                    } else if (searchString.includes('activity') || searchString.includes('game') || searchString.includes('fun') || searchString.includes('museum') || searchString.includes('theater')) {
+                                        fallbackImage = 'https://images.unsplash.com/photo-1481277542470-605612bd2d61?auto=format&fit=crop&q=80&w=600';
+                                    } else {
+                                        const fallbacks = [
+                                            'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=600',
+                                            'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=600',
+                                            'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&q=80&w=600',
+                                            'https://images.unsplash.com/photo-1445116572660-236099ec97a0?auto=format&fit=crop&q=80&w=600',
+                                            'https://images.unsplash.com/photo-1481277542470-605612bd2d61?auto=format&fit=crop&q=80&w=600'
+                                        ];
+                                        fallbackImage = fallbacks[i % fallbacks.length];
+                                    }
+                                    // If AI generated an unsplash photo originally, we can keep it, 
+                                    // but if it's the exact same for every stop or matches generic, replace it
+                                    stepsWithPhotos[i] = { ...step, photoUrl: fallbackImage };
                                 }
                                 setTimeout(resolve, 300); // 300ms delay to avoid rate limiting
                             });

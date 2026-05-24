@@ -180,7 +180,8 @@ const DateArchitectChat = ({
                 const isGenericOrMissing = !hasPhoto || 
                                            photoSrc.includes('encrypted-tbn0.gstatic.com') ||
                                            photoSrc.includes('maps.googleapis.com') ||
-                                           photoSrc.includes('staticmap');
+                                           photoSrc.includes('staticmap') ||
+                                           photoSrc.includes('unsplash');
 
                 if (isGenericOrMissing && actName) {
                     try {
@@ -190,11 +191,19 @@ const DateArchitectChat = ({
                                     enrichedSteps[i] = { 
                                         ...act, 
                                         photoUrl: results[0].photos[0].getUrl({ maxWidth: 800 }),
+                                        photo: results[0].photos[0].getUrl({ maxWidth: 800 }),
                                         _photoEnriched: true 
                                     };
                                     modified = true;
                                 } else {
-                                    enrichedSteps[i] = { ...act, _photoEnriched: true };
+                                    // If Google Places fails, remove the generic placeholder so smart fallback kicks in
+                                    const cleanedAct = { ...act, _photoEnriched: true };
+                                    if (String(cleanedAct.photoUrl).includes('unsplash') || String(cleanedAct.photo).includes('unsplash')) {
+                                        delete cleanedAct.photoUrl;
+                                        delete cleanedAct.photo;
+                                        modified = true;
+                                    }
+                                    enrichedSteps[i] = cleanedAct;
                                 }
                                 setTimeout(resolve, 350);
                             });
@@ -1131,16 +1140,33 @@ const DateArchitectChat = ({
                                                 const actLocation = act.location || act.address || null;
                                                 
                                                 // Smart fallback based on type or keyword
-                                                const typeLower = (act.type || 'stop').toLowerCase();
+                                                const searchString = `${act.type || ''} ${actName} ${act.description || ''} ${act.activity || ''}`.toLowerCase();
                                                 let fallbackImage = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=600'; // Default restaurant/vibe
-                                                if (typeLower.includes('bar') || typeLower.includes('drink') || typeLower.includes('cocktail') || typeLower.includes('club')) {
-                                                    fallbackImage = 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=600';
-                                                } else if (typeLower.includes('park') || typeLower.includes('outdoor') || typeLower.includes('walk') || typeLower.includes('scenic') || typeLower.includes('garden')) {
-                                                    fallbackImage = 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&q=80&w=600';
-                                                } else if (typeLower.includes('dessert') || typeLower.includes('sweet') || typeLower.includes('cafe') || typeLower.includes('coffee') || typeLower.includes('bakery')) {
-                                                    fallbackImage = 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?auto=format&fit=crop&q=80&w=600';
-                                                } else if (typeLower.includes('activity') || typeLower.includes('game') || typeLower.includes('fun') || typeLower.includes('museum') || typeLower.includes('theater')) {
-                                                    fallbackImage = 'https://images.unsplash.com/photo-1481277542470-605612bd2d61?auto=format&fit=crop&q=80&w=600';
+                                                
+                                                if (searchString.includes('kitchen') || searchString.includes('cook')) {
+                                                    fallbackImage = 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80&w=600'; // Kitchen/Cooking
+                                                } else if (searchString.includes('balcony') || searchString.includes('porch') || searchString.includes('patio')) {
+                                                    fallbackImage = 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=600'; // Balcony
+                                                } else if (searchString.includes('couch') || searchString.includes('movie') || searchString.includes('home') || searchString.includes('living room')) {
+                                                    fallbackImage = 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&q=80&w=600'; // Living room
+                                                } else if (searchString.includes('bar') || searchString.includes('drink') || searchString.includes('cocktail') || searchString.includes('club')) {
+                                                    fallbackImage = 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=600'; // Bar
+                                                } else if (searchString.includes('park') || searchString.includes('outdoor') || searchString.includes('walk') || searchString.includes('scenic') || searchString.includes('garden')) {
+                                                    fallbackImage = 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&q=80&w=600'; // Park
+                                                } else if (searchString.includes('dessert') || searchString.includes('sweet') || searchString.includes('cafe') || searchString.includes('coffee') || searchString.includes('bakery')) {
+                                                    fallbackImage = 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?auto=format&fit=crop&q=80&w=600'; // Cafe
+                                                } else if (searchString.includes('activity') || searchString.includes('game') || searchString.includes('fun') || searchString.includes('museum') || searchString.includes('theater')) {
+                                                    fallbackImage = 'https://images.unsplash.com/photo-1481277542470-605612bd2d61?auto=format&fit=crop&q=80&w=600'; // Activity
+                                                } else {
+                                                    // Deterministic varied fallback for unknown categories
+                                                    const fallbacks = [
+                                                        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=600', // Restaurant
+                                                        'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=600', // Bar/Vibe
+                                                        'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&q=80&w=600', // Outdoor/Scenic
+                                                        'https://images.unsplash.com/photo-1445116572660-236099ec97a0?auto=format&fit=crop&q=80&w=600', // Cafe/Dessert
+                                                        'https://images.unsplash.com/photo-1481277542470-605612bd2d61?auto=format&fit=crop&q=80&w=600'  // Activity/Event
+                                                    ];
+                                                    fallbackImage = fallbacks[index % fallbacks.length];
                                                 }
 
                                                 return (
