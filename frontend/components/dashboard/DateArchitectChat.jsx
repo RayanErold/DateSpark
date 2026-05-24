@@ -188,11 +188,19 @@ const DateArchitectChat = ({
                         const actCity = act.location || act.address || city;
                         await new Promise((resolve) => {
                             placesService.textSearch({ query: `${actName} ${actCity}` }, (results, status) => {
-                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
+                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                                    const place = results[0];
+                                    let newPhotoUrl = act.photoUrl;
+                                    
+                                    if (place.photos && place.photos.length > 0) {
+                                        newPhotoUrl = place.photos[0].getUrl({ maxWidth: 800 });
+                                    }
+
                                     enrichedSteps[i] = { 
                                         ...act, 
-                                        photoUrl: results[0].photos[0].getUrl({ maxWidth: 800 }),
-                                        photo: results[0].photos[0].getUrl({ maxWidth: 800 }),
+                                        ...(newPhotoUrl && { photoUrl: newPhotoUrl, photo: newPhotoUrl }),
+                                        lat: place.geometry?.location?.lat?.() || act.lat,
+                                        lng: place.geometry?.location?.lng?.() || act.lng,
                                         _photoEnriched: true 
                                     };
                                     modified = true;
@@ -295,6 +303,7 @@ const DateArchitectChat = ({
         ]);
         setCurrentStep(initialLocation ? 2 : 1);
         setInput('');
+        setIsExpanded(false); // Automatically collapse the interface when plan is saved or declined
     };
 
     // Autoscroll
