@@ -32,28 +32,28 @@ const ResendConfirmation = ({ email, resetType, onResend, onBack }) => {
 
     return (
         <div className="text-center space-y-5">
-            <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto">
-                <Mail className="w-7 h-7 text-emerald-400" />
+            <div className="w-14 h-14 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center mx-auto">
+                <Mail className="w-7 h-7 text-emerald-600" />
             </div>
             <div>
-                <h3 className="text-xl font-black text-white">Check your email</h3>
-                <p className="text-sm mt-1 text-slate-400">
+                <h3 className="text-xl font-black text-slate-900">Check your email</h3>
+                <p className="text-sm mt-1 text-slate-500">
                     {resetType === 'username'
                         ? "We've sent your account details to"
                         : "We've sent a password reset link to"}
                 </p>
-                <p className="text-sm font-bold text-orange-400 mt-1">{email}</p>
+                <p className="text-sm font-bold text-orange-600 mt-1">{email}</p>
             </div>
 
-            <p className="text-xs text-slate-400/80">Didn't get it? Check your spam folder or resend below.</p>
+            <p className="text-xs text-slate-400">Didn't get it? Check your spam folder or resend below.</p>
 
             <button
                 onClick={handleResend}
                 disabled={cooldown > 0 || isSending}
                 className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all border ${
                     cooldown > 0
-                        ? 'bg-slate-800/40 text-slate-500 border-slate-700/30 cursor-not-allowed'
-                        : 'bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20 cursor-pointer'
+                        ? 'bg-slate-100 text-slate-400 border-slate-200/50 cursor-not-allowed'
+                        : 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 cursor-pointer'
                 }`}
             >
                 {isSending ? (
@@ -66,7 +66,7 @@ const ResendConfirmation = ({ email, resetType, onResend, onBack }) => {
 
             <button
                 onClick={onBack}
-                className="w-full text-center text-sm font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="w-full text-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
             >
                 Back to Sign In
             </button>
@@ -225,47 +225,35 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#070d19] relative flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 overflow-hidden font-outfit">
-            {/* Ambient Orange & Coral Backdrops */}
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-r from-orange-500/15 via-orange-600/10 to-coral/20 rounded-full blur-[130px] pointer-events-none" />
-            <div className="absolute bottom-10 left-10 w-[300px] h-[300px] bg-orange-600/10 rounded-full blur-[90px] pointer-events-none" />
-            <div className="absolute top-10 right-10 w-[300px] h-[300px] bg-coral/10 rounded-full blur-[90px] pointer-events-none" />
+        <div className="min-h-screen bg-slate-50 relative flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 overflow-hidden font-outfit">
+            {/* Soft Ambient Light Orange/Coral Backdrops */}
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-orange-100/50 via-coral/10 to-orange-50/30 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-10 left-10 w-[300px] h-[300px] bg-orange-100/20 rounded-full blur-[80px] pointer-events-none" />
+            <div className="absolute top-10 right-10 w-[300px] h-[300px] bg-orange-100/10 rounded-full blur-[80px] pointer-events-none" />
 
             <div className="relative sm:mx-auto sm:w-full sm:max-w-md z-10 text-center">
                 <Link to="/" className="inline-flex flex-col items-center gap-3 cursor-pointer group">
-                    <motion.div
-                        animate={{
-                            scale: [1, 1.18, 1, 1.18, 1],
-                        }}
-                        transition={{
-                            duration: 1.4,
-                            repeat: Infinity,
-                            repeatType: "loop",
-                            ease: "easeInOut",
-                        }}
-                        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-coral text-white shadow-xl shadow-orange-500/25 border border-orange-400/25"
-                    >
-                        <Heart className="h-7 w-7 fill-current" />
-                    </motion.div>
+                    <img 
+                        src="/datespark-logo.png" 
+                        alt="DateSpark Logo" 
+                        className="h-16 w-16 rounded-2xl shadow-md shadow-orange-500/10 object-cover bg-white" 
+                    />
                     <div>
-                        <span className="text-3xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-orange-300 to-coral bg-clip-text text-transparent">
+                        <span className="text-3xl font-black tracking-tight text-slate-900">
                             DateSpark
                         </span>
-                        <p className="text-[9px] font-black text-orange-400/80 uppercase tracking-widest leading-none mt-1">
-                            Heartbeat Login Engine
-                        </p>
                     </div>
                 </Link>
-                <h2 className="mt-5 text-2xl font-black text-white">
+                <h2 className="mt-5 text-2xl font-black text-slate-900">
                     {otpSent ? 'Verify code' : 'Welcome back'}
                 </h2>
-                <p className="mt-2 text-sm text-slate-400">
+                <p className="mt-2 text-sm text-slate-500">
                     {otpSent ? (
-                        <>We sent a verification code to <span className="font-bold text-orange-400">{formData.email}</span></>
+                        <>We sent a verification code to <span className="font-bold text-orange-600">{formData.email}</span></>
                     ) : (
                         <>
                             Don't have an account?{' '}
-                            <Link to="/signup" className="font-bold text-orange-400 hover:text-orange-300 transition-colors">
+                            <Link to="/signup" className="font-bold text-orange-600 hover:text-orange-500 transition-colors">
                                 Create one now
                             </Link>
                         </>
@@ -274,7 +262,7 @@ const Login = () => {
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md z-10">
-                <div className="bg-slate-900/60 backdrop-blur-2xl py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-white/5">
+                <div className="bg-white/80 backdrop-blur-2xl py-8 px-4 shadow-xl shadow-slate-200/50 sm:rounded-2xl sm:px-10 border border-slate-100">
                     {resetSent ? (
                         <ResendConfirmation
                             email={formData.email}
@@ -285,34 +273,34 @@ const Login = () => {
                     ) : resetStep === 'select' ? (
                         <div className="space-y-6">
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-white mb-2">What did you forget?</h3>
-                                <p className="text-sm text-slate-400">Choose an option below to recover your access.</p>
+                                <h3 className="text-xl font-black text-slate-900 mb-2">What did you forget?</h3>
+                                <p className="text-sm text-slate-500">Choose an option below to recover your access.</p>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
                                 <button 
                                     onClick={() => { setResetType('username'); setResetStep('input'); }}
-                                    className="w-full flex items-center justify-between p-4 bg-slate-950/40 border border-white/5 rounded-2xl hover:border-orange-500/50 transition-all group cursor-pointer"
+                                    className="w-full flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:border-orange-500/30 hover:bg-slate-50 transition-all group cursor-pointer"
                                 >
                                     <div className="text-left">
-                                        <span className="block font-black text-white group-hover:text-orange-400 transition-colors">Forgot Username/Email</span>
-                                        <span className="text-xs text-slate-500">Recover your account identity</span>
+                                        <span className="block font-black text-slate-800 group-hover:text-orange-600 transition-colors">Forgot Username/Email</span>
+                                        <span className="text-xs text-slate-400">Recover your account identity</span>
                                     </div>
-                                    <Eye className="w-5 h-5 text-slate-600 group-hover:text-orange-400 transition-colors" />
+                                    <Eye className="w-5 h-5 text-slate-400 group-hover:text-orange-500 transition-colors" />
                                 </button>
                                 <button 
                                     onClick={() => { setResetType('password'); setResetStep('input'); }}
-                                    className="w-full flex items-center justify-between p-4 bg-slate-950/40 border border-white/5 rounded-2xl hover:border-orange-500/50 transition-all group cursor-pointer"
+                                    className="w-full flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:border-orange-500/30 hover:bg-slate-50 transition-all group cursor-pointer"
                                 >
                                     <div className="text-left">
-                                        <span className="block font-black text-white group-hover:text-orange-400 transition-colors">Forgot Password</span>
-                                        <span className="text-xs text-slate-500">Reset your secure access</span>
+                                        <span className="block font-black text-slate-800 group-hover:text-orange-600 transition-colors">Forgot Password</span>
+                                        <span className="text-xs text-slate-400">Reset your secure access</span>
                                     </div>
-                                    <Heart className="w-5 h-5 text-slate-600 group-hover:text-orange-400 transition-colors" />
+                                    <Heart className="w-5 h-5 text-slate-400 group-hover:text-orange-500 transition-colors" />
                                 </button>
                             </div>
                             <button 
                                 onClick={() => { setIsResetMode(false); setResetStep(null); }} 
-                                className="w-full text-center text-sm font-bold text-slate-500 hover:text-white cursor-pointer"
+                                className="w-full text-center text-sm font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
                             >
                                 Back to Sign In
                             </button>
@@ -320,14 +308,14 @@ const Login = () => {
                     ) : (
                         <form className="space-y-6" onSubmit={otpSent ? handleVerifyOtp : (isOtpMode ? handleSendOtp : (isResetMode ? (resetType === 'username' ? handleForgotUsername : handleResetPassword) : handleLogin))}>
                             {error && (
-                                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm font-medium">
+                                <div className="bg-red-50 border border-red-100 text-red-600 p-3 rounded-xl text-sm font-medium">
                                     {error}
                                 </div>
                             )}
 
                             {!otpSent && (
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-300">Account Email</label>
+                                    <label className="block text-sm font-bold text-slate-700">Account Email</label>
                                     <div className="mt-1">
                                         <input
                                             name="email"
@@ -337,7 +325,7 @@ const Login = () => {
                                             required
                                             value={formData.email}
                                             onChange={handleChange}
-                                            className="appearance-none block w-full px-4 py-3 border border-white/10 bg-slate-950/40 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-transparent transition-all sm:text-sm text-white"
+                                            className="appearance-none block w-full px-4 py-3 border border-slate-200 bg-white rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 transition-all sm:text-sm text-slate-900"
                                         />
                                     </div>
                                 </div>
@@ -345,7 +333,7 @@ const Login = () => {
 
                             {otpSent && (
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-300">Verification Code</label>
+                                    <label className="block text-sm font-bold text-slate-700">Verification Code</label>
                                     <div className="mt-1">
                                         <input
                                             type="text"
@@ -354,7 +342,7 @@ const Login = () => {
                                             placeholder="12345678"
                                             value={otpCode}
                                             onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                                            className="appearance-none block w-full px-4 py-4 border border-white/10 bg-slate-950/40 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-transparent transition-all text-center text-2xl font-black tracking-[0.2em] text-white"
+                                            className="appearance-none block w-full px-4 py-4 border border-slate-200 bg-white rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 transition-all text-center text-2xl font-black tracking-[0.2em] text-slate-900"
                                         />
                                     </div>
                                 </div>
@@ -363,8 +351,8 @@ const Login = () => {
                             {!isOtpMode && !isResetMode && !otpSent && (
                                 <div>
                                     <div className="flex items-center justify-between">
-                                        <label className="block text-sm font-bold text-slate-300">Password</label>
-                                        <button type="button" onClick={() => { setIsResetMode(true); setResetStep('select'); }} className="text-xs font-semibold text-orange-400 hover:underline cursor-pointer">Forgot username or password?</button>
+                                        <label className="block text-sm font-bold text-slate-700">Password</label>
+                                        <button type="button" onClick={() => { setIsResetMode(true); setResetStep('select'); }} className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline cursor-pointer">Forgot username or password?</button>
                                     </div>
                                     <div className="mt-1 relative">
                                         <input
@@ -373,12 +361,12 @@ const Login = () => {
                                             required
                                             value={formData.password}
                                             onChange={handleChange}
-                                            className="appearance-none block w-full px-4 py-3 border border-white/10 bg-slate-950/40 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-transparent transition-all sm:text-sm text-white pr-10"
+                                            className="appearance-none block w-full px-4 py-3 border border-slate-200 bg-white rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 transition-all sm:text-sm text-slate-900 pr-10"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-orange-400 transition-colors cursor-pointer"
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-orange-600 transition-colors cursor-pointer"
                                         >
                                             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
@@ -399,10 +387,10 @@ const Login = () => {
                                     <>
                                         <div className="relative my-6">
                                             <div className="absolute inset-0 flex items-center">
-                                                <div className="w-full border-t border-white/5"></div>
+                                                <div className="w-full border-t border-slate-100"></div>
                                             </div>
                                             <div className="relative flex justify-center text-sm">
-                                                <span className="px-3 bg-slate-900 text-slate-500">Or continue with</span>
+                                                <span className="px-3 bg-white text-slate-400">Or continue with</span>
                                             </div>
                                         </div>
 
@@ -410,7 +398,7 @@ const Login = () => {
                                             type="button"
                                             disabled={isLoading}
                                             onClick={handleGoogleLogin}
-                                            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-white/10 bg-slate-950/40 rounded-xl text-slate-300 font-bold hover:bg-slate-950/60 hover:text-white transition-all shadow-sm active:scale-[0.98] cursor-pointer"
+                                            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-700 font-bold hover:bg-slate-50 hover:text-slate-800 transition-all shadow-sm active:scale-[0.98] cursor-pointer"
                                         >
                                             <svg className="w-5 h-5" viewBox="0 0 24 24">
                                                 <path
@@ -439,7 +427,7 @@ const Login = () => {
                                     <button 
                                         type="button" 
                                         onClick={() => { setIsResetMode(false); setOtpSent(false); setResetSent(false); setResetStep(null); setResetType(null); }} 
-                                        className="w-full text-center text-sm font-bold text-slate-500 hover:text-white mt-4 cursor-pointer"
+                                        className="w-full text-center text-sm font-bold text-slate-500 hover:text-slate-800 mt-4 cursor-pointer"
                                     >
                                         Back to Sign In
                                     </button>

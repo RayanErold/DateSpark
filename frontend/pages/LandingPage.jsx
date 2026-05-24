@@ -8,6 +8,7 @@ import HowItWorks from '../components/landing/HowItWorks';
 import SocialProof from '../components/landing/SocialProof';
 import FAQ from '../components/landing/FAQ';
 import Footer from '../components/common/Footer';
+import InteractiveDemo from '../components/landing/InteractiveDemo';
 import { useABTest } from '../lib/hooks/useABTest';
 
 const LandingPage = () => {
@@ -20,6 +21,9 @@ const LandingPage = () => {
                 {/* A/B Test: Hero Section */}
                 {variant === 'B' ? <HeroVariationB /> : <Hero />}
                 
+                {/* Demo Video Simulation */}
+                <InteractiveDemo />
+
                 {/* 2. Features Grid (4 icons) */}
                 <Features />
                 

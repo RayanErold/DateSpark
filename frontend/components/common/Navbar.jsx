@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Menu, X } from 'lucide-react';
+import { Heart, Menu, X, ArrowRight } from 'lucide-react';
 
 const Navbar = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -17,8 +17,9 @@ const Navbar = () => {
                     <a href="/#how-it-works" className="text-gray-600 hover:text-coral font-medium transition-colors">How it works</a>
                     <a href="/#benefits" className="text-gray-600 hover:text-coral font-medium transition-colors">Why us</a>
                     <a href="/pricing" className="text-gray-600 hover:text-coral font-medium transition-colors font-bold text-coral">Pricing</a>
-                    <a href="/login" className="text-gray-600 hover:text-coral font-medium transition-colors">Log in</a>
-                    <a href="/signup" className="btn-primary py-2 px-6 rounded-xl hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">Plan a date now</a>
+                    <a href="/login" className="bg-gradient-to-r from-coral to-pink-500 text-white font-black text-[13px] uppercase tracking-wider py-2.5 px-7 rounded-full shadow-[0_8px_16px_-6px_rgba(255,95,86,0.4)] hover:shadow-[0_12px_24px_-8px_rgba(255,95,86,0.6)] hover:scale-105 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2">
+                        Sign In <ArrowRight className="w-4 h-4" />
+                    </a>
                 </div>
 
                 {/* Mobile Menu Toggle & CTA */}

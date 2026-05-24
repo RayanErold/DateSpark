@@ -6,6 +6,7 @@ import {
     RefreshCw, Search
 } from 'lucide-react';
 import { Autocomplete } from '@react-google-maps/api';
+import { useGoogleMaps } from '../../lib/googleMaps';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -169,6 +170,63 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
     const [apiReady, setApiReady]   = useState(true);
     const [autocomplete, setAutocomplete] = useState(null);
 
+    const { isLoaded } = useGoogleMaps();
+    const [placesService, setPlacesService] = useState(null);
+
+    useEffect(() => {
+        if (isLoaded && window.google?.maps?.places && !placesService) {
+            const dummy = document.createElement('div');
+            setPlacesService(new window.google.maps.places.PlacesService(dummy));
+        }
+    }, [isLoaded, placesService]);
+
+    // Google Places Photo Enrichment for generic/fallback images
+    useEffect(() => {
+        if (!placesService || events.length === 0) return;
+
+        let isMounted = true;
+        const enrichBatch = async () => {
+            const currentEvents = [...events];
+            let modified = false;
+
+            for (let i = 0; i < currentEvents.length; i++) {
+                if (!isMounted) break;
+                const evt = currentEvents[i];
+                
+                if (evt._photoEnriched) continue;
+                
+                const isGenericOrMissing = !evt.image || 
+                                           evt.image.includes('encrypted-tbn0.gstatic.com') ||
+                                           evt.image.includes('maps.googleapis.com') ||
+                                           evt.image.includes('staticmap');
+                
+                if (isGenericOrMissing && evt.venueName) {
+                    try {
+                        await new Promise((resolve) => {
+                            placesService.textSearch({ query: `${evt.venueName} ${city}` }, (results, status) => {
+                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
+                                    currentEvents[i] = { ...evt, image: results[0].photos[0].getUrl({ maxWidth: 800 }), _photoEnriched: true };
+                                    modified = true;
+                                    if (isMounted) setEvents([...currentEvents]);
+                                } else {
+                                    currentEvents[i] = { ...evt, _photoEnriched: true };
+                                }
+                                setTimeout(resolve, 350);
+                            });
+                        });
+                    } catch (e) {
+                        console.error("Error fetching photo for", evt.venueName, e);
+                    }
+                } else {
+                    currentEvents[i] = { ...evt, _photoEnriched: true };
+                }
+            }
+        };
+
+        enrichBatch();
+        return () => { isMounted = false; };
+    }, [events, placesService, city]);
+
     const onAutocompleteLoad = (autocompleteInstance) => {
         setAutocomplete(autocompleteInstance);
     };
@@ -207,7 +265,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/events?city=${encodeURIComponent(searchCity)}&category=${cat}&size=${cat === 'all' ? 50 : 20}`);
+            const res = await fetch(`${API_BASE}/api/events?city=${encodeURIComponent(searchCity)}&category=${cat}&size=${cat === 'all' ? 100 : 50}`);
             if (res.status === 503) {
                 setApiReady(false);
                 setLoading(false);

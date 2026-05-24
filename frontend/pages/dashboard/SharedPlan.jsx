@@ -186,6 +186,16 @@ const SharedPlan = () => {
 
     const { isLoaded } = useGoogleMaps();
 
+    const [placesService, setPlacesService] = useState(null);
+    const [enrichedSteps, setEnrichedSteps] = useState(null);
+
+    useEffect(() => {
+        if (isLoaded && window.google?.maps?.places && !placesService) {
+            const dummy = document.createElement('div');
+            setPlacesService(new window.google.maps.places.PlacesService(dummy));
+        }
+    }, [isLoaded, placesService]);
+
     useEffect(() => {
         const fetchPlan = async () => {
             if (id === 'demo-preview') {
@@ -242,9 +252,46 @@ const SharedPlan = () => {
         );
     }
 
-    const itinerarySteps = Array.isArray(plan.itinerary)
+    const initialSteps = Array.isArray(plan.itinerary)
         ? plan.itinerary
         : (plan.itinerary?.steps || plan.plan_content || []);
+
+    useEffect(() => {
+        if (!placesService || initialSteps.length === 0 || enrichedSteps) return;
+
+        let isMounted = true;
+        
+        const fetchPhotos = async () => {
+            const stepsWithPhotos = [...initialSteps];
+            for (let i = 0; i < stepsWithPhotos.length; i++) {
+                const step = stepsWithPhotos[i];
+                const isGenericOrMissing = !step.photoUrl || 
+                                           step.photoUrl.includes('encrypted-tbn0.gstatic.com') ||
+                                           step.photoUrl.includes('maps.googleapis.com') ||
+                                           step.photoUrl.includes('staticmap');
+                if (isGenericOrMissing && step.venue) {
+                    try {
+                        await new Promise((resolve) => {
+                            placesService.textSearch({ query: `${step.venue} ${plan.location || ''}` }, (results, status) => {
+                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
+                                    stepsWithPhotos[i] = { ...step, photoUrl: results[0].photos[0].getUrl({ maxWidth: 800 }) };
+                                }
+                                setTimeout(resolve, 300); // 300ms delay to avoid rate limiting
+                            });
+                        });
+                    } catch (e) {
+                        console.error("Error fetching photo for", step.venue, e);
+                    }
+                }
+            }
+            if (isMounted) setEnrichedSteps(stepsWithPhotos);
+        };
+        
+        fetchPhotos();
+        return () => { isMounted = false; };
+    }, [placesService, initialSteps, plan.location, enrichedSteps]);
+
+    const itinerarySteps = enrichedSteps || initialSteps;
     const dateSparkScore = plan.itinerary?.metadata?.dateSparkScore;
     const budgetMode = plan.itinerary?.metadata?.budgetMode;
 
