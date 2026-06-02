@@ -1661,7 +1661,7 @@ const Dashboard = () => {
                 className={`rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-full sm:max-w-none snap-start premium-shadow premium-shadow-hover ${appTheme === 'dark'
                         ? 'border-white/10 hover:border-white/20'
                         : 'border-navy/5 shadow-sm'
-                    } ${isCompact ? 'p-3' : 'p-4 sm:p-6'} ${isLockedPlan ? 'cursor-not-allowed grayscale-[0.5] opacity-80' : ''}`}
+                    } ${isCompact ? 'p-4' : 'p-4 sm:p-6'} ${isLockedPlan ? 'cursor-not-allowed grayscale-[0.5] opacity-80' : ''}`}
                 onClick={() => {
                     if (isLockedPlan) {
                         setShowUpgradeModal(true);
@@ -1727,11 +1727,13 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-2 sm:gap-5 mb-4 sm:mb-6 relative z-10">
+                <div className={`flex flex-col gap-2 relative z-10 ${isCompact ? 'mb-2' : 'sm:gap-5 mb-4 sm:mb-6'}`}>
                     {/* 🗓️ Planned For - TOP Minimalist Badge */}
                     <div className="flex items-center justify-between gap-4">
                         {(plan.itinerary?.metadata?.planDate || plan.created_at) && (
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-sm border backdrop-blur-md ${appTheme === 'dark' ? 'bg-white/10 border-white/10' : 'bg-black/20 border-white/20'
+                            <div className={`flex items-center gap-2 rounded-xl shadow-sm border backdrop-blur-md ${
+                                isCompact ? 'px-2.5 py-1' : 'px-3 py-1.5'
+                            } ${appTheme === 'dark' ? 'bg-white/10 border-white/10' : 'bg-black/20 border-white/20'
                                 }`}>
                                 <Calendar className={`w-3.5 h-3.5 ${appTheme === 'dark' ? 'text-white/60' : 'text-coral'}`} />
                                 <p className={`text-[10px] font-black uppercase tracking-widest font-outfit ${appTheme === 'dark' ? 'text-white/60' : 'text-white/70'
@@ -1745,7 +1747,9 @@ const Dashboard = () => {
                     </div>
 
                     <div className="space-y-1">
-                        <h3 className={`text-2xl font-black leading-tight font-outfit line-clamp-2 drop-shadow-lg ${appTheme === 'dark' ? 'text-white' : 'text-white'
+                        <h3 className={`font-black leading-tight font-outfit line-clamp-2 drop-shadow-lg ${
+                            isCompact ? 'text-[17px] leading-snug' : 'text-2xl'
+                        } ${appTheme === 'dark' ? 'text-white' : 'text-white'
                             }`}>
                             {plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + " Date" : "Perfect Date Plan")}
                         </h3>
@@ -1794,7 +1798,9 @@ const Dashboard = () => {
                 )}
 
                 {/* Modern Social Action Bar */}
-                <div className={`flex items-center justify-between gap-2 py-4 mb-5 border-t relative z-10 ${appTheme === 'dark' ? 'border-white/10' : 'border-white/20'}`}>
+                <div className={`flex items-center justify-between gap-2 border-t relative z-10 ${
+                    isCompact ? 'py-2.5 mb-3' : 'py-4 mb-5'
+                } ${appTheme === 'dark' ? 'border-white/10' : 'border-white/20'}`}>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-0.5">
                             {[1, 2, 3, 4, 5].map((s) => (
@@ -1841,7 +1847,7 @@ const Dashboard = () => {
 
                         <button
                             onClick={(e) => { e.stopPropagation(); handleBoostPlan(plan.id); }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-black transition-all duration-300 group/boost shadow-md active:scale-95 backdrop-blur-md ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-black transition-all duration-300 group/boost shadow-md active:scale-[0.97] backdrop-blur-md ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
                                     ? 'bg-gradient-to-r from-orange-500 via-coral to-pink-500 text-white shadow-lg shadow-coral/30 hover:shadow-xl hover:-translate-y-0.5 border border-white/20'
                                     : appTheme === 'dark'
                                         ? 'bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10'
@@ -1872,7 +1878,9 @@ const Dashboard = () => {
                         if (isLockedPlan) setShowUpgradeModal(true);
                         else setSelectedPlan({ ...plan, isPartiallyLocked });
                     }}
-                    className={`w-full py-4.5 text-[15px] font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg relative z-10 backdrop-blur-md ${isLockedPlan
+                    className={`w-full font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg relative z-10 backdrop-blur-md ${
+                        isCompact ? 'py-3 text-[13px]' : 'py-4.5 text-[15px]'
+                    } ${isLockedPlan
                             ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-black/20 text-white/40 border-white/20")
                             : isPartiallyLocked
                                 ? (appTheme === 'dark'
@@ -2247,59 +2255,6 @@ const Dashboard = () => {
                     )} {/* End of Right Sidebar */}
                 </div> {/* End of grid-cols-3 */}
 
-                {/* Community Trending */}
-                {globalTrendingPlans.length > 0 && (() => {
-                    // Smarter City Extraction Helper
-                    const getCity = (loc) => {
-                        if (!loc) return 'NYC';
-                        const parts = loc.split(',').map(p => p.trim());
-                        // 1. If "Venue, Borough/City, State" (3 parts), return parts[1]
-                        // 2. If "Borough/City, State" (2 parts), return parts[0]
-                        // 3. Fallback to just the first part normalized
-                        if (parts.length >= 3) return parts[1];
-                        if (parts.length === 2) return parts[0];
-                        return parts[0] || 'NYC';
-                    };
-
-                    return (
-                        <div className="pt-8">
-                            <div className="flex items-center justify-between mb-8 px-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-coral/10 rounded-2xl flex items-center justify-center text-coral shadow-inner">
-                                        <Sparkles className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className={`text-2xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'
-                                            }`}>Trending Spots Now</h3>
-                                        <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Community ideas from other couples — preview here, or save from Discovery.</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setCurrentTab('events')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
-                                    See Events <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <div className="flex overflow-x-auto gap-4 md:gap-8 px-4 md:px-0 pb-10 snap-x snap-mandatory scrollbar-hide">
-                                {globalTrendingPlans
-                                    .sort((a, b) => (b.boost_count || 0) - (a.boost_count || 0))
-                                    .slice(0, 20) // Deep Discovery
-                                    .map((plan, idx) => {
-                                        const planCity = getCity(plan.location);
-                                        return (
-                                            <div key={plan.id || idx} className="snap-start">
-                                                <VisualSparkCard
-                                                    plan={plan}
-                                                    onView={setSelectedPlan}
-                                                    theme={appTheme}
-                                                    isTopInBorough={idx === 0}
-                                                    boroughName={planCity}
-                                                />
-                                            </div>
-                                        );
-                                    })}
-                            </div>
-                        </div>
-                    );
-                })()}
             </div>
         );
     };
@@ -2363,8 +2318,8 @@ const Dashboard = () => {
                     {(activeTab === 'favorites' ? plans.filter(p => p.is_favorite) : plans.filter(p => !p.is_favorite))
                         .filter(p => !p.deleted_at)
                         .map((plan, idx) => (
-                            <div key={plan.id} className="flex-shrink-0 w-[85vw] sm:w-[400px] snap-center">
-                                {renderPlanCard(plan, idx, false)}
+                            <div key={plan.id} className="flex-shrink-0 w-[80vw] sm:w-[325px] snap-center">
+                                {renderPlanCard(plan, idx, false, true)}
                             </div>
                         ))}
                 </div>
