@@ -9,7 +9,6 @@ const BottomNav = ({ currentTab, onTabChange, avatarUrl, userInitial, appTheme =
     const tabs = [
         { id: 'home',      label: 'Home',      icon: Home,     badge: null },
         { id: 'discovery', label: 'Explore',   icon: Compass,  badge: null },
-        { id: 'studio',    label: 'Studio',    icon: Wand2,    badge: 'AI' },
         { id: 'events',    label: 'Events',    icon: Ticket,   badge: null },
     ];
 

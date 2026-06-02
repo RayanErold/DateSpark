@@ -84,7 +84,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName, onP
             className={`w-full rounded-[2rem] border overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.05)] transition-all duration-300 relative group/card flex flex-col justify-between h-full ${theme === 'dark' ? 'bg-navy border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.35)]' : 'bg-white border-gray-100'}`}
         >
             {/* Visual Header (Rectangular Photo) */}
-            <div className="relative h-56 overflow-hidden group/photo bg-navy/20 flex-shrink-0">
+            <div className="relative h-40 overflow-hidden group/photo bg-navy/20 flex-shrink-0">
                 <img
                     key={currentPhoto || `${plan.id}-${photoIndex}`}
                     src={(!imageError && currentPhoto) ? currentPhoto : coverFallback}
@@ -160,7 +160,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName, onP
             </div>
 
             {/* Content Body */}
-            <div className="p-6 flex-1 flex flex-col justify-between">
+            <div className="p-4 flex-1 flex flex-col justify-between">
                 <div>
                     {/* Rating Header Row */}
                     <div className="flex items-center justify-between mb-3">
@@ -198,7 +198,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName, onP
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => onView(plan)}
-                        className={`flex-grow py-3.5 px-5 font-black rounded-2xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 group/btn text-xs ${theme === 'dark' ? 'bg-white text-navy hover:bg-coral hover:text-white' : 'bg-navy text-white hover:bg-coral hover:-translate-y-0.5'}`}
+                        className={`flex-grow py-2.5 px-4 font-black rounded-2xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 group/btn text-xs ${theme === 'dark' ? 'bg-white text-navy hover:bg-coral hover:text-white' : 'bg-navy text-white hover:bg-coral hover:-translate-y-0.5'}`}
                     >
                         View Itinerary
                         <ArrowLeft className="w-4 h-4 rotate-180 transition-transform group-hover/btn:translate-x-0.5" />
@@ -206,7 +206,7 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName, onP
                     {onPersonalize && (
                         <button
                             onClick={() => onPersonalize(plan)}
-                            className="w-12 h-12 bg-gradient-to-tr from-coral to-orange-500 hover:from-coral hover:to-pink-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-coral/20 active:scale-95 transition-all group/sparky shrink-0 cursor-pointer"
+                            className="w-10 h-10 bg-gradient-to-tr from-coral to-orange-500 hover:from-coral hover:to-pink-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-coral/20 active:scale-95 transition-all group/sparky shrink-0 cursor-pointer"
                             title="Personalize with Sparky"
                         >
                             <Sparkles className="w-5 h-5 group-hover/sparky:animate-pulse" />

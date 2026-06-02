@@ -337,6 +337,16 @@ const DateArchitectChat = ({
         }
     }, [messages, streamedText, extractedConcepts, currentStep, showCustomPicker, proposedPlan, isGeneratingPlan]);
 
+    // Autofocus input on mount for fast typing
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (inputRef.current) {
+                inputRef.current.focus();
+            }
+        }, 150);
+        return () => clearTimeout(timer);
+    }, []);
+
     // Cleanup speech recognition on unmount
     useEffect(() => {
         return () => {
@@ -1441,6 +1451,7 @@ const DateArchitectChat = ({
                                 }}
                                 placeholder={currentStep > 0 ? "Or type a custom answer here..." : "Refine your date, add vibes..."}
                                 disabled={isStreaming || isForceGenerating}
+                                autoFocus
                                 className="h-11 w-full rounded-full border-2 border-slate-100 bg-slate-50 pl-4 pr-24 text-xs font-bold text-navy outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white disabled:opacity-60"
                             />
                             <div className="absolute inset-y-0 right-1 flex items-center gap-1">
