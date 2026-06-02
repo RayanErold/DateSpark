@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowRight,
@@ -98,12 +99,16 @@ const DateArchitectChat = ({
     onConceptSelected,
     onSettingsChange,
     onPlanSaved,
+    isStudio = false,
 }) => {
     const API_URL = import.meta.env.VITE_API_URL || '';
     
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl || photoUrl.includes('unsplash')) return null;
-        if (photoUrl.includes('maps.googleapis.com') || photoUrl.includes('staticmap')) {
+        if (photoUrl.includes('places.googleapis.com') || 
+            photoUrl.includes('maps.googleapis.com') || 
+            photoUrl.includes('googleusercontent.com') ||
+            photoUrl.includes('staticmap')) {
             return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         return photoUrl;
@@ -117,6 +122,8 @@ const DateArchitectChat = ({
     const [extractedConcepts, setExtractedConcepts] = useState(null);
     const [isForceGenerating, setIsForceGenerating] = useState(false);
     const [selectedGoal, setSelectedGoal] = useState('first_date');
+    const [chatMode, setChatMode] = useState('concierge'); // 'concierge' or 'wizard'
+    const [isTrip, setIsTrip] = useState(false);
 
     // 1.1 PROPOSED PLAN STATE
     const [proposedPlan, setProposedPlan] = useState(null);
@@ -134,7 +141,7 @@ const DateArchitectChat = ({
 
     // 3. UI STATE
     const [isExpanded, setIsExpanded] = useState(false);
-    const [currentStep, setCurrentStep] = useState(initialLocation ? 2 : 1);
+    const [currentStep, setCurrentStep] = useState(initialLocation ? 2 : 0); // Start at step 0 for concierge
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [showCustomLocation, setShowCustomLocation] = useState(false);
     const [customLocationText, setCustomLocationText] = useState('');
@@ -247,6 +254,7 @@ const DateArchitectChat = ({
     const scrollRef = useRef(null);
     const inputRef = useRef(null);
     const recognitionRef = useRef(null);
+    const speechBaseInputRef = useRef('');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const [isListening, setIsListening] = useState(false);
@@ -277,13 +285,22 @@ const DateArchitectChat = ({
                 role: 'assistant',
                 content: initialPrompt 
                     ? `Sparking a plan for your date at ${initialPrompt.split('Date at ')[1] || 'this venue'}! I've noted the vibe is ${initialVibe || 'custom'}. What else should I know to make it perfect?`
-                    : `Hi! I'm Sparky, your AI Date Architect. Let's customize your perfect date plan in 5 quick taps! \n\n📍 First, where is the starting point for your date?`,
+                    : `Hi! I'm Sparky, your premium AI Date & Trip Concierge. 🌟 I'm here to help you craft incredible dates, weekend getaways, neighborhood crawls, and epic travels. Tell me what you're thinking, or click one of the quick sparks below!`,
+                options: [
+                    "I want to plan a romantic weekend getaway ✈️",
+                    "Looking for a chill date night near me 🍻",
+                    "Need a fun outdoor adventure day 🧗"
+                ]
             };
             setMessages([welcomeMsg]);
             
             if (initialPrompt) {
                 setMessages(prev => [...prev, { role: 'user', content: initialPrompt }]);
+                setChatMode('concierge');
                 setCurrentStep(0); // Go directly to free chat
+            } else {
+                setChatMode('concierge');
+                setCurrentStep(0); // Starts in concierge mode
             }
         }
     }, [messages.length, initialPrompt, initialVibe]);
@@ -298,10 +315,17 @@ const DateArchitectChat = ({
                 role: 'assistant',
                 content: initialPrompt 
                     ? `Sparking a plan for your date at ${initialPrompt.split('Date at ')[1] || 'this venue'}! I've noted the vibe is ${initialVibe || 'custom'}. What else should I know to make it perfect?`
-                    : `Hi! I'm Sparky, your AI Date Architect. Let's customize your perfect date plan in 5 quick taps! \n\n📍 First, where is the starting point for your date?`,
+                    : `Hi! I'm Sparky, your premium AI Date & Trip Concierge. 🌟 I'm here to help you craft incredible dates, weekend getaways, neighborhood crawls, and epic travels. Tell me what you're thinking, or click one of the quick sparks below!`,
+                options: [
+                    "I want to plan a romantic weekend getaway ✈️",
+                    "Looking for a chill date night near me 🍻",
+                    "Need a fun outdoor adventure day 🧗"
+                ]
             }
         ]);
-        setCurrentStep(initialLocation ? 2 : 1);
+        setChatMode('concierge');
+        setCurrentStep(0);
+        setIsTrip(false);
         setInput('');
         setIsExpanded(false); // Automatically collapse the interface when plan is saved or declined
     };
@@ -313,30 +337,40 @@ const DateArchitectChat = ({
         }
     }, [messages, streamedText, extractedConcepts, currentStep, showCustomPicker, proposedPlan, isGeneratingPlan]);
 
+    // Cleanup speech recognition on unmount
+    useEffect(() => {
+        return () => {
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
+        };
+    }, []);
+
     // Voice integration
     const toggleListening = () => {
         if (isListening) {
-            if (recognitionRef.current) recognitionRef.current.stop();
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
             setIsListening(false);
             return;
         }
 
         if (SpeechRecognition) {
+            speechBaseInputRef.current = input;
             const recognition = new SpeechRecognition();
             recognition.continuous = true;
             recognition.interimResults = true;
             recognition.lang = 'en-US';
 
             recognition.onresult = (event) => {
-                let finalOnly = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    if (event.results[i].isFinal) {
-                        finalOnly += event.results[i][0].transcript + ' ';
-                    }
+                let sessionTranscript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    sessionTranscript += event.results[i][0].transcript;
                 }
-                if (finalOnly) {
-                    setInput(prev => prev + (prev.endsWith(' ') ? '' : ' ') + finalOnly.trim());
-                }
+                const base = speechBaseInputRef.current || '';
+                const space = base && !base.endsWith(' ') ? ' ' : '';
+                setInput(base + space + sessionTranscript);
             };
 
             recognition.onerror = (event) => {
@@ -352,8 +386,13 @@ const DateArchitectChat = ({
             };
 
             recognitionRef.current = recognition;
-            recognition.start();
-            setIsListening(true);
+            try {
+                recognition.start();
+                setIsListening(true);
+            } catch (err) {
+                console.error("Failed to start speech recognition", err);
+                setIsListening(false);
+            }
         } else {
             alert('Speech recognition is not supported in this browser. Please try Chrome or Safari.');
         }
@@ -410,7 +449,9 @@ const DateArchitectChat = ({
         try {
             const promptText = refinementPrompt 
                 ? refinementPrompt 
-                : `A custom ${numActivities}-step ${finalGoal || 'date'} experience in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, with activities focused on a fun and cohesive couple experience.`;
+                : isTrip
+                    ? `A custom premium ${numActivities}-step travel trip itinerary in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, featuring incredible local landmarks, scenic routes, and top-tier dining.`
+                    : `A custom ${numActivities}-step ${finalGoal || 'date'} experience in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, with activities focused on a fun and cohesive couple experience.`;
 
             console.log('[DateArchitectChat] Generating draft plan with prompt:', promptText);
 
@@ -592,6 +633,69 @@ const DateArchitectChat = ({
         handleSelectOption(1, `📍 ${enteredLoc}`, enteredLoc);
     };
 
+    // Spark Premium AI Concierge message sender
+    const sendConciergeMessage = async (textToSend) => {
+        setIsStreaming(true);
+        const userMessage = { role: 'user', content: textToSend };
+        const updatedMessages = [...messages, userMessage];
+        setMessages(updatedMessages);
+        setInput('');
+
+        try {
+            const res = await fetch('/api/spark-concierge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: updatedMessages,
+                    currentSettings: {
+                        location,
+                        budget,
+                        vibe: selectedGoal,
+                        numActivities,
+                        planDate,
+                        planTime,
+                        isTrip
+                    }
+                })
+            });
+
+            if (!res.ok) throw new Error('Concierge request failed');
+            const data = await res.json();
+
+            // Extract parameters and sync to state
+            if (data.inferredParams) {
+                if (data.inferredParams.location) setLocation(data.inferredParams.location);
+                if (data.inferredParams.budget) setBudget(data.inferredParams.budget);
+                if (data.inferredParams.vibe) setSelectedGoal(data.inferredParams.vibe);
+                if (data.inferredParams.numActivities) setNumActivities(data.inferredParams.numActivities);
+                if (data.inferredParams.planDate) setPlanDate(data.inferredParams.planDate);
+                if (data.inferredParams.planTime) setPlanTime(data.inferredParams.planTime);
+                if (data.inferredParams.isTrip !== undefined) setIsTrip(data.inferredParams.isTrip);
+            }
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    role: 'assistant',
+                    content: data.reply,
+                    options: data.options || [],
+                    concepts: data.concepts || []
+                }
+            ]);
+        } catch (err) {
+            console.error('[Spark Concierge Error]', err);
+            setMessages(prev => [
+                ...prev,
+                {
+                    role: 'assistant',
+                    content: "Oh no, my sparking coils are a bit tangled! 🛑 Let's try that again."
+                }
+            ]);
+        } finally {
+            setIsStreaming(false);
+        }
+    };
+
     // Generic prompt sender (Freeform chat input)
     const sendPrompt = async (overrideInput = null) => {
         const textToSend = typeof overrideInput === 'string' ? overrideInput : input;
@@ -606,6 +710,11 @@ const DateArchitectChat = ({
             setMessages(prev => [...prev, userMessage]);
             setInput('');
             generateProposedPlan(textToSend);
+            return;
+        }
+
+        if (chatMode === 'concierge') {
+            await sendConciergeMessage(textToSend);
             return;
         }
 
@@ -902,30 +1011,88 @@ const DateArchitectChat = ({
         return null;
     };
 
-    const renderMessageContent = (content, isLast, role) => {
-        let text = content.split('READY')[0];
-        let options = [];
+    const renderMessageContent = (msg, isLast, role) => {
+        const isObject = typeof msg === 'object' && msg !== null;
+        const contentStr = isObject ? msg.content : msg;
+        let text = contentStr.split('READY')[0];
+        let options = isObject && msg.options ? msg.options : [];
+        
+        // Backward compatibility for standard strings
         const optionsMatch = text.match(/\[OPTIONS:\s*([\s\S]*?)\]/i);
         if (optionsMatch) {
             options = optionsMatch[1].split('|').map(option => option.trim().replace(/\n/g, ' ')).filter(Boolean);
             text = text.replace(optionsMatch[0], '');
         }
 
+        // Handle custom start options if messages.length === 1 and chatMode === 'concierge'
+        if (isLast && role === 'assistant' && chatMode === 'concierge' && messages.length === 1) {
+            options = [
+                ...options,
+                "⚡ Or, let's do the 5-Tap Quick Wizard!"
+            ];
+        }
+
+        const handleOptionClick = (option) => {
+            if (option === "⚡ Or, let's do the 5-Tap Quick Wizard!") {
+                setChatMode('wizard');
+                setCurrentStep(1);
+                setMessages([
+                    {
+                        role: 'assistant',
+                        content: `Hi! I'm Sparky, your AI Date Architect. Let's customize your perfect date plan in 5 quick taps! \n\n📍 First, where is the starting point for your date?`
+                    }
+                ]);
+                return;
+            }
+            sendPrompt(option);
+        };
+
         return (
             <div className="space-y-3">
                 <div className="whitespace-pre-wrap leading-relaxed">{text.trim()}</div>
                 {options.length > 0 && isLast && role === 'assistant' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <div className="flex flex-wrap gap-2 pt-1">
                         {options.map((option) => (
                             <button
                                 key={option}
                                 type="button"
-                                onClick={() => sendPrompt(option)}
+                                onClick={() => handleOptionClick(option)}
                                 disabled={isStreaming}
-                                className="rounded-2xl border border-orange-100 bg-orange-50/80 px-3 py-2.5 text-left text-[12px] font-black text-orange-700 transition hover:border-orange-300 hover:bg-white disabled:opacity-50"
+                                className="rounded-full border border-orange-100 bg-orange-50/80 px-3 py-1.5 text-left text-[11px] font-black text-orange-700 transition hover:border-orange-300 hover:bg-white active:scale-95 disabled:opacity-50 cursor-pointer"
                             >
                                 {option}
                             </button>
+                        ))}
+                    </div>
+                )}
+                {isObject && msg.concepts && msg.concepts.length > 0 && isLast && role === 'assistant' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-2">
+                        {msg.concepts.map((concept, index) => (
+                            <div
+                                key={index}
+                                className="p-4 rounded-2xl border border-orange-100 bg-orange-50/20 shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300 flex flex-col justify-between"
+                            >
+                                <div>
+                                    <span className="text-[9px] font-black text-orange-600 uppercase tracking-widest bg-white border border-orange-100 px-2 py-0.5 rounded-lg shadow-sm">
+                                        {concept.tagline || 'PREMIUM SPARK'}
+                                    </span>
+                                    <h4 className="text-sm font-black text-navy mt-2">{concept.title}</h4>
+                                    <p className="text-[11px] font-bold text-slate-500 mt-1 leading-relaxed">
+                                        {concept.description}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        generateProposedPlan(
+                                            `A premium sequence themed around: ${concept.title}. Details: ${concept.description}`,
+                                            { budget, goal: selectedGoal }
+                                        );
+                                    }}
+                                    className="w-full mt-4 py-2 bg-gradient-to-r from-orange-500 to-coral text-white font-black text-xs rounded-xl shadow-md hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                >
+                                    Spark It! ⚡
+                                </button>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -936,18 +1103,12 @@ const DateArchitectChat = ({
     // Chat main wrapper styles depending on expand state
     const containerClasses = isExpanded
         ? "fixed inset-0 z-[999] flex flex-col bg-white w-screen h-screen md:rounded-3xl md:shadow-2xl md:max-w-4xl md:h-[85vh] md:m-auto transition-all duration-300 ease-out"
-        : "overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-[0_12px_40px_rgba(255,127,80,0.08)] max-w-2xl mx-auto flex flex-col h-[350px] transition-all duration-300 ease-out relative";
+        : isStudio
+            ? "overflow-hidden rounded-[2rem] border border-orange-100/80 bg-white shadow-[0_12px_45px_rgba(255,127,80,0.06)] w-full flex flex-col h-[600px] transition-all duration-300 ease-out relative"
+            : "overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-[0_12px_40px_rgba(255,127,80,0.08)] max-w-2xl mx-auto flex flex-col h-[350px] transition-all duration-300 ease-out relative";
 
-    return (
-        <>
-            {isExpanded && (
-                <div
-                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[998] transition-opacity"
-                    onClick={() => setIsExpanded(false)}
-                />
-            )}
-
-            <div className={containerClasses}>
+    const chatContent = (
+        <div className={containerClasses}>
                 {/* Header with maximum interactive controls */}
                 <div className="border-b border-orange-100 bg-gradient-to-r from-orange-50/70 via-orange-50/20 to-white px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -956,12 +1117,12 @@ const DateArchitectChat = ({
                         </div>
                         <div>
                             <h3 className="text-sm font-black tracking-tight uppercase bg-gradient-to-r from-orange-600 via-orange-500 to-coral bg-clip-text text-transparent">
-                                Create with Spark AI
+                                Sparky
                             </h3>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-ping" />
                                 <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">
-                                    {currentStep > 0 ? `Customizing: Step ${currentStep} of 5` : 'AI Live Architect'}
+                                    {currentStep > 0 ? `Customizing: Step ${currentStep} of 5` : chatMode === 'concierge' ? 'AI Concierge 🌟' : 'AI Live Architect'}
                                 </span>
                             </div>
                         </div>
@@ -984,7 +1145,7 @@ const DateArchitectChat = ({
                         )}
 
                         {/* Prominent Back to Start / Wizard if we are in free chat / proposed plan mode */}
-                        {currentStep === 0 && (
+                        {currentStep === 0 && chatMode === 'wizard' && (
                             <button
                                 onClick={resetToInitialState}
                                 className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-orange-600 hover:text-navy bg-orange-50 px-2.5 py-1 rounded-xl transition-all font-bold"
@@ -1048,7 +1209,7 @@ const DateArchitectChat = ({
                                         {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                                     </div>
                                     <div className={`rounded-2xl p-3 px-4 text-xs font-semibold leading-relaxed shadow-sm ${message.role === 'user' ? 'rounded-tr-sm bg-navy text-white' : 'rounded-tl-sm border border-slate-100 bg-white text-navy'}`}>
-                                        {renderMessageContent(message.content, idx === messages.length - 1 && !isStreaming, message.role)}
+                                        {renderMessageContent(message, idx === messages.length - 1 && !isStreaming, message.role)}
                                     </div>
                                 </div>
                             </motion.div>
@@ -1074,7 +1235,7 @@ const DateArchitectChat = ({
                         )}
 
                         {/* Starter prompts (only at start) */}
-                        {messages.length === 1 && currentStep === 1 && (
+                        {messages.length === 1 && currentStep === 1 && chatMode === 'wizard' && (
                             <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm mx-2">
                                 <div className="mb-2.5 flex items-center justify-between">
                                     <h4 className="text-xs font-black text-navy uppercase tracking-wider">Or Use Conversation Prompts</h4>
@@ -1309,8 +1470,38 @@ const DateArchitectChat = ({
                     </div>
                 </div>
             </div>
-        </>
     );
+
+    if (isExpanded) {
+        return (
+            <>
+                {/* Inline Static Placeholder to prevent layout shifts behind the overlay */}
+                <div className={isStudio ? "h-[600px] w-full bg-slate-50 border border-slate-100 rounded-[2rem] flex flex-col items-center justify-center text-slate-400/75 text-xs font-bold font-outfit" : "h-[350px] max-w-2xl mx-auto w-full bg-slate-50 border border-slate-100 rounded-3xl flex flex-col items-center justify-center text-slate-400/75 text-xs font-bold font-outfit"}>
+                    <div className="flex flex-col items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75 font-outfit"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
+                        </span>
+                        <span className="font-outfit text-slate-500 font-semibold mt-1">Spark AI is active in focus mode...</span>
+                    </div>
+                </div>
+
+                {/* The Portal rendering at the document.body root */}
+                {createPortal(
+                    <>
+                        <div
+                            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[998] transition-opacity animate-in fade-in duration-300"
+                            onClick={() => setIsExpanded(false)}
+                        />
+                        {chatContent}
+                    </>,
+                    document.body
+                )}
+            </>
+        );
+    }
+
+    return chatContent;
 };
 
 export default DateArchitectChat;

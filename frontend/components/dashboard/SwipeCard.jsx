@@ -28,12 +28,30 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
         );
     }
 
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    const getProxiedPhoto = (photoUrl) => {
+        if (!photoUrl) return null;
+        if (photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com/maps/api/staticmap')) {
+            return null;
+        }
+        if (photoUrl.includes('places.googleapis.com') || 
+            photoUrl.includes('maps.googleapis.com') || 
+            photoUrl.includes('googleusercontent.com')) {
+            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
+        }
+        return photoUrl;
+    };
+
     const cardTitle = plan.vibe ? `${plan.vibe} Date` : 'Trending Date';
     const cardLocation = plan.location || 'New York, NY';
     const cardRating = plan.avg_rating ? parseFloat(plan.avg_rating).toFixed(1) : '4.9';
     const triesCount = plan.boost_count !== undefined ? plan.boost_count : (plan.total_tries || 0);
     const steps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
-    const photos = steps.map(s => s.photoUrl || s.image).filter(Boolean);
+    const photos = steps
+        .map(s => s.photoUrl || s.image)
+        .filter(Boolean)
+        .map(getProxiedPhoto)
+        .filter(Boolean);
     const hasPhotos = photos.length > 0;
     const currentPhoto = hasPhotos ? photos[photoIndex] : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
     const currentVenue = steps[photoIndex]?.venue || 'Discovery Stop';

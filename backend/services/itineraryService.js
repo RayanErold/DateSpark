@@ -497,19 +497,71 @@ export const recreatePlan = async (supabase, planId) => {
 
 // --- PLAN DISCOVERY & MANAGEMENT ---
 
-export const getTrendingPlans = async (supabase) => {
+export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
     try {
-        // Fetch a pool of plans, prioritizing boosted ones but allowing others if needed
-        const { data, error } = await supabase
+        let locationFilter = null;
+
+        if (userId) {
+            // Fetch user profile securely server-side
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('is_premium, current_location, custom_location')
+                .eq('id', userId)
+                .single();
+
+            if (profile) {
+                // Strict standard user gatekeeping
+                if (!profile.is_premium && requestedLocation && requestedLocation !== profile.current_location) {
+                    const err = new Error("Premium Tier restriction: Upgrade to access Global Trip Planner.");
+                    err.status = 403;
+                    throw err;
+                }
+
+                // Premium Global Switcher or Local Default
+                if (profile.is_premium && (requestedLocation || profile.custom_location)) {
+                    locationFilter = requestedLocation || profile.custom_location;
+                } else {
+                    locationFilter = profile.current_location;
+                }
+            }
+        }
+
+        // Fetch a pool of active plans matching location & lifecycle state
+        let query = supabase
             .from('plans')
             .select('*')
             .is('deleted_at', null)
+            .eq('is_completed', false)
+            .or('expires_at.is.null,expires_at.gt.now()') // Exclude expired plans
             .not('itinerary', 'is', null)
-            .order('boost_count', { ascending: false })
-            .limit(60);
+            .order('boost_count', { ascending: false });
 
-        if (error || !data || data.length === 0) {
-            console.warn('[Trending] No plans found in database.');
+        if (locationFilter) {
+            query = query.ilike('location', `%${locationFilter}%`); // Enforce location isolation
+        }
+
+        let { data, error } = await query.limit(60);
+
+        if ((error || !data || data.length === 0) && locationFilter) {
+            console.warn(`[Trending] No plans found for local filter "${locationFilter}". Fetching broader trending plans as fallback...`);
+            const fallbackQuery = supabase
+                .from('plans')
+                .select('*')
+                .is('deleted_at', null)
+                .eq('is_completed', false)
+                .or('expires_at.is.null,expires_at.gt.now()')
+                .not('itinerary', 'is', null)
+                .order('boost_count', { ascending: false })
+                .limit(60);
+            
+            const res = await fallbackQuery;
+            if (!res.error && res.data) {
+                data = res.data;
+            }
+        }
+
+        if (!data || data.length === 0) {
+            console.warn('[Trending] No plans found in database matching criteria.');
             return [];
         }
 
@@ -563,7 +615,7 @@ export const getTrendingPlans = async (supabase) => {
         return enrichedPlans;
     } catch (err) {
         console.error('[Trending Error]', err);
-        return [];
+        throw err;
     }
 };
 

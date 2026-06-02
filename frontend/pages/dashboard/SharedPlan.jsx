@@ -108,6 +108,20 @@ const SharedPlan = () => {
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [partnerFeedback, setPartnerFeedback] = useState({});
+
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    const getProxiedPhoto = (photoUrl) => {
+        if (!photoUrl) return null;
+        if (photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com/maps/api/staticmap')) {
+            return null;
+        }
+        if (photoUrl.includes('places.googleapis.com') || 
+            photoUrl.includes('maps.googleapis.com') || 
+            photoUrl.includes('googleusercontent.com')) {
+            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
+        }
+        return photoUrl;
+    };
     const mapRef = useRef(null);
 
     useEffect(() => {
@@ -561,10 +575,10 @@ const SharedPlan = () => {
                                                     </div>
                                                 )}
 
-                                                {step.photoUrl && (
+                                                {getProxiedPhoto(step.photoUrl) && (
                                                     <div className="mb-4 overflow-hidden rounded-xl border border-gray-100 shadow-sm mt-2">
                                                         <img
-                                                            src={step.photoUrl}
+                                                            src={getProxiedPhoto(step.photoUrl)}
                                                             alt={step.venue}
                                                             className="w-full h-48 object-cover hover:scale-105 transition-transform duration-500"
                                                             loading="lazy"

@@ -7,6 +7,7 @@ import PopularPlans from '../components/landing/PopularPlans';
 import HowItWorks from '../components/landing/HowItWorks';
 import SocialProof from '../components/landing/SocialProof';
 import FAQ from '../components/landing/FAQ';
+import BlogSection from '../components/landing/BlogSection';
 import Footer from '../components/common/Footer';
 import InteractiveDemo from '../components/landing/InteractiveDemo';
 import { useABTest } from '../lib/hooks/useABTest';
@@ -36,6 +37,9 @@ const LandingPage = () => {
                 {/* 5. Supplementary Social Proof & FAQ */}
                 <SocialProof />
                 <FAQ />
+
+                {/* 6. The Journal (Blog posts) */}
+                <BlogSection />
             </main>
             <Footer />
         </div>

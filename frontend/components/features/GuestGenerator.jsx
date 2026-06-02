@@ -16,6 +16,7 @@ const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const GuestGenerator = () => {
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL || '';
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: GOOGLE_API_KEY,
@@ -214,7 +215,15 @@ const GuestGenerator = () => {
                                 <div className={`flex flex-col md:flex-row gap-5 ${isBlurred ? 'opacity-30 blur-sm pointer-events-none select-none' : ''}`}>
                                     <div className="md:w-1/3 aspect-video md:aspect-square rounded-xl overflow-hidden bg-gray-800 relative">
                                         {step.photoUrl ? (
-                                            <img src={step.photoUrl} alt={step.venue} className="w-full h-full object-cover" />
+                                            <img 
+                                                src={
+                                                    (step.photoUrl.includes('googleapis.com') || step.photoUrl.includes('googleusercontent.com'))
+                                                        ? `${API_URL}/api/photo-proxy?url=${encodeURIComponent(step.photoUrl)}`
+                                                        : step.photoUrl
+                                                } 
+                                                alt={step.venue} 
+                                                className="w-full h-full object-cover" 
+                                            />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-gray-500">No Image</div>
                                         )}

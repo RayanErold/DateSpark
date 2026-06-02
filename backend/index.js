@@ -15,6 +15,7 @@ import * as paymentService from './services/paymentService.js';
 import * as userService from './services/userService.js';
 import * as generationService from './services/generationService.js';
 import * as emailService from './services/emailService.js';
+import cron from 'node-cron';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -30,6 +31,22 @@ paymentService.initPaymentService(process.env.STRIPE_SECRET_KEY);
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+// Run every hour to archive or delete expired and incomplete plans
+cron.schedule('0 * * * *', async () => {
+    console.log('[Cron] Running plan expiration sweep...');
+    try {
+        const { error } = await supabaseAdmin
+            .from('plans')
+            .delete()
+            .lt('expires_at', new Date().toISOString())
+            .eq('is_completed', false);
+            
+        if (error) console.error('[Cron Error]', error.message);
+    } catch (err) {
+        console.error('[Cron System Error]', err);
+    }
+});
 
 app.use(cors());
 app.use(express.json({
@@ -110,11 +127,14 @@ app.post('/api/nearby-alternatives', async (req, res) => {
 
 app.get('/api/trending-plans', async (req, res) => {
     try {
-        const plans = await itineraryService.getTrendingPlans(supabase);
+        const userId = req.headers['x-user-id'] || req.query.userId;
+        const requestedLocation = req.query.location;
+        const plans = await itineraryService.getTrendingPlans(supabase, userId, requestedLocation);
         res.json(plans);
     } catch (err) {
         console.error('[TRENDING_ERROR]', err);
-        res.status(500).json({ error: err.message });
+        const status = err.status || 500;
+        res.status(status).json({ error: err.message });
     }
 });
 
@@ -495,6 +515,126 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
     }
 });
 
+app.post('/api/spark-concierge', async (req, res) => {
+    try {
+        if (!genAI) throw new Error('Gemini API is not configured.');
+        
+        const { messages, currentSettings } = req.body;
+        const settings = currentSettings || {};
+
+        const systemPrompt = `You are Sparky, an elite, ultra-premium AI Date & Trip Concierge for DateSpark.
+Your role is to help users design magical plans, custom dates, neighborhood getaways, and full single-day or multi-day travel trips.
+You must be welcoming, conversational, highly intuitive, and act like a high-end luxury hospitality concierge.
+
+CURRENT PLAN PARAMETERS DETECTED SO FAR:
+- Location/Destination: ${settings.location || 'Not set yet'}
+- Budget Level: ${settings.budget || 'Not set yet'}
+- Vibe/Style: ${settings.vibe || 'Not set yet'}
+- Number of Stops: ${settings.numActivities || 'Not set yet'}
+- Plan Date: ${settings.planDate || 'Not set yet'}
+- Plan Time: ${settings.planTime || 'Not set yet'}
+- Is it a Trip? ${settings.isTrip ? 'Yes' : 'No'}
+
+CRITICAL RULES:
+1. SEMANTIC MATCHING & RESONANCE: When the user describes their idea (even a simple one like "I was thinking of a chill night out in NYC" or "planning a trip to Paris"), validate their desire with luxury concierge flair. Provide a brief, premium advice/insider thought about that idea (e.g. "Montmartre at dusk has a magical quality," or "Brooklyn speakeasies are the best kept secret..."). Keep it high-end and inspiring.
+2. HELP WITH PLANS, DATES, AND TRIPS: Pivot smoothly if the user mentions a "trip", "travel", "vacation", or "weekend getaway" rather than a local date night.
+3. INFER PARAMETERS: From the user's input, infer or update the parameters. For example:
+   - If they mention "trip to Paris", set location to "Paris" and isTrip to true.
+   - If they mention "chill", set vibe to "chill".
+   - If they mention "celebrating our anniversary", set vibe to "romantic".
+4. CLICKABLE CHOICE OPTIONS: Always suggest 3 highly engaging, tailored clickable option pills (strings) that match the state of the conversation (e.g. ["Romantic dinner 🍷", "Museum & cafes 🎨", "Adventure parks 🧗"] or ["Classic & Elegant 💖", "Off-the-beaten-path 🗺️", "Foodie tour 🥐"]). They should feel premium, contextual, and fun.
+5. TRANSITION TO READY: You are READY to present concepts when:
+   - You have identified the location (destination/city) AND the general vibe/style, or
+   - The user asks you to generate the plan/concepts.
+   When isReady is true, suggest exactly 2 distinct, creative concepts.
+6. JSON FORMAT: You MUST return a single, valid JSON object with the following schema:
+{
+  "reply": "Warm conversational response with premium advice, thoughts, and a gentle question if not ready.",
+  "options": ["Option 1", "Option 2", "Option 3"],
+  "isReady": boolean,
+  "inferredParams": {
+    "location": string or null,
+    "budget": string or null,
+    "vibe": string or null,
+    "numActivities": number or null,
+    "planDate": string or null,
+    "planTime": string or null,
+    "isTrip": boolean
+  },
+  "concepts": [
+    {
+      "title": "Creative Concept Title (max 5 words)",
+      "description": "Inspiring description of what this concept entails (max 20 words)",
+      "tagline": "A high-end catchy tagline (max 6 words)"
+    }
+  ] (only include 2 concepts when isReady is true, otherwise empty array)
+}`;
+
+        // Format history nicely as a readable text transcript to guarantee zero alternating roles errors
+        let transcriptText = "";
+        if (messages && messages.length > 0) {
+            transcriptText = messages.map(msg => {
+                const roleName = msg.role === 'user' ? 'User' : 'Sparky';
+                const text = typeof msg === 'object' && msg !== null ? (msg.content || '') : String(msg);
+                return `${roleName}: ${text}`;
+            }).join('\n');
+        }
+
+        const prompt = `${systemPrompt}
+
+Below is the conversation transcript:
+${transcriptText || "User: Hello!"}
+
+Produce the next response in the requested JSON structure. Return ONLY a single valid JSON object.`;
+
+        let responseText = "";
+        let success = false;
+        let lastError = null;
+
+        const modelsToTry = [
+            "gemini-2.5-pro",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro"
+        ];
+
+        for (const modelName of modelsToTry) {
+            try {
+                console.log(`[Spark Concierge] Attempting generation with ${modelName}...`);
+                const model = genAI.getGenerativeModel({ 
+                    model: modelName,
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
+                });
+                const result = await model.generateContent(prompt);
+                responseText = result.response.text();
+                success = true;
+                console.log(`[Spark Concierge] Success with ${modelName}`);
+                break;
+            } catch (err) {
+                console.warn(`[Spark Concierge] Model ${modelName} failed:`, err.message || err);
+                lastError = err;
+            }
+        }
+
+        if (!success) {
+            throw lastError || new Error("All generative fallback models failed");
+        }
+
+        // Extract JSON block safely
+        const match = responseText.match(/\{[\s\S]*\}/);
+        const jsonStr = match ? match[0] : responseText;
+        const responseData = JSON.parse(jsonStr);
+
+        res.json(responseData);
+    } catch (err) {
+        console.error('[SPARK_CONCIERGE_ERROR]', err);
+        res.status(500).json({ error: 'Failed to generate response' });
+    }
+});
+
 // 2. EVENTS
 app.get('/api/events', async (req, res) => {
     const keys = {
@@ -678,8 +818,10 @@ app.get('/api/photo-proxy', async (req, res) => {
         let googleUrl = url;
         const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
         
-        // Security: Only proxy requests to Google APIs
-        if (!googleUrl.includes('places.googleapis.com') && !googleUrl.includes('maps.googleapis.com')) {
+        // Security: Only proxy requests to Google APIs / content servers
+        if (!googleUrl.includes('places.googleapis.com') && 
+            !googleUrl.includes('maps.googleapis.com') && 
+            !googleUrl.includes('googleusercontent.com')) {
             return res.status(403).json({ error: 'Forbidden: Only Google API URLs are allowed.' });
         }
 

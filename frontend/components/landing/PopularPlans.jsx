@@ -14,7 +14,9 @@ const PopularPlans = () => {
 
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl || photoUrl.includes('unsplash')) return null;
-        if (photoUrl.includes('maps.googleapis.com') || photoUrl.includes('staticmap')) {
+        
+        // Use the backend proxy for Google Places photos to bypass CORS/referrer restrictions
+        if (photoUrl.includes('googleapis.com') || photoUrl.includes('googleusercontent.com') || photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com')) {
             return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         return photoUrl;

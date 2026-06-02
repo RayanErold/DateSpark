@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import axios from 'axios';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
     Heart,
     MessageCircle,
@@ -70,7 +70,6 @@ import { useGoogleMaps } from '../../lib/googleMaps';
 import { loadStripe } from '@stripe/stripe-js';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import BottomNav from '../../components/common/BottomNav';
-import EventsTab from '../../components/dashboard/EventsTab';
 import WishlistTab from '../../components/dashboard/WishlistTab';
 import PremiumExperienceModal from '../../components/modals/PremiumExperienceModal';
 import UsageBadge from '../../components/common/UsageBadge';
@@ -128,7 +127,6 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const location = useLocation();
     const [user, setUser] = useState(null);
     const hasFetchedRef = React.useRef(false);
     const [plans, setPlans] = useState([]);
@@ -199,7 +197,6 @@ const Dashboard = () => {
         }
         return false; // Regular users default to false (strict DB sync)
     });
-    const [isAdmin, setIsAdmin] = useState(false);
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [limitType, setLimitType] = useState(null); // 'classic', 'guided', or 'swap'
@@ -224,15 +221,6 @@ const Dashboard = () => {
         return () => clearTimeout(t);
     }, []);
 
-    // Sync tab redirect from navigation state (e.g. from Vibe Feed)
-    useEffect(() => {
-        if (location.state?.initialTab) {
-            setCurrentTab(location.state.initialTab);
-            // Clear location state after reading to prevent repeating
-            navigate(location.pathname, { replace: true, state: {} });
-        }
-    }, [location.state, navigate]);
-
     // --- SWITCH UP STATE ---
     const [isSwitchingUp, setIsSwitchingUp] = useState(false);
     const [alternatives, setAlternatives] = useState([]);
@@ -256,7 +244,7 @@ const Dashboard = () => {
     const [userCity, setUserCity] = useState('New York');
 
     useEffect(() => {
-        if (currentTab === 'vibe') {
+        if (currentTab === 'vibe' || currentTab === 'discovery') {
             navigate('/vibe-feed');
         }
     }, [currentTab]);
@@ -413,9 +401,7 @@ const Dashboard = () => {
                 ]);
 
                 if (premRes.ok) {
-                    const premData = await premRes.json();
-                    const dbStatus = premData.isPremium;
-                    setIsAdmin(premData.isAdmin || false);
+                    const { isPremium: dbStatus } = await premRes.json();
                     if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
                         const manualChoice = localStorage.getItem('isPremium');
                         if (manualChoice !== null) setIsPremium(manualChoice === 'true');
@@ -543,10 +529,6 @@ const Dashboard = () => {
                 lat: overrides.lat,
                 lng: overrides.lng,
                 budget: overrides.budget,
-                numActivities: overrides.numActivities,
-                radius: overrides.radius,
-                planDate: overrides.planDate,
-                planTime: overrides.planTime,
                 type: 'classic'
             });
 
@@ -782,8 +764,7 @@ const Dashboard = () => {
                 ]);
 
                 if (premRes.ok) {
-                    const data = await premRes.json();
-                    setIsAdmin(data.isAdmin || false);
+                    const data = await premRes.ok ? await premRes.json() : { isPremium: false };
 
                     // Admin Special Logic: Sync with DB but respect manual toggle for testing
                     if (import.meta.env.DEV && user?.email?.toLowerCase() === 'rayanerold@gmail.com') {
@@ -822,8 +803,7 @@ const Dashboard = () => {
                         const response = await fetch(`/api/user-premium/${user.id}`);
                         if (response.ok) {
                             const data = await response.json();
-                            const { isPremium: dbStatus, isAdmin: dbAdmin, premium_expiry, referral_code, referral_count } = data;
-                            setIsAdmin(dbAdmin || false);
+                            const { isPremium: dbStatus, premium_expiry, referral_code, referral_count } = data;
 
                             // Check if premium via boolean OR via active expiry
                             const now = new Date();
@@ -2458,34 +2438,28 @@ const Dashboard = () => {
                                         Explore Nearby
                                     </h3>
                                     <button 
-                                        onClick={() => setCurrentTab('events')}
+                                        onClick={() => setCurrentTab('wishlist')}
                                         className="text-[10px] font-black text-coral hover:underline uppercase tracking-widest"
                                     >
-                                        View All Events
+                                        Spark Wishlist ⚡
                                     </button>
                                 </div>
                                 <NearbyMapWidget
                                     globalTrendingPlans={globalTrendingPlans}
                                     isLoaded={isLoaded}
-                                    onFindEvents={() => setCurrentTab('events')}
+                                    onFindEvents={() => setCurrentTab('wishlist')}
                                 />
                             </div>
 
-                            {/* Spark Studio AI Call-to-action Banner under the Map for Mobile */}
-                            <div 
-                                onClick={() => setCurrentTab('studio')}
-                                className="bg-gradient-to-r from-coral to-orange-500 rounded-2xl p-4.5 text-white shadow-xl shadow-coral/15 flex items-center justify-between cursor-pointer group active:scale-98 transition-all"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center animate-pulse">
-                                        <Wand2 className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-black uppercase tracking-wider">Spark Studio AI</h4>
-                                        <p className="text-[10px] text-white/80 font-bold mt-0.5">Co-create your perfect date in real time</p>
-                                    </div>
-                                </div>
-                                <ArrowRight className="w-4 h-4 text-white transition-transform group-hover:translate-x-1" />
+                            {/* Spark AI UI (DateArchitectChat) under the Map for Mobile */}
+                            <div className="bg-white rounded-xl border border-orange-100/60 p-1.5 shadow-[0_8px_30px_rgba(255,127,80,0.04)]">
+                                <DateArchitectChat
+                                    userId={user?.id}
+                                    onConceptSelected={(concept, settings) => {
+                                        handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
+                                    }}
+                                    onSettingsChange={() => {}}
+                                />
                             </div>
                         </div>
 
@@ -2524,25 +2498,18 @@ const Dashboard = () => {
                         <NearbyMapWidget
                             globalTrendingPlans={globalTrendingPlans}
                             isLoaded={isLoaded}
-                            onFindEvents={() => setCurrentTab('events')}
+                            onFindEvents={() => setCurrentTab('wishlist')}
                         />
 
-                        {/* Spark Studio AI Call-to-action Banner under the Map for Desktop */}
-                        <div 
-                            onClick={() => setCurrentTab('studio')}
-                            className="bg-gradient-to-r from-coral to-orange-500 rounded-3xl p-5 text-white shadow-xl shadow-coral/15 flex items-center justify-between cursor-pointer group hover:brightness-105 active:scale-98 transition-all relative overflow-hidden"
-                        >
-                            <div className="absolute -right-8 -top-8 w-24 h-24 bg-white/10 rounded-full blur-xl" />
-                            <div className="flex items-center gap-3.5 z-10">
-                                <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center animate-pulse">
-                                    <Wand2 className="w-5.5 h-5.5 text-white" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-black uppercase tracking-wider">Spark Studio AI</h4>
-                                    <p className="text-xs text-white/80 font-medium mt-0.5">Co-create your perfect date in real time</p>
-                                </div>
-                            </div>
-                            <ArrowRight className="w-5 h-5 text-white transition-transform group-hover:translate-x-1 z-10" />
+                        {/* Spark AI UI (DateArchitectChat) under the Map for Desktop */}
+                        <div className="bg-white rounded-xl border border-orange-100/60 p-1.5 shadow-[0_8px_30px_rgba(255,127,80,0.04)]">
+                            <DateArchitectChat
+                                userId={user?.id}
+                                onConceptSelected={(concept, settings) => {
+                                    handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
+                                }}
+                                onSettingsChange={() => {}}
+                            />
                         </div>
 
                     </div> {/* End of Right Sidebar */}
@@ -2575,8 +2542,8 @@ const Dashboard = () => {
                                         <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium`}>Community ideas from other couples — preview here, or save from Discovery.</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setCurrentTab('events')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
-                                    See Events <ChevronRight className="w-4 h-4" />
+                                <button onClick={() => setCurrentTab('wishlist')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-xs font-bold hover:bg-navy/90 transition-all">
+                                    Spark Wishlist <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="flex overflow-x-auto gap-4 md:gap-8 px-4 md:px-0 pb-10 snap-x snap-mandatory scrollbar-hide">
@@ -2673,7 +2640,195 @@ const Dashboard = () => {
         </div>
     );
 
+    const renderDiscovery = () => {
+        const remaining = Math.max(0, globalTrendingPlans.length - swipeIndex);
+        const progress = globalTrendingPlans.length > 0
+            ? Math.min(100, (swipeIndex / globalTrendingPlans.length) * 100)
+            : 0;
 
+        return (
+            <div className="animate-in fade-in duration-500 flex flex-col min-h-[80vh]">
+
+                {/* ── CINEMATIC HEADER ── */}
+                <div className={`relative overflow-hidden rounded-3xl mx-4 mb-6 ${appTheme === 'dark' ? 'bg-navy' : 'bg-gradient-to-br from-[#0d1b2a] via-[#1a2b3c] to-[#0a1628]'}`}>
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-coral/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
+                    <div className="relative z-10 px-5 pt-5 pb-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <button
+                                onClick={() => setCurrentTab('home')}
+                                className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-black uppercase tracking-widest group"
+                            >
+                                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+                                Back
+                            </button>
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-coral/20 border border-coral/30 rounded-full">
+                                <Flame className="w-3 h-3 fill-coral text-coral" />
+                                <span className="text-[10px] font-black text-coral uppercase tracking-widest">Discovery Mode</span>
+                            </div>
+                        </div>
+                        <h2 className="text-3xl font-black text-white tracking-tight mb-1">
+                            Today's Top Sparks <span className="inline-block animate-bounce">🔥</span>
+                        </h2>
+                        <p className="text-white/40 text-xs font-medium mb-5">
+                            Swipe right to save · Left to pass · Tap card to preview
+                        </p>
+                        {globalTrendingPlans.length > 0 && (
+                            <div className="mb-4">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Spark Meter</span>
+                                    <span className="text-[10px] font-black text-white/60">
+                                        {remaining > 0 ? `${remaining} left` : 'All done!'}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-coral to-orange-400 rounded-full transition-all duration-500 ease-out"
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        <div className="hidden md:flex items-center gap-3">
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg text-[10px] font-black text-white/40 border border-white/10 uppercase tracking-tighter">
+                                <kbd className="font-sans">←</kbd> Pass
+                            </span>
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-coral/10 rounded-lg text-[10px] font-black text-coral border border-coral/20 uppercase tracking-tighter">
+                                <kbd className="font-sans">→</kbd> Like &amp; Save
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── SWIPE STACK ── */}
+                <div className="flex-1 relative flex flex-col items-center justify-start px-4">
+                    {globalTrendingPlans.length > 0 ? (
+                        <>
+                            <div className="relative w-full max-w-[440px] h-[520px]">
+                                <div className="absolute inset-0 bg-gradient-to-br from-coral/10 to-violet-500/5 blur-3xl -z-10 rounded-full scale-125 opacity-40" />
+                                {globalTrendingPlans.slice(swipeIndex, swipeIndex + 3).reverse().map((plan, i) => {
+                                    const isTop = i === 2 || (globalTrendingPlans.length - swipeIndex < 3 && i === (globalTrendingPlans.length - swipeIndex - 1));
+                                    return (
+                                        <div key={plan.id} className="absolute inset-0 transform transition-all duration-300">
+                                            <SwipeCard
+                                                plan={plan}
+                                                isTop={isTop}
+                                                theme={appTheme}
+                                                onSwipe={(dir) => {
+                                                    if (dir === 'right') handleToggleFavorite(plan);
+                                                    setSwipeIndex(prev => prev + 1);
+                                                }}
+                                                onView={() => setSelectedPlan(plan)}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                                {swipeIndex >= globalTrendingPlans.length && (
+                                    <div className={`flex flex-col items-center justify-center h-full text-center p-10 rounded-[3rem] border-2 border-dashed animate-in zoom-in-95 duration-500 ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner ${appTheme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                                            <Sparkles className="w-10 h-10 text-coral animate-pulse" />
+                                        </div>
+                                        <h3 className={`text-2xl font-black tracking-tight mb-2 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>You're all caught up!</h3>
+                                        <p className={`text-[13px] font-medium leading-relaxed max-w-[220px] mx-auto mb-8 ${appTheme === 'dark' ? 'text-white/40' : 'text-navy/50'}`}>
+                                            You've seen all today's top sparks. New dates appear daily!
+                                        </p>
+                                        <div className="flex flex-col gap-3 w-full">
+                                            <button
+                                                onClick={() => setSwipeIndex(0)}
+                                                className="w-full py-3.5 bg-gradient-to-r from-coral to-orange-500 text-white font-black rounded-2xl active:scale-95 transition-all shadow-xl shadow-coral/30 flex items-center justify-center gap-2 group"
+                                            >
+                                                <History className="w-4 h-4 group-hover:-rotate-180 transition-transform duration-500" />
+                                                Explore Again
+                                            </button>
+                                            <button
+                                                onClick={() => setCurrentTab('plans')}
+                                                className={`w-full py-3.5 font-black rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2 border ${appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-navy/5 border-navy/10 text-navy'}`}
+                                            >
+                                                <Calendar className="w-4 h-4" />
+                                                View My Plans
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── ACTION BUTTONS ── */}
+                            {swipeIndex < globalTrendingPlans.length && (
+                                <div className="mt-10 flex items-center justify-center gap-6 animate-in slide-in-from-bottom-4 duration-700">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <button
+                                            onClick={() => setSwipeIndex(prev => prev + 1)}
+                                            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg group border-2 ${appTheme === 'dark' ? 'bg-white/10 border-white/20 hover:bg-red-500/20 hover:border-red-400/50' : 'bg-white border-gray-200 hover:border-red-300 hover:shadow-red-100'}`}
+                                            title="Pass"
+                                        >
+                                            <X className="w-7 h-7 text-gray-400 group-hover:text-red-500 transition-colors" />
+                                        </button>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pass</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const plan = globalTrendingPlans[swipeIndex];
+                                                if (plan) setSelectedPlan(plan);
+                                            }}
+                                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-md group border-2 ${appTheme === 'dark' ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white border-gray-200 hover:border-navy/30'}`}
+                                            title="Preview Plan"
+                                        >
+                                            <Sparkles className="w-5 h-5 text-violet-400 group-hover:text-violet-500 transition-colors" />
+                                        </button>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Preview</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const plan = globalTrendingPlans[swipeIndex];
+                                                if (plan) handleToggleFavorite(plan);
+                                                setSwipeIndex(prev => prev + 1);
+                                            }}
+                                            className="w-16 h-16 bg-gradient-to-br from-coral to-orange-500 rounded-full flex items-center justify-center shadow-xl shadow-coral/30 hover:shadow-coral/50 active:scale-95 transition-all group"
+                                            title="Like & Save"
+                                        >
+                                            <Heart className="w-7 h-7 text-white fill-white transition-transform group-hover:scale-110" />
+                                        </button>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-coral">Save</span>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : isTrendingLoading ? (
+                        <div className="flex flex-col items-center gap-6 py-20">
+                            <div className="relative">
+                                <div className="w-16 h-16 rounded-full bg-coral/10 flex items-center justify-center">
+                                    <Loader2 className="w-8 h-8 text-coral animate-spin" />
+                                </div>
+                                <div className="absolute inset-0 rounded-full bg-coral/5 animate-ping" />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-gray-500 font-black text-sm tracking-widest animate-pulse uppercase">Scanning the city...</p>
+                                <p className="text-gray-400 text-xs font-medium mt-1">Finding the best date spots near you</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={`flex flex-col items-center justify-center text-center p-12 rounded-3xl border mx-auto max-w-sm w-full ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
+                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+                                <Compass className="w-8 h-8 text-gray-200" />
+                            </div>
+                            <h3 className={`text-xl font-black mb-2 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>No sparks yet</h3>
+                            <p className="text-gray-400 text-xs font-medium max-w-[200px] leading-relaxed">
+                                Be the first to spark the community! Create and share a plan.
+                            </p>
+                            <button
+                                onClick={() => setCurrentTab('home')}
+                                className="mt-8 px-8 py-3 bg-gradient-to-r from-coral to-orange-500 text-white font-black rounded-xl text-xs shadow-lg shadow-coral/25"
+                            >
+                                Back Home
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     const renderAccount = () => {
 
@@ -3080,17 +3235,6 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Admin Dashboard Entry */}
-                {isAdmin && (
-                    <Link
-                        to="/admin"
-                        className="w-full mb-4 py-4 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 text-white font-black text-xs uppercase tracking-[0.2em] hover:opacity-90 rounded-2xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 group"
-                    >
-                        <Settings className="w-4 h-4 transition-transform group-hover:rotate-45" />
-                        🛡️ Administrative Console
-                    </Link>
-                )}
-
                 {/* Visible Logout */}
                 <button
                     onClick={handleSignOut}
@@ -3101,246 +3245,6 @@ const Dashboard = () => {
                 </button>
 
                 <p className="text-[10px] text-gray-200 font-black text-center pt-8 uppercase tracking-[0.4em]">DateSpark v2.5 Master • Made for Couples</p>
-            </div>
-        );
-    };
-
-    const renderStudio = () => {
-        return (
-            <div className="animate-in fade-in duration-500 flex flex-col min-h-[85vh] pt-4 pb-12">
-                {/* ── CINEMATIC HEADER ── */}
-                <div className={`relative overflow-hidden rounded-3xl mx-4 mb-6 ${appTheme === 'dark' ? 'bg-[#1e293b]' : 'bg-gradient-to-br from-[#0d1b2a] via-[#1a2b3c] to-[#0a1628]'}`}>
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-coral/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-                    <div className="relative z-10 px-5 pt-5 pb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <button
-                                onClick={() => setCurrentTab('home')}
-                                className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-black uppercase tracking-widest group"
-                            >
-                                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-                                Dashboard
-                            </button>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-coral/20 border border-coral/30 rounded-full animate-pulse">
-                                <Sparkles className="w-3 h-3 text-coral" />
-                                <span className="text-[10px] font-black text-coral uppercase tracking-widest">AI Creative Studio</span>
-                            </div>
-                        </div>
-                        <h2 className="text-3xl font-black text-white tracking-tight mb-1">
-                            Spark Studio <span className="inline-block animate-bounce">⚡</span>
-                        </h2>
-                        <p className="text-white/40 text-xs font-medium">
-                            Co-create, adjust, and customize your dream date with our high-fidelity AI copilot
-                        </p>
-                    </div>
-                </div>
-
-                {/* ── AI PLANNER INTERFACE ── */}
-                <div className="mx-4 bg-white rounded-3xl border border-orange-100/60 p-3 shadow-[0_12px_40px_rgba(255,127,80,0.06)] animate-in slide-in-from-bottom-4 duration-500">
-                    <DateArchitectChat
-                        userId={user?.id}
-                        onConceptSelected={(concept, settings) => {
-                            handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
-                        }}
-                        onSettingsChange={() => {}}
-                        onPlanSaved={(savedPlan) => {
-                            setPlans(prev => [savedPlan, ...prev]);
-                            setSelectedPlan(savedPlan);
-                            setToastMessage('Sparked a new date! ⚡');
-                            setCurrentTab('plans');
-                        }}
-                    />
-                </div>
-            </div>
-        );
-    };
-
-    const renderDiscovery = () => {
-        const remaining = Math.max(0, globalTrendingPlans.length - swipeIndex);
-        const progress = globalTrendingPlans.length > 0
-            ? Math.min(100, (swipeIndex / globalTrendingPlans.length) * 100)
-            : 0;
-
-        return (
-            <div className="animate-in fade-in duration-500 flex flex-col min-h-[80vh]">
-
-                {/* ── CINEMATIC HEADER ── */}
-                <div className={`relative overflow-hidden rounded-3xl mx-4 mb-6 ${appTheme === 'dark' ? 'bg-navy' : 'bg-gradient-to-br from-[#0d1b2a] via-[#1a2b3c] to-[#0a1628]'}`}>
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-coral/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-                    <div className="relative z-10 px-5 pt-5 pb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <button
-                                onClick={() => setCurrentTab('home')}
-                                className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-black uppercase tracking-widest group"
-                            >
-                                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-                                Back
-                            </button>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-coral/20 border border-coral/30 rounded-full">
-                                <Flame className="w-3 h-3 fill-coral text-coral" />
-                                <span className="text-[10px] font-black text-coral uppercase tracking-widest">Discovery Mode</span>
-                            </div>
-                        </div>
-                        <h2 className="text-3xl font-black text-white tracking-tight mb-1">
-                            Today's Top Sparks <span className="inline-block animate-bounce">🔥</span>
-                        </h2>
-                        <p className="text-white/40 text-xs font-medium mb-5">
-                            Swipe right to save · Left to pass · Tap card to preview
-                        </p>
-                        {globalTrendingPlans.length > 0 && (
-                            <div className="mb-4">
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Spark Meter</span>
-                                    <span className="text-[10px] font-black text-white/60">
-                                        {remaining > 0 ? `${remaining} left` : 'All done!'}
-                                    </span>
-                                </div>
-                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-coral to-orange-400 rounded-full transition-all duration-500 ease-out"
-                                        style={{ width: `${progress}%` }}
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        <div className="hidden md:flex items-center gap-3">
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg text-[10px] font-black text-white/40 border border-white/10 uppercase tracking-tighter">
-                                <kbd className="font-sans">←</kbd> Pass
-                            </span>
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-coral/10 rounded-lg text-[10px] font-black text-coral border border-coral/20 uppercase tracking-tighter">
-                                <kbd className="font-sans">→</kbd> Like &amp; Save
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── SWIPE STACK ── */}
-                <div className="flex-1 relative flex flex-col items-center justify-start px-4">
-                    {globalTrendingPlans.length > 0 ? (
-                        <>
-                            <div className="relative w-full max-w-[440px] h-[520px]">
-                                <div className="absolute inset-0 bg-gradient-to-br from-coral/10 to-violet-500/5 blur-3xl -z-10 rounded-full scale-125 opacity-40" />
-                                {globalTrendingPlans.slice(swipeIndex, swipeIndex + 3).reverse().map((plan, i) => {
-                                    const isTop = i === 2 || (globalTrendingPlans.length - swipeIndex < 3 && i === (globalTrendingPlans.length - swipeIndex - 1));
-                                    return (
-                                        <div key={plan.id} className="absolute inset-0 transform transition-all duration-300">
-                                            <SwipeCard
-                                                plan={plan}
-                                                isTop={isTop}
-                                                theme={appTheme}
-                                                onSwipe={(dir) => {
-                                                    if (dir === 'right') handleToggleFavorite(plan);
-                                                    setSwipeIndex(prev => prev + 1);
-                                                }}
-                                                onView={() => setSelectedPlan(plan)}
-                                            />
-                                        </div>
-                                    );
-                                })}
-                                {swipeIndex >= globalTrendingPlans.length && (
-                                    <div className={`flex flex-col items-center justify-center h-full text-center p-10 rounded-[3rem] border-2 border-dashed animate-in zoom-in-95 duration-500 ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner ${appTheme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
-                                            <Sparkles className="w-10 h-10 text-coral animate-pulse" />
-                                        </div>
-                                        <h3 className={`text-2xl font-black tracking-tight mb-2 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>You're all caught up!</h3>
-                                        <p className={`text-[13px] font-medium leading-relaxed max-w-[220px] mx-auto mb-8 ${appTheme === 'dark' ? 'text-white/40' : 'text-navy/50'}`}>
-                                            You've seen all today's top sparks. New dates appear daily!
-                                        </p>
-                                        <div className="flex flex-col gap-3 w-full">
-                                            <button
-                                                onClick={() => setSwipeIndex(0)}
-                                                className="w-full py-3.5 bg-gradient-to-r from-coral to-orange-500 text-white font-black rounded-2xl active:scale-95 transition-all shadow-xl shadow-coral/30 flex items-center justify-center gap-2 group"
-                                            >
-                                                <History className="w-4 h-4 group-hover:-rotate-180 transition-transform duration-500" />
-                                                Explore Again
-                                            </button>
-                                            <button
-                                                onClick={() => setCurrentTab('plans')}
-                                                className={`w-full py-3.5 font-black rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2 border ${appTheme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-navy/5 border-navy/10 text-navy'}`}
-                                            >
-                                                <Calendar className="w-4 h-4" />
-                                                View My Plans
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ── ACTION BUTTONS ── */}
-                            {swipeIndex < globalTrendingPlans.length && (
-                                <div className="mt-10 flex items-center justify-center gap-6 animate-in slide-in-from-bottom-4 duration-700">
-                                    <div className="flex flex-col items-center gap-2">
-                                        <button
-                                            onClick={() => setSwipeIndex(prev => prev + 1)}
-                                            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg group border-2 ${appTheme === 'dark' ? 'bg-white/10 border-white/20 hover:bg-red-500/20 hover:border-red-400/50' : 'bg-white border-gray-200 hover:border-red-300 hover:shadow-red-100'}`}
-                                            title="Pass"
-                                        >
-                                            <X className="w-7 h-7 text-gray-400 group-hover:text-red-500 transition-colors" />
-                                        </button>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pass</span>
-                                    </div>
-                                    <div className="flex flex-col items-center gap-2">
-                                        <button
-                                            onClick={() => {
-                                                const plan = globalTrendingPlans[swipeIndex];
-                                                if (plan) setSelectedPlan(plan);
-                                            }}
-                                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-md group border-2 ${appTheme === 'dark' ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white border-gray-200 hover:border-navy/30'}`}
-                                            title="Preview Plan"
-                                        >
-                                            <Sparkles className="w-5 h-5 text-violet-400 group-hover:text-violet-500 transition-colors" />
-                                        </button>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Preview</span>
-                                    </div>
-                                    <div className="flex flex-col items-center gap-2">
-                                        <button
-                                            onClick={() => {
-                                                const plan = globalTrendingPlans[swipeIndex];
-                                                if (plan) handleToggleFavorite(plan);
-                                                setSwipeIndex(prev => prev + 1);
-                                            }}
-                                            className="w-16 h-16 bg-gradient-to-br from-coral to-orange-500 rounded-full flex items-center justify-center shadow-xl shadow-coral/30 hover:shadow-coral/50 active:scale-95 transition-all group"
-                                            title="Like & Save"
-                                        >
-                                            <Heart className="w-7 h-7 text-white fill-white transition-transform group-hover:scale-110" />
-                                        </button>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-coral">Save</span>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    ) : isTrendingLoading ? (
-                        <div className="flex flex-col items-center gap-6 py-20">
-                            <div className="relative">
-                                <div className="w-16 h-16 rounded-full bg-coral/10 flex items-center justify-center">
-                                    <Loader2 className="w-8 h-8 text-coral animate-spin" />
-                                </div>
-                                <div className="absolute inset-0 rounded-full bg-coral/5 animate-ping" />
-                            </div>
-                            <div className="text-center">
-                                <p className="text-gray-500 font-black text-sm tracking-widest animate-pulse uppercase">Scanning the city...</p>
-                                <p className="text-gray-400 text-xs font-medium mt-1">Finding the best date spots near you</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className={`flex flex-col items-center justify-center text-center p-12 rounded-3xl border mx-auto max-w-sm w-full ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
-                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                                <Compass className="w-8 h-8 text-gray-200" />
-                            </div>
-                            <h3 className={`text-xl font-black mb-2 ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>No sparks yet</h3>
-                            <p className="text-gray-400 text-xs font-medium max-w-[200px] leading-relaxed">
-                                Be the first to spark the community! Create and share a plan.
-                            </p>
-                            <button
-                                onClick={() => setCurrentTab('home')}
-                                className="mt-8 px-8 py-3 bg-gradient-to-r from-coral to-orange-500 text-white font-black rounded-xl text-xs shadow-lg shadow-coral/25"
-                            >
-                                Back Home
-                            </button>
-                        </div>
-                    )}
-                </div>
             </div>
         );
     };
@@ -3444,8 +3348,46 @@ const Dashboard = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Desktop-only Tab Navigation - Removed as requested */}
-
+                        {/* Desktop-only Tab Navigation */}
+                        <nav className={`hidden md:flex items-center p-1 rounded-2xl border transition-colors ${appTheme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-100 border-gray-200'
+                            }`}>
+                            <button
+                                onClick={() => setCurrentTab('home')}
+                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'home'
+                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                    }`}
+                            >
+                                Home
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('events')}
+                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'events'
+                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                    }`}
+                            >
+                                Events
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('favorites')}
+                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'favorites'
+                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                    }`}
+                            >
+                                Favorites
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('discovery')}
+                                className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentTab === 'discovery'
+                                    ? (appTheme === 'dark' ? 'bg-white text-navy shadow-lg' : 'bg-white text-navy shadow-sm')
+                                    : (appTheme === 'dark' ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-navy')
+                                    }`}
+                            >
+                                Discovery
+                            </button>
+                        </nav>
 
                         <div className="flex items-center gap-4 relative">
                             {/* CLEARLY VISIBLE UPGRADE ICON/BUTTON */}
@@ -3587,49 +3529,28 @@ const Dashboard = () => {
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Dashboard</span>}
                         </button>
 
-                        {/* Explore */}
+                        {/* Wishlist */}
                         <button
-                            onClick={() => { setCurrentTab('discovery'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'discovery'
-                                    ? 'bg-coral/5 text-coral font-black shadow-sm'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Compass className={`w-5 h-5 shrink-0 ${currentTab === 'discovery' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Explore</span>}
-                        </button>
-
-                        {/* Spark Studio */}
-                        <button
-                            onClick={() => { setCurrentTab('studio'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'studio'
-                                    ? 'bg-coral/5 text-coral font-black shadow-sm'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Wand2 className={`w-5 h-5 shrink-0 ${currentTab === 'studio' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Spark Studio</span>}
-                        </button>
-
-                        {/* My Feed */}
-                        <button
-                            onClick={() => { navigate('/vibe-feed'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all text-slate-500 hover:bg-gray-50 hover:text-navy ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Sparkles className="w-5 h-5 shrink-0 text-slate-400" />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">My Feed</span>}
-                        </button>
-
-                        {/* Events */}
-                        <button
-                            onClick={() => { setCurrentTab('events'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'events'
+                            onClick={() => { setCurrentTab('wishlist'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'wishlist'
                                     ? 'bg-coral/5 text-coral'
                                     : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
                                 } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
                         >
-                            <Ticket className={`w-5 h-5 shrink-0 ${currentTab === 'events' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Events</span>}
+                            <Gift className={`w-5 h-5 shrink-0 ${currentTab === 'wishlist' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Wishlist</span>}
+                        </button>
+
+                        {/* Profile & Settings embedded */}
+                        <button
+                            onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'account'
+                                    ? 'bg-coral/5 text-coral'
+                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
+                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
+                        >
+                            <Settings className={`w-5 h-5 shrink-0 ${currentTab === 'account' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Settings</span>}
                         </button>
 
                         {/* Favorites */}
@@ -3656,28 +3577,27 @@ const Dashboard = () => {
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">My Plans</span>}
                         </button>
 
-                        {/* Wishlist */}
+                        {/* History */}
                         <button
-                            onClick={() => { setCurrentTab('wishlist'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'wishlist'
+                            onClick={() => { setCurrentTab('plans'); setActiveTab('favorites'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'plans' && activeTab === 'favorites'
                                     ? 'bg-coral/5 text-coral'
                                     : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
                                 } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
                         >
-                            <Gift className={`w-5 h-5 shrink-0 ${currentTab === 'wishlist' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Wishlist</span>}
+                            <History className={`w-5 h-5 shrink-0 ${currentTab === 'plans' && activeTab === 'favorites' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">History</span>}
                         </button>
-
-                        {/* Profile & Settings embedded */}
+                        {/* Discovery */}
                         <button
-                            onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'account'
+                            onClick={() => { setCurrentTab('discovery'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'discovery'
                                     ? 'bg-coral/5 text-coral'
                                     : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
                                 } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
                         >
-                            <Settings className={`w-5 h-5 shrink-0 ${currentTab === 'account' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Settings</span>}
+                            <Sparkles className={`w-5 h-5 shrink-0 ${currentTab === 'discovery' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Discovery</span>}
                         </button>
                     </nav>
 
@@ -3724,22 +3644,10 @@ const Dashboard = () => {
                             transition={{ duration: 0.3, ease: "easeOut" }}
                         >
                             {currentTab === 'home' && renderOverview()}
-                            {currentTab === 'discovery' && renderDiscovery()}
-                            {currentTab === 'studio' && renderStudio()}
                             {currentTab === 'favorites' && renderFavorites()}
                             {currentTab === 'plans' && renderMyPlans()}
-                            {currentTab === 'wishlist' && (
-                                <WishlistTab 
-                                    appTheme={appTheme} 
-                                    userId={user?.id}
-                                    setToastMessage={setToastMessage} 
-                                    onSparkWish={async (title, category) => {
-                                        await handleGeneratePlan(`${title} (${category} wish)`, { vibe: category });
-                                        setCurrentTab('plans');
-                                    }}
-                                />
-                            )}
-                            {currentTab === 'events' && <EventsTab appTheme={appTheme} userCity={userCity} setToastMessage={setToastMessage} />}
+                            {currentTab === 'discovery' && renderDiscovery()}
+                            {(currentTab === 'events' || currentTab === 'wishlist') && <WishlistTab appTheme={appTheme} setToastMessage={setToastMessage} />}
                             {currentTab === 'account' && renderAccount()}
                         </motion.div>
                     </AnimatePresence>
@@ -4397,9 +4305,8 @@ const Dashboard = () => {
                                             mapContainerStyle={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
                                             center={
                                                 (() => {
-                                                    const steps = selectedPlan.activities || 
-                                                                  (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || []);
-                                                    const firstValidStep = steps.find(s => s.lat !== undefined && s.lng !== undefined && s.lat !== null && s.lng !== null);
+                                                    const steps = Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [];
+                                                    const firstValidStep = steps.find(s => typeof s.lat === 'number' && typeof s.lng === 'number');
                                                     return firstValidStep
                                                         ? { lat: Number(firstValidStep.lat), lng: Number(firstValidStep.lng) }
                                                         : { lat: 40.7128, lng: -74.0060 };
@@ -4413,19 +4320,15 @@ const Dashboard = () => {
                                             }}
                                         >
                                             {/* Markers for each step */}
-                                            {(() => {
-                                                const steps = selectedPlan.activities || 
-                                                              (Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || []);
-                                                return steps
-                                                    .filter(step => step.lat !== undefined && step.lng !== undefined && step.lat !== null && step.lng !== null)
-                                                    .map((step, idx) => (
-                                                        <Marker
-                                                            key={idx}
-                                                            position={{ lat: Number(step.lat), lng: Number(step.lng) }}
-                                                            label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
-                                                        />
-                                                    ));
-                                            })()}
+                                            {(Array.isArray(selectedPlan.itinerary) ? selectedPlan.itinerary : selectedPlan.itinerary?.steps || [])
+                                                .filter(step => typeof step.lat === 'number' && typeof step.lng === 'number')
+                                                .map((step, idx) => (
+                                                    <Marker
+                                                        key={idx}
+                                                        position={{ lat: Number(step.lat), lng: Number(step.lng) }}
+                                                        label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }}
+                                                    />
+                                                ))}
                                         </GoogleMap>
                                     </div>
                                 ) : (

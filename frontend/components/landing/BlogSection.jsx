@@ -24,6 +24,15 @@ const BlogSection = () => {
         },
         {
             id: 3,
+            date: 'May 29, 2026',
+            author: 'Sparky AI Concierge',
+            title: 'Sparking Connection: The DateSpark Guide to Curating Unforgettable Itineraries',
+            excerpt: 'Stop asking "What do you want to do tonight?" and discover our highly curated, dynamic date plans for Brooklyn, California Coves, Paris, and more.',
+            image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&q=80',
+            category: 'Date Ideas'
+        },
+        {
+            id: 4,
             date: 'March 30, 2026',
             author: 'Sarah Jenkins',
             title: '5 Hidden Gems in the West Village You Won’t Find on Yelp',
@@ -66,7 +75,7 @@ const BlogSection = () => {
                     </motion.button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                     {posts.map((post, idx) => (
                         <motion.article
                             key={post.id}

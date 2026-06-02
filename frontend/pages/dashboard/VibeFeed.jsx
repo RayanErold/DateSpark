@@ -242,7 +242,7 @@ const VibeFeed = () => {
                 <p className="text-white/40 text-sm mb-8">We couldn't find any date discovery videos in your area yet.</p>
                 <div className="fixed bottom-0 left-0 right-0">
                     <BottomNav currentTab="vibe" onTabChange={(tab) => {
-                        if (tab === 'home') navigate('/dashboard');
+                        if (tab !== 'vibe') navigate('/dashboard', { state: { initialTab: tab } });
                     }} />
                 </div>
             </div>
@@ -289,7 +289,7 @@ const VibeFeed = () => {
                     <BottomNav 
                         currentTab="vibe" 
                         onTabChange={(tab) => {
-                            if (tab === 'home') navigate('/dashboard');
+                            if (tab !== 'vibe') navigate('/dashboard', { state: { initialTab: tab } });
                         }}
                     />
                 </div>
