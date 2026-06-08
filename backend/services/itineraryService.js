@@ -304,10 +304,21 @@ export const generateAIDate = async (params) => {
                 const result = await model.generateContent(fallbackPrompt);
                 const data = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0]);
                 console.log(`[ItineraryService Fallback] Success with ${modelName}`);
+
+                // Enrich fallback steps with real places
+                const rawSteps = data.steps || data.itinerary || [];
+                if (rawSteps.length > 0) {
+                    const city = params.city || params.location || 'NYC';
+                    const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
+                    const radius = params.neighborhoodLock ? 800 : (params.radius || 15000);
+                    const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords, radius);
+                    data.steps = enrichedSteps;
+                }
+
                 return { 
                     source: `NATIVE_GEMINI_FALLBACK_${modelName.toUpperCase().replace(/-/g, '_')}`, 
                     data, 
-                    enriched: false 
+                    enriched: true 
                 };
             } catch (err) {
                 console.warn(`[ItineraryService Fallback] Model ${modelName} failed:`, err.message);

@@ -105,9 +105,9 @@ const DateArchitectChat = ({
     
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl || photoUrl.includes('unsplash')) return null;
+        if (photoUrl.includes('googleusercontent.com')) return photoUrl;
         if (photoUrl.includes('places.googleapis.com') || 
             photoUrl.includes('maps.googleapis.com') || 
-            photoUrl.includes('googleusercontent.com') ||
             photoUrl.includes('staticmap')) {
             return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
@@ -199,9 +199,12 @@ const DateArchitectChat = ({
                                     const place = results[0];
                                     let newPhotoUrl = act.photoUrl;
                                     
-                                    if (place.photos && place.photos.length > 0) {
-                                        newPhotoUrl = place.photos[0].getUrl({ maxWidth: 800 });
-                                    }
+                                     if (place.photos && place.photos.length > 0) {
+                                         const photo = place.photos[0];
+                                         newPhotoUrl = photo.photo_reference
+                                             ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}`
+                                             : photo.getUrl({ maxWidth: 800 });
+                                     }
 
                                     enrichedSteps[i] = { 
                                         ...act, 
@@ -864,7 +867,7 @@ const DateArchitectChat = ({
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') handleConfirmCustomLocation();
                                         }}
-                                        className="bg-white border border-orange-200 text-navy text-xs rounded-xl px-2.5 py-1.5 outline-none w-full font-bold"
+                                        className="bg-white border border-orange-200 text-navy text-base md:text-xs rounded-xl px-2.5 py-1.5 outline-none w-full font-bold focus:text-lg transition-all"
                                     />
                                 </div>
                                 <button
@@ -930,7 +933,7 @@ const DateArchitectChat = ({
                                         type="date"
                                         value={customDate}
                                         onChange={(e) => setCustomDate(e.target.value)}
-                                        className="bg-white border border-orange-200 text-navy text-xs rounded-xl px-2.5 py-1.5 outline-none w-full font-bold"
+                                        className="bg-white border border-orange-200 text-navy text-base md:text-xs rounded-xl px-2.5 py-1.5 outline-none w-full font-bold focus:text-lg transition-all"
                                     />
                                 </div>
                                 <div className="flex items-center gap-1.5 w-full">
@@ -939,7 +942,7 @@ const DateArchitectChat = ({
                                         type="time"
                                         value={customTime}
                                         onChange={(e) => setCustomTime(e.target.value)}
-                                        className="bg-white border border-orange-200 text-navy text-xs rounded-xl px-2.5 py-1.5 outline-none w-full font-bold"
+                                        className="bg-white border border-orange-200 text-navy text-base md:text-xs rounded-xl px-2.5 py-1.5 outline-none w-full font-bold focus:text-lg transition-all"
                                     />
                                 </div>
                                 <button
@@ -1449,10 +1452,15 @@ const DateArchitectChat = ({
                                         sendPrompt();
                                     }
                                 }}
+                                onFocus={() => {
+                                    if (window.innerWidth < 768) {
+                                        setIsExpanded(true);
+                                    }
+                                }}
                                 placeholder={currentStep > 0 ? "Or type a custom answer here..." : "Refine your date, add vibes..."}
                                 disabled={isStreaming || isForceGenerating}
-                                autoFocus
-                                className="h-11 w-full rounded-full border-2 border-slate-100 bg-slate-50 pl-4 pr-24 text-xs font-bold text-navy outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white disabled:opacity-60"
+                                autoFocus={isExpanded}
+                                className="h-11 w-full rounded-full border-2 border-slate-100 bg-slate-50 pl-4 pr-24 text-base md:text-xs font-bold text-navy outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white disabled:opacity-60"
                             />
                             <div className="absolute inset-y-0 right-1 flex items-center gap-1">
                                 <button

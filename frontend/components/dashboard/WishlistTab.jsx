@@ -391,18 +391,19 @@ const WishlistTab = ({ appTheme, userId, setToastMessage, onSparkWish }) => {
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-                            className={`w-full max-w-md h-full relative z-10 flex flex-col justify-between border-l ${
+                            className={`w-full max-w-md h-[100dvh] md:h-full relative z-10 flex flex-col border-l ${
                                 isDark ? 'bg-[#0f1422] border-white/5 text-white' : 'bg-white border-gray-100 text-navy'
                             }`}
                         >
-                            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                            <form onSubmit={handleAddWish} className="flex flex-col h-full overflow-hidden">
                                 {/* Form Header */}
-                                <div className="flex items-center justify-between border-b border-gray-100/5 pb-4">
+                                <div className="p-6 flex items-center justify-between border-b border-gray-100/5 pb-4 shrink-0">
                                     <div className="flex items-center gap-2.5">
                                         <Gift className="w-5 h-5 text-coral" />
                                         <h3 className="text-lg font-black tracking-tight">Add Wishlist Date</h3>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={() => setIsAddOpen(false)}
                                         className={`p-2 rounded-xl border ${
                                             isDark ? 'border-white/5 hover:bg-white/5 text-white/50' : 'border-gray-100 hover:bg-gray-50 text-slate-400'
@@ -412,7 +413,8 @@ const WishlistTab = ({ appTheme, userId, setToastMessage, onSparkWish }) => {
                                     </button>
                                 </div>
 
-                                <form onSubmit={handleAddWish} className="space-y-5">
+                                {/* Scrollable Form Body */}
+                                <div className="p-6 overflow-y-auto flex-1 space-y-6">
                                     {/* Date Wish Title */}
                                     <div>
                                         <label className={`block text-xs font-black uppercase tracking-wider mb-2 ${isDark ? 'text-white/40' : 'text-slate-400'}`}>
@@ -424,7 +426,7 @@ const WishlistTab = ({ appTheme, userId, setToastMessage, onSparkWish }) => {
                                             value={newTitle}
                                             onChange={(e) => setNewTitle(e.target.value)}
                                             placeholder="e.g. Try pottery class, Picnic at Sunset Cliff"
-                                            className={`w-full px-4 py-3.5 rounded-2xl text-sm font-bold border outline-none transition-all ${
+                                            className={`w-full px-4 py-3.5 rounded-2xl text-base md:text-sm font-bold border outline-none transition-all ${
                                                 isDark 
                                                     ? 'bg-white/5 border-white/10 text-white focus:border-coral/50 focus:bg-white/10' 
                                                     : 'bg-slate-50 border-slate-200 text-navy focus:border-coral/50 focus:bg-white'
@@ -515,23 +517,28 @@ const WishlistTab = ({ appTheme, userId, setToastMessage, onSparkWish }) => {
                                             value={newNotes}
                                             onChange={(e) => setNewNotes(e.target.value)}
                                             placeholder="e.g. Bring a warm blanket, best viewed during twilight"
-                                            className={`w-full px-4 py-3 rounded-2xl text-sm font-semibold border outline-none transition-all resize-none ${
+                                            className={`w-full px-4 py-3 rounded-2xl text-base md:text-sm font-semibold border outline-none transition-all resize-none ${
                                                 isDark 
                                                     ? 'bg-white/5 border-white/10 text-white focus:border-coral/50 focus:bg-white/10' 
                                                     : 'bg-slate-50 border-slate-200 text-navy focus:border-coral/50 focus:bg-white'
                                             }`}
                                         />
                                     </div>
+                                </div>
 
+                                {/* Fixed Footer */}
+                                <div className={`p-6 border-t shrink-0 ${
+                                    isDark ? 'border-white/5 bg-[#0f1422]' : 'bg-white border-gray-100'
+                                }`}>
                                     <button
                                         type="submit"
                                         disabled={submitting}
-                                        className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-coral text-white font-black text-sm uppercase tracking-widest transition-all transform active:scale-95 shadow-lg shadow-coral/20 mt-4"
+                                        className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-coral text-white font-black text-sm uppercase tracking-widest transition-all transform active:scale-95 shadow-lg shadow-coral/20"
                                     >
                                         {submitting ? 'Adding...' : 'Save to Wishlist 💖'}
                                     </button>
-                                </form>
-                            </div>
+                                </div>
+                            </form>
                         </motion.div>
                     </div>
                 )}

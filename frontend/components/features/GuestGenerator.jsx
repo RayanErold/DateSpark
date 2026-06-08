@@ -217,7 +217,7 @@ const GuestGenerator = () => {
                                         {step.photoUrl ? (
                                             <img 
                                                 src={
-                                                    (step.photoUrl.includes('googleapis.com') || step.photoUrl.includes('googleusercontent.com'))
+                                                    (step.photoUrl.includes('googleapis.com') && !step.photoUrl.includes('googleusercontent.com'))
                                                         ? `${API_URL}/api/photo-proxy?url=${encodeURIComponent(step.photoUrl)}`
                                                         : step.photoUrl
                                                 } 

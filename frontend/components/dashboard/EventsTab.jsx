@@ -205,7 +205,11 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                         await new Promise((resolve) => {
                             placesService.textSearch({ query: `${evt.venueName} ${city}` }, (results, status) => {
                                 if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
-                                    currentEvents[i] = { ...evt, image: results[0].photos[0].getUrl({ maxWidth: 800 }), _photoEnriched: true };
+                                    const photo = results[0].photos[0];
+                                    const photoUrl = photo.photo_reference
+                                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}`
+                                        : photo.getUrl({ maxWidth: 800 });
+                                    currentEvents[i] = { ...evt, image: photoUrl, _photoEnriched: true };
                                     modified = true;
                                     if (isMounted) setEvents([...currentEvents]);
                                 } else {

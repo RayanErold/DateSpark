@@ -375,7 +375,11 @@ const Step2Animation = ({ progress }) => {
                                         address: place.formatted_address,
                                         lat: place.geometry.location.lat(),
                                         lng: place.geometry.location.lng(),
-                                        photoUrl: place.photos && place.photos.length > 0 ? place.photos[0].getUrl({ maxWidth: 800 }) : null
+                                        photoUrl: place.photos && place.photos.length > 0 
+                                             ? (place.photos[0].photo_reference
+                                                 ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}`
+                                                 : place.photos[0].getUrl({ maxWidth: 800 }))
+                                             : null
                                     };
                                     return newPlaces;
                                 });

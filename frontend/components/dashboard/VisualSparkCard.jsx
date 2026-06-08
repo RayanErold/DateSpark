@@ -21,10 +21,10 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName, onP
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl) return null;
         if (photoUrl.includes('unsplash')) return null;
+        if (photoUrl.includes('googleusercontent.com')) return photoUrl;
         
         if (photoUrl.includes('places.googleapis.com') || 
             photoUrl.includes('maps.googleapis.com') || 
-            photoUrl.includes('googleusercontent.com') ||
             photoUrl.includes('staticmap')) {
             return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
@@ -127,13 +127,13 @@ const VisualSparkCard = ({ plan, onView, theme, isTopInBorough, boroughName, onP
                     <>
                         <button
                             onClick={handlePrev}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/photo:opacity-100 transition-all z-30"
+                            className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/30 md:bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center text-white opacity-100 md:opacity-0 md:group-hover/photo:opacity-100 transition-all z-30"
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button
                             onClick={handleNext}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/photo:opacity-100 transition-all z-30"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/30 md:bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center text-white opacity-100 md:opacity-0 md:group-hover/photo:opacity-100 transition-all z-30"
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>

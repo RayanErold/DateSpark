@@ -128,6 +128,21 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    const getProxiedPhoto = (photoUrl) => {
+        if (!photoUrl) return null;
+        if (photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com/maps/api/staticmap')) {
+            return null;
+        }
+        if (photoUrl.includes('googleusercontent.com')) {
+            return photoUrl;
+        }
+        if (photoUrl.includes('places.googleapis.com') || 
+            photoUrl.includes('maps.googleapis.com')) {
+            return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
+        }
+        return photoUrl;
+    };
     const navigateHome = () => {
         setCurrentTab('home');
         setHomeSubTab('overview');
@@ -549,6 +564,7 @@ const Dashboard = () => {
                 city: overrides.location || userCity,
                 lat: overrides.lat,
                 lng: overrides.lng,
+                vibe: overrides.vibe,
                 budget: overrides.budget,
                 numActivities: overrides.numActivities,
                 radius: overrides.radius,
@@ -1653,7 +1669,7 @@ const Dashboard = () => {
         const isPartiallyLocked = !isPremium && isPreview; // Only 2nd+ plans are partially locked for free users
 
         const itinerarySteps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
-        const coverImage = itinerarySteps[0]?.photoUrl || itinerarySteps[0]?.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+        const coverImage = getProxiedPhoto(itinerarySteps[0]?.photoUrl || itinerarySteps[0]?.image) || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
 
         return (
             <div
@@ -2058,45 +2074,7 @@ const Dashboard = () => {
                                     Based on your history, you love <span className="font-black text-coral">cozy evening dates</span>. Here's what's next.
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setHomeSubTab('overview')}
-                                    className="h-9 px-4 bg-gradient-to-r from-coral to-orange-500 text-white font-black text-[11px] uppercase tracking-wider rounded-xl shadow-lg shadow-coral/20 hover:brightness-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
-                                >
-                                    <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
-                                    <span>Create with Spark AI</span>
-                                </button>
-                                {!isPremium && (() => {
-                                    const totalUsage = usageMetrics.reduce((acc, curr) => acc + (curr.current || 0), 0);
-                                    const totalLimit = usageMetrics.reduce((acc, curr) => acc + (curr.limit || 1), 0);
-                                    return (
-                                        <div className="relative group">
-                                            <button className="h-9 px-3 bg-white hover:bg-gray-50 text-navy font-black text-[11px] rounded-xl border border-gray-100 flex items-center gap-1.5 shadow-sm">
-                                                <Zap className="w-3.5 h-3.5 text-coral" />
-                                                <span>{totalUsage}/{totalLimit}</span>
-                                            </button>
-                                            <div className="absolute right-0 top-11 w-64 p-4 bg-navy text-white rounded-2xl shadow-2xl border border-white/10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100]">
-                                                <h5 className="text-xs font-black tracking-wide mb-3 border-b border-white/10 pb-1">Usage Summary</h5>
-                                                <div className="space-y-3">
-                                                    {usageMetrics.map((m) => {
-                                                        const pct = Math.min(100, (m.current / m.limit) * 100);
-                                                        return (
-                                                            <div key={m.id} className="space-y-1">
-                                                                <div className="flex justify-between text-[10px] font-bold">
-                                                                    <span>{m.label}</span><span>{m.current}/{m.limit}</span>
-                                                                </div>
-                                                                <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
-                                                                    <div className={`h-full ${m.color} rounded-full`} style={{ width: `${pct}%` }} />
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
+
                         </div>
 
                         {/* ── Dashboard Sub-Navigation pill-based Nav Bar ── */}
@@ -3084,30 +3062,7 @@ const Dashboard = () => {
                                 </button>
                             )}
 
-                            <button
-                                onClick={() => setCurrentTab('account')}
-                                className={`flex items-center gap-2 p-1.5 rounded-xl transition-colors outline-none ${currentTab === 'account' ? 'bg-coral/10 ring-1 ring-coral/20' : 'hover:bg-gray-50'}`}
-                            >
-                                {user?.user_metadata?.avatar_url ? (
-                                    <img
-                                        src={user.user_metadata.avatar_url}
-                                        alt="Profile"
-                                        className="w-9 h-9 rounded-lg object-cover shadow-sm border border-gray-100"
-                                        onError={(e) => {
-                                            e.target.onerror = null;
-                                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.first_name || 'Kade. D')}&background=0a192f&color=fff`;
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="w-9 h-9 bg-navy text-white rounded-lg flex items-center justify-center font-bold shadow-sm">
-                                        {user?.user_metadata?.first_name || 'K'}
-                                    </div>
-                                )}
-                                <span className={`text-sm font-bold hidden sm:block ${currentTab === 'account' ? 'text-coral' : 'text-navy'}`}>
-                                    {user?.user_metadata?.first_name || 'Account'}
-                                </span>
-                                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${currentTab === 'account' ? 'rotate-180 text-coral' : ''}`} />
-                            </button>
+
                         </div>
                     </div>
                 </div>
@@ -3565,10 +3520,10 @@ const Dashboard = () => {
                                                             {step.description}
                                                         </p>
 
-                                                        {step.photoUrl && (
+                                                        {getProxiedPhoto(step.photoUrl) && (
                                                             <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm mt-1 relative bg-gray-50">
                                                                 <img
-                                                                    src={step.photoUrl}
+                                                                    src={getProxiedPhoto(step.photoUrl)}
                                                                     alt={step.venue}
                                                                     className="w-full h-48 sm:h-56 object-cover hover:scale-105 transition-transform duration-700"
                                                                     loading="lazy"

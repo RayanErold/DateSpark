@@ -826,7 +826,7 @@ app.get('/api/photo-proxy', async (req, res) => {
         }
 
         // AUTO-FIX: Inject API key if missing (common for legacy database entries)
-        if (!googleUrl.includes('key=') && apiKey) {
+        if (!googleUrl.includes('key=') && apiKey && !googleUrl.includes('googleusercontent.com')) {
             const separator = googleUrl.includes('?') ? '&' : '?';
             googleUrl = `${googleUrl}${separator}key=${apiKey}`;
             console.log('[PhotoProxy] 🔑 Auto-injected API Key into legacy URL');

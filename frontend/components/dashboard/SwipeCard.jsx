@@ -34,9 +34,11 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
         if (photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com/maps/api/staticmap')) {
             return null;
         }
+        if (photoUrl.includes('googleusercontent.com')) {
+            return photoUrl;
+        }
         if (photoUrl.includes('places.googleapis.com') || 
-            photoUrl.includes('maps.googleapis.com') || 
-            photoUrl.includes('googleusercontent.com')) {
+            photoUrl.includes('maps.googleapis.com')) {
             return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         return photoUrl;

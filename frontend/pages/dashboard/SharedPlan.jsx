@@ -115,9 +115,11 @@ const SharedPlan = () => {
         if (photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com/maps/api/staticmap')) {
             return null;
         }
+        if (photoUrl.includes('googleusercontent.com')) {
+            return photoUrl;
+        }
         if (photoUrl.includes('places.googleapis.com') || 
-            photoUrl.includes('maps.googleapis.com') || 
-            photoUrl.includes('googleusercontent.com')) {
+            photoUrl.includes('maps.googleapis.com')) {
             return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         return photoUrl;
@@ -293,7 +295,10 @@ const SharedPlan = () => {
                                     const place = results[0];
                                     let newPhotoUrl = step.photoUrl;
                                     if (place.photos && place.photos.length > 0) {
-                                        newPhotoUrl = place.photos[0].getUrl({ maxWidth: 800 });
+                                        const photo = place.photos[0];
+                                        newPhotoUrl = photo.photo_reference
+                                            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}`
+                                            : photo.getUrl({ maxWidth: 800 });
                                     }
                                     stepsWithPhotos[i] = { 
                                         ...step, 
