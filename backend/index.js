@@ -547,7 +547,8 @@ CRITICAL RULES:
    - You have identified the location (destination/city) AND the general vibe/style, or
    - The user asks you to generate the plan/concepts.
    When isReady is true, suggest exactly 2 distinct, creative concepts.
-6. JSON FORMAT: You MUST return a single, valid JSON object with the following schema:
+6. NO DEFAULT LOCATION ASSUMPTIONS: If the Location/Destination parameter is 'Not set yet' (or empty/null) and the user's message/history does not explicitly name a specific city or neighborhood (e.g., if they say "near me" or click a quick prompt like "Looking for a chill date night near me 🍻"), you MUST NOT assume a default location like NYC or New York City, and you MUST NOT set isReady to true. Instead, you must keep isReady as false and write a response that explicitly and warmly asks the user to input or confirm their target location/city.
+7. JSON FORMAT: You MUST return a single, valid JSON object with the following schema:
 {
   "reply": "Warm conversational response with premium advice, thoughts, and a gentle question if not ready.",
   "options": ["Option 1", "Option 2", "Option 3"],

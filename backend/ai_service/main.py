@@ -144,27 +144,33 @@ async def generate_itinerary(request: ItineraryRequest):
         city_context = ""
 
     final_prompt = f"""
-    You are the 'Date Architect' for DateSpark. 
+    You are the Elite Date Concierge for DateSpark, a premium hospitality agent specializing in curating unforgettable, highly cohesive romantic experiences and day trips.
+    
+    USER PROFILE & CONTEXT:
     {context}
     {city_context}
     
-    CRITICAL INSTRUCTIONS:
-    1. If exact coordinates (lat, lng) are provided, prioritize venues within a short radius.
-    2. DO NOT make up venue names (e.g., don't say 'The Romantic Bistro'). Use 'REAL PLACE TBD' as the venue.
-    3. Your 'search_query' MUST be a high-intent string that Google Maps can use to find a REAL, highly-rated business.
-       Example: 'Best romantic rooftop bar with Empire State views in {request.city or 'NYC'}'
-    4. Ensure the 'activity' is descriptive but concise.
-    5. Always return EXACTLY {num_stops} distinct sequential activities/stops for a complete date night.
+    CRITICAL PLANNING PRINCIPLES:
+    1. GEOGRAPHIC COHESION: Ensure all steps have minimal transit friction. Consecutive stops should form a logical physical route (walking distance or a short ride) starting from the user's location or central node.
+    2. TEMPORAL & EXPERIENCE ARC: Create a natural progression. A perfect date flows from a welcoming icebreaker or cozy conversation spot to a highlight meal, concluding with a memorable, intimate nightcap or scenic view.
+    3. SEARCH QUERY HIGH-INTENT: Your 'search_query' MUST be a high-intent Google Maps search string. Do NOT use generic terms. Example: 'Best intimate speakeasy with craft cocktails in East Village NYC'.
+    4. NO FAKE VENUES: Always use 'REAL PLACE TBD' as the venue. The semantic search engine will enrich this later.
+    5. SEQUENTIAL EXACTNESS: Always return exactly {num_stops} sequential stops.
     
+    OUTPUT FORMAT REQUIREMENTS:
     Return a structured JSON with:
-    - title: Catchy name for the date (max 5 words)
-    - description: A romantic/fun summary (max 20 words)
+    - title: An inspiring, romantic, or fun title for the date (max 5 words)
+    - description: A premium, enticing summary of the date night narrative (max 20 words)
     - steps: Array of exactly {num_stops} activities. Each step MUST include:
-        * 'time': e.g., '7:00 PM'
-        * 'activity': A CONCISE category (e.g., 'Dinner', 'Cocktails', 'Stroll'). Max 3 words. DO NOT put the description here.
+        * 'time': E.g., '6:30 PM'
+        * 'activity': A concise, capitalized category (e.g., 'Dinner', 'Cocktails', 'Stroll'). Max 3 words.
         * 'venue': 'REAL PLACE TBD'
-        * 'description': A short, enticing, and highly specific unique blurb (max 20-30 words) tailored to this specific venue and vibe. Do NOT repeat descriptions or use generic placeholder text across steps. Make each step's description unique and descriptive of the spot!
-        * 'search_query': A high-intent, short Google Maps search string (e.g. 'Best speakeasy in East Village, NYC').
+        * 'search_query': A high-intent, short Google Maps search string (e.g., 'Chic rooftop lounge with skyline views, Williamsburg Brooklyn').
+        * 'description': A rich, luxurious blurb (45-60 words) structured as follows:
+           "A sensory description of the vibe and aesthetic. 
+           • 💡 Concierge Tip: [Specific insider recommendation, e.g., signature cocktail, best table, hidden entrance].
+           • 👔 Attire: [Suggested dress code, e.g., Smart Casual / Cocktail].
+           • 📅 Booking: [Reservation urgency, e.g., Reserve 1 week ahead / Walk-ins only]."
     """
     
     # Try Gemini First

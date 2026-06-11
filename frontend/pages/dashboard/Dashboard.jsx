@@ -181,6 +181,43 @@ const Dashboard = () => {
         weekend_spark_enabled: true
     });
 
+    // --- PENDING PROMPT FROM LANDING PAGE ---
+    const [pendingSettings, setPendingSettings] = useState(() => {
+        const prompt = localStorage.getItem('pending_spark_prompt');
+        if (prompt) {
+            localStorage.removeItem('pending_spark_prompt');
+            
+            const loc = localStorage.getItem('pending_spark_location');
+            const bud = localStorage.getItem('pending_spark_budget');
+            const goal = localStorage.getItem('pending_spark_goal');
+            const numAct = localStorage.getItem('pending_spark_num_activities');
+            const date = localStorage.getItem('pending_spark_date');
+            const time = localStorage.getItem('pending_spark_time');
+            const trip = localStorage.getItem('pending_spark_is_trip');
+            
+            // Clean up immediately
+            localStorage.removeItem('pending_spark_location');
+            localStorage.removeItem('pending_spark_budget');
+            localStorage.removeItem('pending_spark_goal');
+            localStorage.removeItem('pending_spark_num_activities');
+            localStorage.removeItem('pending_spark_date');
+            localStorage.removeItem('pending_spark_time');
+            localStorage.removeItem('pending_spark_is_trip');
+            
+            return {
+                initialPrompt: prompt,
+                initialLocation: loc || '',
+                initialBudget: bud || '$100',
+                initialVibe: goal || 'first_date',
+                initialNumActivities: numAct ? parseInt(numAct) : 3,
+                initialDate: date || new Date().toISOString().split('T')[0],
+                initialTime: time || '07:00 PM',
+                initialIsTrip: trip === 'true'
+            };
+        }
+        return null;
+    });
+
     // --- CUSTOMIZATION INTERCEPT ---
     const [showCustomizeModal, setShowCustomizeModal] = useState(false);
     const [pendingCustomizeAction, setPendingCustomizeAction] = useState(null);
@@ -2116,9 +2153,17 @@ const Dashboard = () => {
                         {homeSubTab === 'overview' ? (
                             <div className="space-y-6">
                                 {/* AI PLANNER INTERFACE (Sparky) */}
-                                <div className="mx-4 sm:mx-0 bg-white rounded-[2rem] border border-orange-100/60 p-4 shadow-[0_12px_40px_rgba(255,127,80,0.06)] animate-in slide-in-from-bottom-4 duration-500">
+                                <div className="mx-4 sm:mx-0 bg-white rounded-xl border border-orange-100/60 p-4 shadow-[0_12px_40px_rgba(255,127,80,0.06)] animate-in slide-in-from-bottom-4 duration-500">
                                     <DateArchitectChat
                                         userId={user?.id}
+                                        initialPrompt={pendingSettings?.initialPrompt}
+                                        location={pendingSettings?.initialLocation}
+                                        budget={pendingSettings?.initialBudget}
+                                        initialVibe={pendingSettings?.initialVibe}
+                                        numActivities={pendingSettings?.initialNumActivities}
+                                        planDate={pendingSettings?.initialDate}
+                                        planTime={pendingSettings?.initialTime}
+                                        isTrip={pendingSettings?.initialIsTrip}
                                         onConceptSelected={(concept, settings) => {
                                             handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
                                         }}
@@ -2768,9 +2813,17 @@ const Dashboard = () => {
                 </div>
 
                 {/* ── AI PLANNER INTERFACE ── */}
-                <div className="mx-4 bg-white rounded-3xl border border-orange-100/60 p-3 shadow-[0_12px_40px_rgba(255,127,80,0.06)] animate-in slide-in-from-bottom-4 duration-500">
+                <div className="mx-4 bg-white rounded-xl border border-orange-100/60 p-3 shadow-[0_12px_40px_rgba(255,127,80,0.06)] animate-in slide-in-from-bottom-4 duration-500">
                     <DateArchitectChat
                         userId={user?.id}
+                        initialPrompt={pendingSettings?.initialPrompt}
+                        location={pendingSettings?.initialLocation}
+                        budget={pendingSettings?.initialBudget}
+                        initialVibe={pendingSettings?.initialVibe}
+                        numActivities={pendingSettings?.initialNumActivities}
+                        planDate={pendingSettings?.initialDate}
+                        planTime={pendingSettings?.initialTime}
+                        isTrip={pendingSettings?.initialIsTrip}
                         onConceptSelected={(concept, settings) => {
                             handleGeneratePlan(`${concept.title}. ${concept.description}`, settings);
                         }}

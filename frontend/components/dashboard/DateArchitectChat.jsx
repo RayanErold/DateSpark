@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowRight,
@@ -91,9 +92,13 @@ const radiusLabel = (radius) => `${(radius / 1609.34).toFixed(1)} mi`;
 
 const DateArchitectChat = ({
     userId,
-    location: initialLocation,
-    budget: initialBudget,
-    radius: initialRadius,
+    location: initialLocation = '',
+    budget: initialBudget = '$100',
+    radius: initialRadius = 8046,
+    numActivities: initialNumActivities = 3,
+    planDate: initialPlanDate,
+    planTime: initialPlanTime = '07:00 PM',
+    isTrip: initialIsTrip = false,
     initialPrompt,
     initialVibe,
     onConceptSelected,
@@ -101,6 +106,7 @@ const DateArchitectChat = ({
     onPlanSaved,
     isStudio = false,
 }) => {
+    const navigate = useNavigate();
     const API_URL = import.meta.env.VITE_API_URL || '';
     
     const getProxiedPhoto = (photoUrl) => {
@@ -121,23 +127,23 @@ const DateArchitectChat = ({
     const [streamedText, setStreamedText] = useState('');
     const [extractedConcepts, setExtractedConcepts] = useState(null);
     const [isForceGenerating, setIsForceGenerating] = useState(false);
-    const [selectedGoal, setSelectedGoal] = useState('first_date');
+    const [selectedGoal, setSelectedGoal] = useState(initialVibe || 'first_date');
     const [chatMode, setChatMode] = useState('concierge'); // 'concierge' or 'wizard'
-    const [isTrip, setIsTrip] = useState(false);
+    const [isTrip, setIsTrip] = useState(initialIsTrip);
 
     // 1.1 PROPOSED PLAN STATE
     const [proposedPlan, setProposedPlan] = useState(null);
     const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
     // 2. NEW CUSTOMIZABLE OPTIONS
-    const [location, setLocation] = useState(initialLocation || '');
+    const [location, setLocation] = useState(initialLocation);
     const [lat, setLat] = useState(null);
     const [lng, setLng] = useState(null);
-    const [budget, setBudget] = useState(initialBudget || '$100');
-    const [radius, setRadius] = useState(initialRadius || 8046); // Default 5 miles in meters
-    const [numActivities, setNumActivities] = useState(3);
-    const [planDate, setPlanDate] = useState(new Date().toISOString().split('T')[0]);
-    const [planTime, setPlanTime] = useState('07:00 PM');
+    const [budget, setBudget] = useState(initialBudget);
+    const [radius, setRadius] = useState(initialRadius);
+    const [numActivities, setNumActivities] = useState(initialNumActivities);
+    const [planDate, setPlanDate] = useState(initialPlanDate || new Date().toISOString().split('T')[0]);
+    const [planTime, setPlanTime] = useState(initialPlanTime);
 
     // 3. UI STATE
     const [isExpanded, setIsExpanded] = useState(false);
@@ -340,10 +346,10 @@ const DateArchitectChat = ({
         }
     }, [messages, streamedText, extractedConcepts, currentStep, showCustomPicker, proposedPlan, isGeneratingPlan]);
 
-    // Autofocus input on mount for fast typing
+    // Autofocus input on mount for fast typing (only on desktop to prevent mobile keypad/overlay popups)
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (inputRef.current) {
+            if (inputRef.current && window.innerWidth >= 768) {
                 inputRef.current.focus();
             }
         }, 150);
@@ -453,19 +459,31 @@ const DateArchitectChat = ({
     // Advanced wizard flow handler
     // Spark AI proposed draft plan generator
     const generateProposedPlan = async (refinementPrompt = null, overrides = {}) => {
+        const finalBudget = overrides.budget || budget;
+        const finalGoal = overrides.goal || selectedGoal;
+        const promptText = refinementPrompt 
+            ? refinementPrompt 
+            : isTrip
+                ? `A custom premium ${numActivities}-step travel trip itinerary in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, featuring incredible local landmarks, scenic routes, and top-tier dining.`
+                : `A custom ${numActivities}-step ${finalGoal || 'date'} experience in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, with activities focused on a fun and cohesive couple experience.`;
+
+        if (!userId) {
+            localStorage.setItem('pending_spark_prompt', promptText);
+            localStorage.setItem('pending_spark_location', location || '');
+            localStorage.setItem('pending_spark_budget', finalBudget);
+            localStorage.setItem('pending_spark_goal', finalGoal);
+            localStorage.setItem('pending_spark_num_activities', numActivities);
+            localStorage.setItem('pending_spark_date', planDate);
+            localStorage.setItem('pending_spark_time', planTime);
+            localStorage.setItem('pending_spark_is_trip', isTrip ? 'true' : 'false');
+            navigate('/signup');
+            return;
+        }
+
         setIsGeneratingPlan(true);
         setProposedPlan(null);
         
-        const finalBudget = overrides.budget || budget;
-        const finalGoal = overrides.goal || selectedGoal;
-        
         try {
-            const promptText = refinementPrompt 
-                ? refinementPrompt 
-                : isTrip
-                    ? `A custom premium ${numActivities}-step travel trip itinerary in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, featuring incredible local landmarks, scenic routes, and top-tier dining.`
-                    : `A custom ${numActivities}-step ${finalGoal || 'date'} experience in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, with activities focused on a fun and cohesive couple experience.`;
-
             console.log('[DateArchitectChat] Generating draft plan with prompt:', promptText);
 
             const response = await fetch('/api/generate-date', {
@@ -713,6 +731,12 @@ const DateArchitectChat = ({
     const sendPrompt = async (overrideInput = null) => {
         const textToSend = typeof overrideInput === 'string' ? overrideInput : input;
         if (!textToSend.trim() || isStreaming || isGeneratingPlan) return;
+
+        if (!userId) {
+            localStorage.setItem('pending_spark_prompt', textToSend);
+            navigate('/signup');
+            return;
+        }
 
         // If a proposed plan already exists, treat textToSend as a refinement prompt!
         if (proposedPlan) {
@@ -1071,7 +1095,7 @@ const DateArchitectChat = ({
                                 type="button"
                                 onClick={() => handleOptionClick(option)}
                                 disabled={isStreaming}
-                                className="rounded-full border border-orange-100 bg-orange-50/80 px-3 py-1.5 text-left text-[11px] font-black text-orange-700 transition hover:border-orange-300 hover:bg-white active:scale-95 disabled:opacity-50 cursor-pointer"
+                                className="rounded-xl border border-orange-100 bg-orange-50/80 px-3 py-1.5 text-left text-[11px] font-black text-orange-700 transition hover:border-orange-300 hover:bg-white active:scale-95 disabled:opacity-50 cursor-pointer"
                             >
                                 {option}
                             </button>
@@ -1115,10 +1139,10 @@ const DateArchitectChat = ({
 
     // Chat main wrapper styles depending on expand state
     const containerClasses = isExpanded
-        ? "fixed inset-0 z-[999] flex flex-col bg-white w-screen h-screen md:rounded-3xl md:shadow-2xl md:max-w-4xl md:h-[85vh] md:m-auto transition-all duration-300 ease-out"
+        ? "fixed inset-0 z-[999] flex flex-col bg-white w-screen h-screen md:rounded-xl md:shadow-2xl md:max-w-4xl md:h-[85vh] md:m-auto transition-all duration-300 ease-out"
         : isStudio
-            ? "overflow-hidden rounded-[2rem] border border-orange-100/80 bg-white shadow-[0_12px_45px_rgba(255,127,80,0.06)] w-full flex flex-col h-[600px] transition-all duration-300 ease-out relative"
-            : "overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-[0_12px_40px_rgba(255,127,80,0.08)] max-w-2xl mx-auto flex flex-col h-[350px] transition-all duration-300 ease-out relative";
+            ? "overflow-hidden rounded-xl border border-orange-100/80 bg-white shadow-[0_12px_45px_rgba(255,127,80,0.06)] w-full flex flex-col h-[600px] transition-all duration-300 ease-out relative"
+            : "overflow-hidden rounded-xl border border-orange-100 bg-white shadow-[0_12px_40px_rgba(255,127,80,0.08)] max-w-2xl mx-auto flex flex-col h-[350px] transition-all duration-300 ease-out relative";
 
     const chatContent = (
         <div className={containerClasses}>
@@ -1221,7 +1245,7 @@ const DateArchitectChat = ({
                                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm ${message.role === 'user' ? 'bg-navy text-white' : 'bg-white text-orange-500'}`}>
                                         {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                                     </div>
-                                    <div className={`rounded-2xl p-3 px-4 text-xs font-semibold leading-relaxed shadow-sm ${message.role === 'user' ? 'rounded-tr-sm bg-navy text-white' : 'rounded-tl-sm border border-slate-100 bg-white text-navy'}`}>
+                                    <div className={`rounded-xl p-3 px-4 text-xs font-semibold leading-relaxed shadow-sm ${message.role === 'user' ? 'rounded-tr-sm bg-navy text-white' : 'rounded-tl-sm border border-slate-100 bg-white text-navy'}`}>
                                         {renderMessageContent(message, idx === messages.length - 1 && !isStreaming, message.role)}
                                     </div>
                                 </div>
@@ -1235,7 +1259,7 @@ const DateArchitectChat = ({
                                 animate={{ opacity: 1, y: 0 }}
                                 className="flex justify-start pl-10"
                             >
-                                <div className="bg-white border border-orange-100 rounded-2xl p-3.5 shadow-sm max-w-[90%]">
+                                <div className="bg-white border border-orange-100 rounded-xl p-3.5 shadow-sm max-w-[90%]">
                                     <span className="text-[10px] font-black uppercase text-orange-500 tracking-wider">Tap your choice:</span>
                                     {renderStepChoices()}
                                     {locationLoading && (
@@ -1249,7 +1273,7 @@ const DateArchitectChat = ({
 
                         {/* Starter prompts (only at start) */}
                         {messages.length === 1 && currentStep === 1 && chatMode === 'wizard' && (
-                            <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm mx-2">
+                            <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm mx-2">
                                 <div className="mb-2.5 flex items-center justify-between">
                                     <h4 className="text-xs font-black text-navy uppercase tracking-wider">Or Use Conversation Prompts</h4>
                                     <Sparkles className="h-3.5 w-3.5 text-orange-500 animate-pulse" />
@@ -1460,14 +1484,14 @@ const DateArchitectChat = ({
                                 placeholder={currentStep > 0 ? "Or type a custom answer here..." : "Refine your date, add vibes..."}
                                 disabled={isStreaming || isForceGenerating}
                                 autoFocus={isExpanded}
-                                className="h-11 w-full rounded-full border-2 border-slate-100 bg-slate-50 pl-4 pr-24 text-base md:text-xs font-bold text-navy outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white disabled:opacity-60"
+                                className="h-11 w-full rounded-xl border-2 border-slate-100 bg-slate-50 pl-4 pr-24 text-base md:text-xs font-bold text-navy outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white disabled:opacity-60"
                             />
                             <div className="absolute inset-y-0 right-1 flex items-center gap-1">
                                 <button
                                     type="button"
                                     onClick={toggleListening}
                                     disabled={isStreaming || isForceGenerating}
-                                    className={`rounded-full p-2 transition active:scale-95 disabled:opacity-40 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-transparent text-slate-400 hover:text-navy'}`}
+                                    className={`rounded-lg p-2 transition active:scale-95 disabled:opacity-40 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-transparent text-slate-400 hover:text-navy'}`}
                                     aria-label="Toggle voice input"
                                 >
                                     <Mic className="w-4 h-4" />
@@ -1476,7 +1500,7 @@ const DateArchitectChat = ({
                                     type="button"
                                     onClick={() => sendPrompt()}
                                     disabled={!input.trim() || isStreaming || isForceGenerating}
-                                    className="rounded-full bg-navy hover:bg-orange-600 p-2 text-white shadow-md transition active:scale-95 disabled:opacity-40"
+                                    className="rounded-lg bg-navy hover:bg-orange-600 p-2 text-white shadow-md transition active:scale-95 disabled:opacity-40"
                                     aria-label="Send message to Sparky"
                                 >
                                     {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
