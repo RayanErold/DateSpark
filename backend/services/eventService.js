@@ -23,6 +23,7 @@ const SEATGEEK_TAXONOMY_MAP = {
     'sports': 'sports',
     'theater': 'theater',
     'comedy': 'comedy',
+    'family': 'family',
     'all': 'event'
 };
 
@@ -143,7 +144,9 @@ export const fetchEvents = async (supabase, city, category, size = 15, keys = {}
 export const fetchSeatGeekEvents = async (city, category, size = 15, clientId) => {
     if (!clientId) return [];
     
-    const taxonomy = SEATGEEK_TAXONOMY_MAP[category.toLowerCase()] || 'event';
+    const taxonomy = SEATGEEK_TAXONOMY_MAP[category.toLowerCase()];
+    if (!taxonomy) return []; // Skip SeatGeek for unsupported categories like tech, community, classes to prevent category pollution
+    
     const url = `https://api.seatgeek.com/2/events?client_id=${clientId}&venue.city=${encodeURIComponent(city)}&taxonomies.name=${taxonomy}&per_page=${size}&sort=datetime_local.asc`;
 
     try {

@@ -20,6 +20,76 @@ const CATEGORIES = [
     { id: 'tech',      label: 'Tech',       emoji: '💻', color: 'from-cyan-500 to-blue-500' },
 ];
 
+const CATEGORY_FALLBACK_IMAGES = {
+    music: [
+        'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80'
+    ],
+    sports: [
+        'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=600&q=80'
+    ],
+    theater: [
+        'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1516307364728-22f12d51c02e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80'
+    ],
+    comedy: [
+        'https://images.unsplash.com/photo-1585699324551-f6c309eed262?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1527224857830-43a7acc85260?auto=format&fit=crop&w=600&q=80'
+    ],
+    family: [
+        'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1489659639091-8b687bc4386e?auto=format&fit=crop&w=600&q=80'
+    ],
+    community: [
+        'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80'
+    ],
+    classes: [
+        'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80'
+    ],
+    tech: [
+        'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80'
+    ],
+    all: [
+        'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80'
+    ]
+};
+
+const getEventImage = (evt) => {
+    if (evt.image && evt.image.trim() !== '') {
+        return evt.image;
+    }
+    const seg = (evt.segment || evt.genre || 'all').toLowerCase();
+    let list = CATEGORY_FALLBACK_IMAGES.all;
+    
+    if (seg.includes('music') || seg.includes('concert')) list = CATEGORY_FALLBACK_IMAGES.music;
+    else if (seg.includes('sport') || seg.includes('athletic') || seg.includes('basketball') || seg.includes('football')) list = CATEGORY_FALLBACK_IMAGES.sports;
+    else if (seg.includes('theat') || seg.includes('broadway') || seg.includes('art') || seg.includes('museum')) list = CATEGORY_FALLBACK_IMAGES.theater;
+    else if (seg.includes('comedy') || seg.includes('standup')) list = CATEGORY_FALLBACK_IMAGES.comedy;
+    else if (seg.includes('family') || seg.includes('child')) list = CATEGORY_FALLBACK_IMAGES.family;
+    else if (seg.includes('group') || seg.includes('meetup') || seg.includes('social') || seg.includes('community')) list = CATEGORY_FALLBACK_IMAGES.community;
+    else if (seg.includes('class') || seg.includes('workshop')) list = CATEGORY_FALLBACK_IMAGES.classes;
+    else if (seg.includes('tech') || seg.includes('network') || seg.includes('software') || seg.includes('science') || seg.includes('computer')) list = CATEGORY_FALLBACK_IMAGES.tech;
+
+    // Deterministic selection using event name hash to prevent layout shifting
+    const name = evt.name || '';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const idx = Math.abs(hash) % list.length;
+    return list[idx];
+};
+
 const MOCK_EVENTS = [
     {
         id: 'mock-family-1',
@@ -340,22 +410,14 @@ const NearbyEvents = () => {
                                 >
                                     {/* Image */}
                                     <div className="relative h-32 sm:h-40 md:h-44 overflow-hidden bg-navy/5">
-                                        {evt.image ? (
-                                            <img
-                                                src={evt.image}
-                                                alt={evt.name}
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                    e.target.parentElement.classList.add('bg-gradient-to-br', 'from-navy', 'to-coral/20');
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-navy to-coral/20 flex flex-col items-center justify-center p-6 text-center gap-3">
-                                                <Ticket className="w-8 h-8 sm:w-10 sm:h-10 text-white/20" />
-                                                <span className="text-white/40 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Live Event</span>
-                                            </div>
-                                        )}
+                                        <img
+                                            src={getEventImage(evt)}
+                                            alt={evt.name}
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                            onError={(e) => {
+                                                e.target.src = getEventImage({ ...evt, image: null });
+                                            }}
+                                        />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                                         
                                         {/* Category Badge */}
