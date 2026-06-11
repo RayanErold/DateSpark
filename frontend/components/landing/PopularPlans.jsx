@@ -65,9 +65,9 @@ const PopularPlans = () => {
             <section className="py-16 md:py-24 bg-gray-50/50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="h-8 w-48 bg-gray-200 animate-pulse rounded-lg mb-12" />
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory scrollbar-hide">
                         {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="bg-white rounded-[2rem] h-[400px] animate-pulse shadow-sm" />
+                            <div key={i} className="bg-white rounded-[2rem] h-[400px] animate-pulse shadow-sm w-[280px] sm:w-[320px] md:w-auto flex-shrink-0 snap-start" />
                         ))}
                     </div>
                 </div>
@@ -95,7 +95,7 @@ const PopularPlans = () => {
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory scrollbar-hide">
                     {plans.map((plan, i) => (
                         <motion.div
                             key={i}
@@ -104,7 +104,7 @@ const PopularPlans = () => {
                             viewport={{ once: true }}
                             transition={{ delay: i * 0.1 }}
                             onClick={handlePlanClick}
-                            className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                            className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer w-[280px] sm:w-[320px] md:w-auto flex-shrink-0 snap-start"
                         >
                             {/* Image Container */}
                             <div className="relative h-64 overflow-hidden bg-navy/5">

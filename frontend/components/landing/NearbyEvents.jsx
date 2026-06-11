@@ -200,13 +200,13 @@ const NearbyEvents = () => {
 
                 {/* Events Grid */}
                 {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory scrollbar-hide">
                         {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-[2rem] h-[360px] animate-pulse shadow-sm" />
+                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-[2rem] h-[360px] animate-pulse shadow-sm w-[280px] sm:w-[320px] md:w-auto flex-shrink-0 snap-start" />
                         ))}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory scrollbar-hide">
                         {events.map((evt) => {
                             const color = segmentColor(evt.segment);
                             return (
@@ -216,7 +216,7 @@ const NearbyEvents = () => {
                                     whileInView={{ opacity: 1, scale: 1 }}
                                     viewport={{ once: true }}
                                     onClick={handleEventClick}
-                                    className="bg-white rounded-[2rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group"
+                                    className="bg-white rounded-[2rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group w-[280px] sm:w-[320px] md:w-auto flex-shrink-0 snap-start"
                                 >
                                     {/* Image */}
                                     <div className="relative h-44 overflow-hidden bg-navy/5">
