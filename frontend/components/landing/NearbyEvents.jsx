@@ -128,17 +128,21 @@ const NearbyEvents = () => {
         }
 
         try {
-            const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=family`);
+            const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=all`);
             if (res.data && res.data.length > 0) {
                 // De-duplicate by id
                 const unique = Array.from(new Map(res.data.map(item => [item.id, item])).values());
-                setEvents(unique.slice(0, 8));
+                // Shuffle events to mix categories randomly
+                const shuffled = unique.sort(() => Math.random() - 0.5);
+                setEvents(shuffled.slice(0, 8));
             } else {
-                setEvents(MOCK_EVENTS);
+                const shuffledMock = [...MOCK_EVENTS].sort(() => Math.random() - 0.5);
+                setEvents(shuffledMock);
             }
         } catch (e) {
             console.warn('[NearbyEvents] Failed to fetch events, falling back to mock events:', e);
-            setEvents(MOCK_EVENTS);
+            const shuffledMock = [...MOCK_EVENTS].sort(() => Math.random() - 0.5);
+            setEvents(shuffledMock);
         } finally {
             setIsLoading(false);
         }
@@ -216,7 +220,7 @@ const NearbyEvents = () => {
                 {isLoading ? (
                     <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory scrollbar-hide">
                         {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-[2rem] h-[360px] animate-pulse shadow-sm w-[280px] sm:w-[320px] md:w-auto flex-shrink-0 snap-start" />
+                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl h-[280px] sm:h-[320px] md:h-[360px] animate-pulse shadow-sm w-[210px] sm:w-[260px] md:w-auto flex-shrink-0 snap-start" />
                         ))}
                     </div>
                 ) : (
@@ -230,10 +234,10 @@ const NearbyEvents = () => {
                                     whileInView={{ opacity: 1, scale: 1 }}
                                     viewport={{ once: true }}
                                     onClick={handleEventClick}
-                                    className="bg-white rounded-[2rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group w-[280px] sm:w-[320px] md:w-auto flex-shrink-0 snap-start"
+                                    className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group w-[210px] sm:w-[260px] md:w-auto flex-shrink-0 snap-start"
                                 >
                                     {/* Image */}
-                                    <div className="relative h-44 overflow-hidden bg-navy/5">
+                                    <div className="relative h-32 sm:h-40 md:h-44 overflow-hidden bg-navy/5">
                                         {evt.image ? (
                                             <img
                                                 src={evt.image}
@@ -246,51 +250,51 @@ const NearbyEvents = () => {
                                             />
                                         ) : (
                                             <div className="w-full h-full bg-gradient-to-br from-navy to-coral/20 flex flex-col items-center justify-center p-6 text-center gap-3">
-                                                <Ticket className="w-10 h-10 text-white/20" />
-                                                <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">Live Event</span>
+                                                <Ticket className="w-8 h-8 sm:w-10 sm:h-10 text-white/20" />
+                                                <span className="text-white/40 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Live Event</span>
                                             </div>
                                         )}
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                                         
                                         {/* Category Badge */}
-                                        <div className={`absolute top-4 left-4 bg-gradient-to-r ${color} text-white text-[8px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider shadow-sm`}>
+                                        <div className={`absolute top-3 left-3 bg-gradient-to-r ${color} text-white text-[7px] sm:text-[8px] font-black px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md uppercase tracking-wider shadow-sm`}>
                                             {evt.genre || evt.segment}
                                         </div>
-
+ 
                                         {/* Source Badge */}
-                                        <div className="absolute top-4 right-4 bg-black/45 backdrop-blur-md text-white/90 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 shadow-sm">
+                                        <div className="absolute top-3 right-3 bg-black/45 backdrop-blur-md text-white/90 text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 shadow-sm">
                                             {evt.source === 'SeatGeek' ? 'SeatGeek' : 'Ticketmaster'}
                                         </div>
                                     </div>
-
+ 
                                     {/* Content */}
-                                    <div className="p-5 flex-1 flex flex-col justify-between">
-                                        <div className="space-y-2.5 mb-4">
-                                            <h4 className="font-black text-sm text-navy leading-tight line-clamp-2 group-hover:text-coral transition-colors">
+                                    <div className="p-3.5 sm:p-4.5 md:p-5 flex-1 flex flex-col justify-between">
+                                        <div className="space-y-1.5 sm:space-y-2.5 mb-2.5 sm:mb-4">
+                                            <h4 className="font-black text-xs sm:text-sm text-navy leading-tight line-clamp-2 group-hover:text-coral transition-colors">
                                                 {evt.name}
                                             </h4>
                                             
                                             {evt.venueName && (
-                                                <div className="flex items-center gap-1.5 text-xs text-gray-500 font-bold">
-                                                    <MapPin className="w-3.5 h-3.5 text-coral flex-shrink-0" />
+                                                <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-gray-500 font-bold">
+                                                    <MapPin className="w-3 h-3 text-coral flex-shrink-0" />
                                                     <span className="truncate">{evt.venueName}</span>
                                                 </div>
                                             )}
-
-                                            <div className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
-                                                <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+ 
+                                            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-gray-400 font-medium">
+                                                <Calendar className="w-3 h-3 flex-shrink-0" />
                                                 <span>{formatDate(evt.date, evt.time)}</span>
                                             </div>
                                         </div>
-
-                                        <div className="space-y-3 pt-2 border-t border-gray-50">
-                                            <div className="flex items-center justify-between text-xs">
+ 
+                                        <div className="space-y-2 sm:space-y-3 pt-2 border-t border-gray-50">
+                                            <div className="flex items-center justify-between text-[10px] sm:text-xs">
                                                 <span className="font-bold text-gray-400">Price Range</span>
                                                 <span className="font-black text-navy">{formatPrice(evt.priceMin, evt.priceMax, evt.currency)}</span>
                                             </div>
                                             
-                                            <button className="w-full py-3 bg-gray-50 text-navy border border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-widest group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-all flex items-center justify-center gap-2">
-                                                Get Tickets <ExternalLink className="w-3 h-3" />
+                                            <button className="w-full py-2 sm:py-2.5 md:py-3 bg-gray-50 text-navy border border-gray-100 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-all flex items-center justify-center gap-1.5 sm:gap-2">
+                                                Get Tickets <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                             </button>
                                         </div>
                                     </div>

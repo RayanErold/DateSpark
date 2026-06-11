@@ -11,9 +11,9 @@ import { useGoogleMaps } from '../../lib/googleMaps';
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const CATEGORIES = [
+    { id: 'all',     label: 'All Events', emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
     { id: 'family',  label: 'Family',     emoji: '👨‍👩‍👧', color: 'from-sky-500 to-blue-600' },
     { id: 'community', label: 'Groups',   emoji: '🤝', color: 'from-orange-400 to-red-500' },
-    { id: 'all',     label: 'All Events', emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
     { id: 'music',   label: 'Music',      emoji: '🎵', color: 'from-pink-500 to-rose-600' },
     { id: 'sports',  label: 'Sports',     emoji: '🏆', color: 'from-orange-500 to-amber-600' },
     { id: 'theater', label: 'Theater',    emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
@@ -161,7 +161,7 @@ const EventCard = ({ evt, isDark, idx }) => {
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
     const isDark = appTheme === 'dark';
-    const [category, setCategory]   = useState('family');
+    const [category, setCategory]   = useState('all');
     const [city, setCity]           = useState(userCity || 'New York');
     const [cityInput, setCityInput] = useState(userCity || 'New York');
     const [events, setEvents]       = useState([]);
