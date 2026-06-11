@@ -111,6 +111,60 @@ const formatPrice = (min, max, currency) => {
     return max && max !== min ? `${sym}${Math.round(min)} - ${sym}${Math.round(max)}` : `From ${sym}${Math.round(min)}`;
 };
 
+const mixAndDeduplicateEvents = (rawEvents, count = 8) => {
+    if (!rawEvents || rawEvents.length === 0) return [];
+    
+    // 1. De-duplicate by event name (case-insensitive, trimmed)
+    const seenNames = new Set();
+    const uniqueEvents = [];
+    for (const evt of rawEvents) {
+        const cleanName = (evt.name || '').trim().toLowerCase();
+        if (!seenNames.has(cleanName)) {
+            seenNames.add(cleanName);
+            uniqueEvents.push(evt);
+        }
+    }
+    
+    // 2. Group by segment/category
+    const groups = {};
+    for (const evt of uniqueEvents) {
+        const cat = evt.segment || evt.genre || 'Other';
+        if (!groups[cat]) {
+            groups[cat] = [];
+        }
+        groups[cat].push(evt);
+    }
+    
+    // Shuffle events within each category group to ensure variety
+    Object.keys(groups).forEach(c => {
+        groups[c].sort(() => Math.random() - 0.5);
+    });
+    
+    // 3. Round-robin select from groups
+    const categories = Object.keys(groups);
+    const selected = [];
+    const indices = {};
+    categories.forEach(c => { indices[c] = 0; });
+    
+    let added = true;
+    while (added && selected.length < count) {
+        added = false;
+        // Shuffle category order per round-robin pass to randomize which category comes first
+        const shuffledCats = [...categories].sort(() => Math.random() - 0.5);
+        for (const c of shuffledCats) {
+            const idx = indices[c];
+            if (idx < groups[c].length) {
+                selected.push(groups[c][idx]);
+                indices[c] = idx + 1;
+                added = true;
+                if (selected.length >= count) break;
+            }
+        }
+    }
+    
+    return selected;
+};
+
 const NearbyEvents = () => {
     const navigate = useNavigate();
     const [city, setCity] = useState('New York');
@@ -130,19 +184,16 @@ const NearbyEvents = () => {
         try {
             const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=all`);
             if (res.data && res.data.length > 0) {
-                // De-duplicate by id
-                const unique = Array.from(new Map(res.data.map(item => [item.id, item])).values());
-                // Shuffle events to mix categories randomly
-                const shuffled = unique.sort(() => Math.random() - 0.5);
-                setEvents(shuffled.slice(0, 8));
+                const mixed = mixAndDeduplicateEvents(res.data, 8);
+                setEvents(mixed);
             } else {
-                const shuffledMock = [...MOCK_EVENTS].sort(() => Math.random() - 0.5);
-                setEvents(shuffledMock);
+                const mixedMock = mixAndDeduplicateEvents(MOCK_EVENTS, 8);
+                setEvents(mixedMock);
             }
         } catch (e) {
             console.warn('[NearbyEvents] Failed to fetch events, falling back to mock events:', e);
-            const shuffledMock = [...MOCK_EVENTS].sort(() => Math.random() - 0.5);
-            setEvents(shuffledMock);
+            const mixedMock = mixAndDeduplicateEvents(MOCK_EVENTS, 8);
+            setEvents(mixedMock);
         } finally {
             setIsLoading(false);
         }

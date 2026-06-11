@@ -643,7 +643,7 @@ app.get('/api/events', async (req, res) => {
         serpapi: process.env.SERP_API_KEY,
         seatgeek: process.env.SEATGEEK_CLIENT_ID
     };
-    const events = await fetchEvents(supabase, req.query.city, req.query.category, 15, keys);
+    const events = await fetchEvents(supabase, req.query.city, req.query.category, 50, keys);
     res.json(events);
 });
 
