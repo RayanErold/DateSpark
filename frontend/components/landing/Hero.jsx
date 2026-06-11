@@ -1,16 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Calendar, Ticket, MapPin } from 'lucide-react';
-import dashboardMockup from '../../assets/dashboard-mockup.png';
-import { trackABEvent } from '../../lib/hooks/useABTest';
+import { Sparkles, ArrowRight, Calendar, MapPin } from 'lucide-react';
+import DateArchitectChat from '../dashboard/DateArchitectChat';
 
 const Hero = () => {
     const navigate = useNavigate();
-    const TEST_KEY = 'landing-hero-v1';
 
     const handleCTAClick = () => {
-        trackABEvent(TEST_KEY, 'A', 'cta_click');
         navigate('/signup');
     };
 
@@ -35,7 +32,7 @@ const Hero = () => {
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-coral via-pink-500 to-rose-400">
                                     that spark
                                 </span> ✨
-                            </h1>
+                             </h1>
                             
                             <div className="space-y-4 mb-8 lg:mb-10">
                                 <p className="text-base sm:text-lg md:text-2xl font-black text-gray-400 tracking-tight leading-tight">
@@ -78,38 +75,15 @@ const Hero = () => {
                         </motion.div>
                     </div>
 
-                    {/* Right: Premium Mockup */}
-                    <div className="flex-[1.1] lg:flex-[1.3] relative w-full lg:w-auto perspective-2000 overflow-visible">
+                    {/* Right: Embedded Sparky AI Concierge chat widget */}
+                    <div className="flex-[1.1] lg:flex-[1.3] w-full max-w-xl mx-auto z-10">
                         <motion.div
-                            initial={{ opacity: 0, x: 50, rotateY: -10 }}
-                            animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                            transition={{ duration: 1, ease: "easeOut" }}
-                            className="relative lg:scale-125 lg:translate-x-20 origin-center lg:origin-left"
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.8, delay: 0.2 }}
+                            className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xl overflow-hidden"
                         >
-                            <div className="relative rounded-2xl lg:rounded-[3rem] overflow-hidden shadow-[0_30px_60px_-12px_rgba(0,0,0,0.12)] lg:shadow-[0_60px_100px_-20px_rgba(0,0,0,0.1)] border border-gray-100">
-                                <img 
-                                    src={dashboardMockup} 
-                                    alt="DateSpark Dashboard Preview" 
-                                    className="w-full h-auto"
-                                />
-                                {/* Overlay glow */}
-                                <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none" />
-                            </div>
-
-                            {/* Floating UI Elements for depth */}
-                            <motion.div 
-                                animate={{ y: [0, -10, 0] }}
-                                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                                className="absolute -top-6 -right-6 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-3 z-20"
-                            >
-                                <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                                    <Sparkles className="w-4 h-4 text-green-500" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-navy uppercase tracking-widest">Plan Verified</p>
-                                    <p className="text-[9px] font-bold text-gray-400">98% Match Score</p>
-                                </div>
-                            </motion.div>
+                            <DateArchitectChat isStudio={true} />
                         </motion.div>
                     </div>
 
@@ -120,4 +94,5 @@ const Hero = () => {
 };
 
 export default Hero;
+
 
