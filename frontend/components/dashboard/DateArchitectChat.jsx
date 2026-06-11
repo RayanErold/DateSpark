@@ -732,12 +732,6 @@ const DateArchitectChat = ({
         const textToSend = typeof overrideInput === 'string' ? overrideInput : input;
         if (!textToSend.trim() || isStreaming || isGeneratingPlan) return;
 
-        if (!userId) {
-            localStorage.setItem('pending_spark_prompt', textToSend);
-            navigate('/signup');
-            return;
-        }
-
         // If a proposed plan already exists, treat textToSend as a refinement prompt!
         if (proposedPlan) {
             const userMessage = {
