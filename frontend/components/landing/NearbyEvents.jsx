@@ -10,6 +10,20 @@ const QUICK_CITIES = ['New York', 'Los Angeles', 'Chicago', 'Miami', 'San Franci
 
 const MOCK_EVENTS = [
     {
+        id: 'mock-family-1',
+        name: 'Science & Discovery Interactive Expo',
+        venueName: 'Science Center & Museum Hall',
+        date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+        time: '11:00 AM',
+        image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
+        genre: 'Family Activity',
+        segment: 'Family',
+        priceMin: 15,
+        priceMax: 30,
+        currency: 'USD',
+        source: 'Ticketmaster'
+    },
+    {
         id: 'mock-1',
         name: 'Summer Rooftop Jazz Night',
         venueName: 'The Press Room, Manhattan',
@@ -114,7 +128,7 @@ const NearbyEvents = () => {
         }
 
         try {
-            const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=all`);
+            const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=family`);
             if (res.data && res.data.length > 0) {
                 // De-duplicate by id
                 const unique = Array.from(new Map(res.data.map(item => [item.id, item])).values());
