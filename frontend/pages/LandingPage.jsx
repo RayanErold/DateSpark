@@ -3,6 +3,7 @@ import Navbar from '../components/common/Navbar';
 import Hero from '../components/landing/Hero';
 import Features from '../components/landing/Features';
 import PopularPlans from '../components/landing/PopularPlans';
+import NearbyEvents from '../components/landing/NearbyEvents';
 import HowItWorks from '../components/landing/HowItWorks';
 import SocialProof from '../components/landing/SocialProof';
 import FAQ from '../components/landing/FAQ';
@@ -26,6 +27,9 @@ const LandingPage = () => {
                 
                 {/* 3. Popular Plans Gallery */}
                 <PopularPlans />
+
+                {/* Nearby Events Showcase */}
+                <NearbyEvents />
 
                 {/* 4. How It Works Section */}
                 <HowItWorks />
