@@ -8,6 +8,18 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 
 const QUICK_CITIES = ['New York', 'Los Angeles', 'Chicago', 'Miami', 'San Francisco'];
 
+const CATEGORIES = [
+    { id: 'all',       label: 'All Events', emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
+    { id: 'family',    label: 'Family',     emoji: '👨‍👩‍👧', color: 'from-sky-500 to-blue-600' },
+    { id: 'community', label: 'Groups',     emoji: '🤝', color: 'from-orange-400 to-red-500' },
+    { id: 'music',     label: 'Music',      emoji: '🎵', color: 'from-pink-500 to-rose-600' },
+    { id: 'sports',    label: 'Sports',     emoji: '🏆', color: 'from-orange-500 to-amber-600' },
+    { id: 'theater',   label: 'Theater',    emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
+    { id: 'comedy',    label: 'Comedy',     emoji: '😂', color: 'from-yellow-500 to-orange-500' },
+    { id: 'classes',   label: 'Classes',    emoji: '🎨', color: 'from-indigo-500 to-purple-600' },
+    { id: 'tech',      label: 'Tech',       emoji: '💻', color: 'from-cyan-500 to-blue-500' },
+];
+
 const MOCK_EVENTS = [
     {
         id: 'mock-family-1',
@@ -169,10 +181,12 @@ const NearbyEvents = () => {
     const navigate = useNavigate();
     const [city, setCity] = useState('New York');
     const [cityInput, setCityInput] = useState('New York');
+    const [category, setCategory] = useState('all');
     const [events, setEvents] = useState([]);
+    const [eventsCache, setEventsCache] = useState({});
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchLocalEvents = async (searchCity) => {
+    const fetchLocalEvents = async (searchCity, searchCategory = 'all') => {
         setIsLoading(true);
         // Map boroughs to metro center for Ticketmaster compatibility
         let queryCity = searchCity;
@@ -181,27 +195,46 @@ const NearbyEvents = () => {
             queryCity = 'New York';
         }
 
+        const cacheKey = `${queryCity.toLowerCase()}_${searchCategory.toLowerCase()}`;
+        if (eventsCache[cacheKey]) {
+            setEvents(eventsCache[cacheKey]);
+            setIsLoading(false);
+            return;
+        }
+
         try {
-            const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=all`);
+            const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=${searchCategory}`);
             if (res.data && res.data.length > 0) {
                 const mixed = mixAndDeduplicateEvents(res.data, 8);
                 setEvents(mixed);
+                setEventsCache(prev => ({
+                    ...prev,
+                    [cacheKey]: mixed
+                }));
             } else {
                 const mixedMock = mixAndDeduplicateEvents(MOCK_EVENTS, 8);
                 setEvents(mixedMock);
+                setEventsCache(prev => ({
+                    ...prev,
+                    [cacheKey]: mixedMock
+                }));
             }
         } catch (e) {
             console.warn('[NearbyEvents] Failed to fetch events, falling back to mock events:', e);
             const mixedMock = mixAndDeduplicateEvents(MOCK_EVENTS, 8);
             setEvents(mixedMock);
+            setEventsCache(prev => ({
+                ...prev,
+                [cacheKey]: mixedMock
+            }));
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchLocalEvents(city);
-    }, [city]);
+        fetchLocalEvents(city, category);
+    }, [city, category]);
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -263,6 +296,24 @@ const NearbyEvents = () => {
                             }`}
                         >
                             {c}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Category selector pills */}
+                <div className="flex gap-2 overflow-x-auto scrollbar-none pb-4 mb-8 snap-x snap-mandatory">
+                    {CATEGORIES.map(cat => (
+                        <button
+                            key={cat.id}
+                            onClick={() => setCategory(cat.id)}
+                            className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-black transition-all flex items-center gap-1.5 border snap-start ${
+                                category === cat.id
+                                    ? `bg-gradient-to-r ${cat.color} border-transparent text-white shadow-md`
+                                    : 'bg-slate-50 border-slate-100 text-gray-500 hover:border-gray-200 hover:bg-white'
+                            }`}
+                        >
+                            <span>{cat.emoji}</span>
+                            <span>{cat.label}</span>
                         </button>
                     ))}
                 </div>
