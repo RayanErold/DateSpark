@@ -45,8 +45,12 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
     } : null;
 
     const enrichedSteps = await Promise.all(steps.map(async (step) => {
-        // Skip enrichment if already verified with a Google photo or place ID
-        if (step.googlePlaceId || (step.photoUrl || '').includes('places.googleapis.com')) {
+        // Skip enrichment if already verified with a valid Google photo
+        const hasValidGooglePhoto = step.googlePlaceId && 
+            (step.photoUrl || '').includes('places.googleapis.com') && 
+            !(step.photoUrl || '').includes('/photos/Ab43m-');
+
+        if (hasValidGooglePhoto) {
             return step;
         }
 
@@ -125,8 +129,9 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             }
 
             if (!place) {
-                // IMPORTANT: Keep the old photo if search fails entirely
-                return { ...step, verified: false };
+                // IMPORTANT: Keep the old photo if search fails entirely, but strip completely broken legacy ones
+                const cleanPhotoUrl = (step.photoUrl || '').includes('/photos/Ab43m-') ? null : step.photoUrl;
+                return { ...step, photoUrl: cleanPhotoUrl, verified: false };
             }
 
             // --- STEP 3: Normalization ---
@@ -586,15 +591,12 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
             let itinerary = plan.itinerary;
             let steps = Array.isArray(itinerary) ? itinerary : (itinerary?.steps || []);
             
-            // Force enrichment if:
-            // 1. Missing Place ID
-            // 2. Not a Google URL (e.g. Unsplash or null)
-            // 3. Is a Legacy URL (maps.googleapis.com)
             const needsEnrichment = steps.some(s => 
                 !s.googlePlaceId || 
                 !(s.photoUrl || '').includes('places.googleapis.com') ||
                 (s.photoUrl || '').includes('maps.googleapis.com') ||
-                (s.photoUrl || '').includes('unsplash')
+                (s.photoUrl || '').includes('unsplash') ||
+                (s.photoUrl || '').includes('/photos/Ab43m-') // Force enrichment for legacy Google photo reference
             );
             
             if (needsEnrichment && steps.length > 0) {

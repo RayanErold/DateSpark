@@ -66,7 +66,13 @@ const CATEGORY_FALLBACK_IMAGES = {
 
 const getEventImage = (evt) => {
     if (evt.image && evt.image.trim() !== '') {
-        return evt.image;
+        const isMapUrl = evt.image.includes('google.com/maps') ||
+                         evt.image.includes('maps.googleapis.com') ||
+                         evt.image.includes('staticmap') ||
+                         evt.image.includes('/maps/vt/');
+        if (!isMapUrl) {
+            return evt.image;
+        }
     }
     const seg = (evt.segment || evt.genre || 'all').toLowerCase();
     let list = CATEGORY_FALLBACK_IMAGES.all;
@@ -89,6 +95,7 @@ const getEventImage = (evt) => {
     const idx = Math.abs(hash) % list.length;
     return list[idx];
 };
+
 
 const MOCK_EVENTS = [
     {
@@ -409,15 +416,41 @@ const NearbyEvents = () => {
                                     className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group w-[210px] sm:w-[260px] md:w-auto flex-shrink-0 snap-start"
                                 >
                                     {/* Image */}
-                                    <div className="relative h-32 sm:h-40 md:h-44 overflow-hidden bg-navy/5">
-                                        <img
-                                            src={getEventImage(evt)}
-                                            alt={evt.name}
-                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                            onError={(e) => {
-                                                e.target.src = getEventImage({ ...evt, image: null });
-                                            }}
-                                        />
+                                    <div className="relative h-32 sm:h-40 md:h-44 overflow-hidden bg-black/10 flex items-center justify-center">
+                                        {(() => {
+                                            const imgUrl = getEventImage(evt);
+                                            const isGstatic = imgUrl.includes('gstatic.com') || imgUrl.includes('googleusercontent.com');
+                                            if (isGstatic) {
+                                                return (
+                                                    <>
+                                                        <img
+                                                            src={imgUrl}
+                                                            alt=""
+                                                            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-60 scale-125 select-none pointer-events-none"
+                                                        />
+                                                        <img
+                                                            src={imgUrl}
+                                                            alt={evt.name}
+                                                            className="h-full w-auto object-contain relative z-10 group-hover:scale-105 transition-transform duration-700"
+                                                            onError={(e) => {
+                                                                e.target.src = getEventImage({ ...evt, image: null });
+                                                            }}
+                                                        />
+                                                    </>
+                                                );
+                                            } else {
+                                                return (
+                                                    <img
+                                                        src={imgUrl}
+                                                        alt={evt.name}
+                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                                        onError={(e) => {
+                                                            e.target.src = getEventImage({ ...evt, image: null });
+                                                        }}
+                                                    />
+                                                );
+                                            }
+                                        })()}
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                                         
                                         {/* Category Badge */}

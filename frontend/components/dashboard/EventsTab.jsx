@@ -6,7 +6,6 @@ import {
     RefreshCw, Search
 } from 'lucide-react';
 import { Autocomplete } from '@react-google-maps/api';
-import { useGoogleMaps } from '../../lib/googleMaps';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -44,7 +43,11 @@ const formatDate = (dateStr, timeStr) => {
     }
     
     try {
-        const d = new Date(`${dateStr}T${timeStr || '00:00'}:00`);
+        let cleanTime = timeStr || '00:00';
+        if (cleanTime.split(':').length === 2) {
+            cleanTime = `${cleanTime}:00`;
+        }
+        const d = new Date(`${dateStr}T${cleanTime}`);
         if (isNaN(d.getTime())) {
             return dateStr;
         }
@@ -60,6 +63,81 @@ const formatPrice = (min, max, currency) => {
     if (!min) return 'See tickets';
     const sym = currency === 'USD' ? '$' : currency;
     return max && max !== min ? `${sym}${Math.round(min)} – ${sym}${Math.round(max)}` : `From ${sym}${Math.round(min)}`;
+};
+
+const CATEGORY_FALLBACK_IMAGES = {
+    music: [
+        'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80'
+    ],
+    sports: [
+        'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=600&q=80'
+    ],
+    theater: [
+        'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1516307364728-22f12d51c02e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80'
+    ],
+    comedy: [
+        'https://images.unsplash.com/photo-1585699324551-f6c309eed262?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1527224857830-43a7acc85260?auto=format&fit=crop&w=600&q=80'
+    ],
+    family: [
+        'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1489659639091-8b687bc4386e?auto=format&fit=crop&w=600&q=80'
+    ],
+    community: [
+        'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80'
+    ],
+    classes: [
+        'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80'
+    ],
+    tech: [
+        'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80'
+    ],
+    all: [
+        'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80'
+    ]
+};
+
+const getEventImage = (evt) => {
+    if (evt.image && evt.image.trim() !== '') {
+        const isMapUrl = evt.image.includes('google.com/maps') ||
+                         evt.image.includes('maps.googleapis.com') ||
+                         evt.image.includes('staticmap') ||
+                         evt.image.includes('/maps/vt/');
+        if (!isMapUrl) {
+            return evt.image;
+        }
+    }
+    const seg = (evt.segment || evt.genre || 'all').toLowerCase();
+    let list = CATEGORY_FALLBACK_IMAGES.all;
+    
+    if (seg.includes('music') || seg.includes('concert')) list = CATEGORY_FALLBACK_IMAGES.music;
+    else if (seg.includes('sport') || seg.includes('athletic') || seg.includes('basketball') || seg.includes('football')) list = CATEGORY_FALLBACK_IMAGES.sports;
+    else if (seg.includes('theat') || seg.includes('broadway') || seg.includes('art') || seg.includes('museum')) list = CATEGORY_FALLBACK_IMAGES.theater;
+    else if (seg.includes('comedy') || seg.includes('standup')) list = CATEGORY_FALLBACK_IMAGES.comedy;
+    else if (seg.includes('family') || seg.includes('child')) list = CATEGORY_FALLBACK_IMAGES.family;
+    else if (seg.includes('group') || seg.includes('meetup') || seg.includes('social') || seg.includes('community')) list = CATEGORY_FALLBACK_IMAGES.community;
+    else if (seg.includes('class') || seg.includes('workshop')) list = CATEGORY_FALLBACK_IMAGES.classes;
+    else if (seg.includes('tech') || seg.includes('network') || seg.includes('software') || seg.includes('science') || seg.includes('computer')) list = CATEGORY_FALLBACK_IMAGES.tech;
+
+    const name = evt.name || '';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const idx = Math.abs(hash) % list.length;
+    return list[idx];
 };
 
 // ─── SKELETON ────────────────────────────────────────────────────────────────
@@ -78,6 +156,8 @@ const EventSkeleton = ({ isDark }) => (
 const EventCard = ({ evt, isDark, idx }) => {
     const color = segmentColor(evt.segment);
     const isCancelled = evt.status === 'cancelled';
+    const imgUrl = getEventImage(evt);
+    const isGstatic = imgUrl.includes('gstatic.com') || imgUrl.includes('googleusercontent.com');
 
     return (
         <motion.a
@@ -92,19 +172,38 @@ const EventCard = ({ evt, isDark, idx }) => {
             } ${isCancelled ? 'opacity-50 pointer-events-none' : ''}`}
         >
             {/* Image Section */}
-            <div className="relative h-40 overflow-hidden">
-                {evt.image ? (
+            <div className="relative h-40 overflow-hidden bg-black/10 flex items-center justify-center">
+                {isGstatic ? (
+                    <>
+                        {/* Blurred Backdrop */}
+                        <img
+                            src={imgUrl}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-60 scale-125 select-none pointer-events-none"
+                        />
+                        {/* Crisp contained foreground */}
+                        <motion.img
+                            src={imgUrl}
+                            alt={evt.name}
+                            whileHover={{ scale: 1.05 }}
+                            transition={{ duration: 0.4 }}
+                            className="h-full w-auto object-contain relative z-10 animate-fade-in"
+                            onError={(e) => {
+                                e.target.src = getEventImage({ ...evt, image: null });
+                            }}
+                        />
+                    </>
+                ) : (
                     <motion.img
-                        src={evt.image}
+                        src={imgUrl}
                         alt={evt.name}
                         whileHover={{ scale: 1.1 }}
                         transition={{ duration: 0.6 }}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover animate-fade-in"
+                        onError={(e) => {
+                            e.target.src = getEventImage({ ...evt, image: null });
+                        }}
                     />
-                ) : (
-                    <div className={`w-full h-full bg-gradient-to-br ${color} opacity-80 flex items-center justify-center`}>
-                        {evt.segment === 'Sports' ? <Trophy className="w-10 h-10 text-white/40" /> : <Ticket className="w-10 h-10 text-white/40" />}
-                    </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
@@ -170,71 +269,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
     const [apiReady, setApiReady]   = useState(true);
     const [autocomplete, setAutocomplete] = useState(null);
 
-    const { isLoaded } = useGoogleMaps();
-    const [placesService, setPlacesService] = useState(null);
 
-    useEffect(() => {
-        if (isLoaded && window.google?.maps?.places && !placesService) {
-            const dummy = document.createElement('div');
-            setPlacesService(new window.google.maps.places.PlacesService(dummy));
-        }
-    }, [isLoaded, placesService]);
-
-    // Google Places Photo Enrichment for generic/fallback images
-    useEffect(() => {
-        if (!placesService || events.length === 0) return;
-
-        let isMounted = true;
-        const enrichBatch = async () => {
-            const currentEvents = [...events];
-            let modified = false;
-
-            for (let i = 0; i < currentEvents.length; i++) {
-                if (!isMounted) break;
-                const evt = currentEvents[i];
-                
-                if (evt._photoEnriched) continue;
-                
-                const isGenericOrMissing = !evt.image || 
-                                           evt.image.includes('encrypted-tbn0.gstatic.com') ||
-                                           evt.image.includes('maps.googleapis.com') ||
-                                           evt.image.includes('staticmap');
-                
-                if (isGenericOrMissing && evt.venueName) {
-                    try {
-                        await new Promise((resolve) => {
-                            placesService.textSearch({ query: `${evt.venueName} ${city}` }, (results, status) => {
-                                if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0 && results[0].photos) {
-                                    const photo = results[0].photos[0];
-                                    const photoUrl = photo.photo_reference
-                                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}`
-                                        : photo.getUrl({ maxWidth: 800 });
-                                    currentEvents[i] = { ...evt, image: photoUrl, _photoEnriched: true };
-                                    modified = true;
-                                    if (isMounted) setEvents([...currentEvents]);
-                                } else {
-                                    const cleanedEvt = { ...evt, _photoEnriched: true };
-                                    if (cleanedEvt.image && (cleanedEvt.image.includes('staticmap') || cleanedEvt.image.includes('maps.googleapis.com'))) {
-                                        delete cleanedEvt.image;
-                                    }
-                                    currentEvents[i] = cleanedEvt;
-                                    if (isMounted && modified) setEvents([...currentEvents]); // update if we have modifications so far
-                                }
-                                setTimeout(resolve, 350);
-                            });
-                        });
-                    } catch (e) {
-                        console.error("Error fetching photo for", evt.venueName, e);
-                    }
-                } else {
-                    currentEvents[i] = { ...evt, _photoEnriched: true };
-                }
-            }
-        };
-
-        enrichBatch();
-        return () => { isMounted = false; };
-    }, [events, placesService, city]);
 
     const onAutocompleteLoad = (autocompleteInstance) => {
         setAutocomplete(autocompleteInstance);
@@ -413,70 +448,77 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                     <p className={`text-sm ${isDark ? 'text-white/30' : 'text-gray-400'}`}>Try a different city or category</p>
                 </div>
             ) : category === 'all' ? (
-                <div className="space-y-12">
-                    {CATEGORIES.filter(c => c.id !== 'all').map(cat => {
-                        const catEvents = events.filter(e => 
-                            e.segment?.toLowerCase() === cat.id || 
-                            e.genre?.toLowerCase() === cat.id ||
-                            (cat.id === 'theater' && e.segment === 'Arts & Theatre')
-                        );
-                        
-                        if (catEvents.length === 0) return null;
-
-                        return (
-                            <div key={cat.id} className="space-y-4">
-                                <div className="flex items-center justify-between px-1">
-                                    <h3 className={`text-xl font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-navy'}`}>
-                                        <span className="text-2xl">{cat.emoji}</span>
-                                        {cat.label}
-                                    </h3>
-                                    <button 
-                                        onClick={() => setCategory(cat.id)}
-                                        className="text-xs font-black text-violet-500 uppercase tracking-widest hover:underline"
-                                    >
-                                        View All
-                                    </button>
-                                </div>
-                                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-                                    {catEvents.map((evt, idx) => (
-                                        <div key={evt.id} className="min-w-[280px] sm:min-w-[320px] snap-start">
-                                            <EventCard evt={evt} isDark={isDark} idx={idx} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
+                (() => {
+                    const renderedIds = new Set();
                     
-                    {/* Catch-all for events that didn't match the main categories */}
-                    {(() => {
-                        const matchedIds = new Set(CATEGORIES.filter(c => c.id !== 'all').flatMap(cat => 
-                            events.filter(e => 
-                                e.segment?.toLowerCase() === cat.id || 
-                                e.genre?.toLowerCase() === cat.id ||
-                                (cat.id === 'theater' && e.segment === 'Arts & Theatre')
-                            ).map(e => e.id)
-                        ));
-                        const otherEvents = events.filter(e => !matchedIds.has(e.id));
-                        
-                        if (otherEvents.length === 0) return null;
+                    return (
+                        <div className="space-y-12">
+                            {CATEGORIES.filter(c => c.id !== 'all').map(cat => {
+                                const catEvents = events.filter(e => {
+                                    if (renderedIds.has(e.id)) return false;
+                                    
+                                    const matches = e.segment?.toLowerCase() === cat.id || 
+                                                    e.genre?.toLowerCase() === cat.id ||
+                                                    (cat.id === 'theater' && e.segment === 'Arts & Theatre');
+                                    
+                                    if (matches) {
+                                        renderedIds.add(e.id);
+                                        return true;
+                                    }
+                                    return false;
+                                });
+                                
+                                if (catEvents.length === 0) return null;
 
-                        return (
-                            <div className="space-y-4">
-                                <div className="px-1">
-                                    <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-navy'}`}>More Happenings</h3>
-                                </div>
-                                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-                                    {otherEvents.map((evt, idx) => (
-                                        <div key={evt.id} className="min-w-[280px] sm:min-w-[320px] snap-start">
-                                            <EventCard evt={evt} isDark={isDark} idx={idx} />
+                                return (
+                                    <div key={cat.id} className="space-y-4">
+                                        <div className="flex items-center justify-between px-1">
+                                            <h3 className={`text-xl font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-navy'}`}>
+                                                <span className="text-2xl">{cat.emoji}</span>
+                                                {cat.label}
+                                            </h3>
+                                            <button 
+                                                onClick={() => setCategory(cat.id)}
+                                                className="text-xs font-black text-violet-500 uppercase tracking-widest hover:underline"
+                                            >
+                                                View All
+                                            </button>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })()}
-                </div>
+                                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                                            {catEvents.map((evt, idx) => (
+                                                <div key={evt.id} className="min-w-[280px] sm:min-w-[320px] snap-start">
+                                                    <EventCard evt={evt} isDark={isDark} idx={idx} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            
+                            {/* Catch-all for events that didn't match the main categories */}
+                            {(() => {
+                                const otherEvents = events.filter(e => !renderedIds.has(e.id));
+                                
+                                if (otherEvents.length === 0) return null;
+
+                                return (
+                                    <div className="space-y-4">
+                                        <div className="px-1">
+                                            <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-navy'}`}>More Happenings</h3>
+                                        </div>
+                                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                                            {otherEvents.map((evt, idx) => (
+                                                <div key={evt.id} className="min-w-[280px] sm:min-w-[320px] snap-start">
+                                                    <EventCard evt={evt} isDark={isDark} idx={idx} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    );
+                })()
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {events.map((evt, idx) => (

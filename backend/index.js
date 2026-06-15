@@ -826,17 +826,35 @@ app.get('/api/photo-proxy', async (req, res) => {
             return res.status(403).json({ error: 'Forbidden: Only Google API URLs are allowed.' });
         }
 
-        // AUTO-FIX: Inject API key if missing (common for legacy database entries)
-        if (!googleUrl.includes('key=') && apiKey && !googleUrl.includes('googleusercontent.com')) {
-            const separator = googleUrl.includes('?') ? '&' : '?';
-            googleUrl = `${googleUrl}${separator}key=${apiKey}`;
-            console.log('[PhotoProxy] 🔑 Auto-injected API Key into legacy URL');
+        // Dynamically inject/overwrite the current API key to ensure validity
+        if (apiKey && !googleUrl.includes('googleusercontent.com')) {
+            try {
+                const parsedUrl = new URL(googleUrl);
+                parsedUrl.searchParams.set('key', apiKey);
+                googleUrl = parsedUrl.toString();
+            } catch (urlErr) {
+                if (googleUrl.includes('key=')) {
+                    googleUrl = googleUrl.replace(/key=[^&]+/, `key=${apiKey}`);
+                } else {
+                    const separator = googleUrl.includes('?') ? '&' : '?';
+                    googleUrl = `${googleUrl}${separator}key=${apiKey}`;
+                }
+            }
         }
         
-        console.log(`[PhotoProxy] Redirecting to: ${googleUrl.split('?')[0]}...`);
-        // Instead of proxying the stream (which fails CORS/Referer checks and consumes server bandwidth),
-        // we just issue a 302 redirect so the browser fetches it natively with the correct referer.
-        return res.redirect(302, googleUrl);
+        console.log(`[PhotoProxy] Fetching and streaming Google Photo from: ${googleUrl.split('?')[0]}...`);
+        
+        const response = await fetch(googleUrl);
+        if (!response.ok) {
+            throw new Error(`Google responded with status ${response.status}`);
+        }
+        
+        res.setHeader('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        return res.send(buffer);
         
     } catch (err) {
         console.error('[PHOTO_PROXY_ERROR]', err.message);

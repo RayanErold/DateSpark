@@ -56,22 +56,28 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey) => {
         const raw = res.data?.events_results || [];
         console.log(`[SerpApi] Found ${raw.length} events for search.`);
         
-        return raw.slice(0, size).map((evt, i) => ({
-            id: `serp-${evt.title?.substring(0,3)}-${i}`,
-            source: 'Local',
-            name: evt.title,
-            url: evt.link,
-            date: evt.date?.when || evt.date?.start_date || 'Date TBD',
-            time: null,
-            venueName: evt.venue?.name,
-            address: Array.isArray(evt.address) ? evt.address.join(', ') : evt.address,
-            image: evt.image || evt.thumbnail,
-            segment: evt.venue?.name ? 'Community' : 'Activity',
-            genre: category.charAt(0).toUpperCase() + category.slice(1),
-            priceMin: null,
-            currency: 'USD',
-            status: 'active'
-        }));
+        return raw.slice(0, size).map((evt, i) => {
+            let imgUrl = evt.image || evt.thumbnail;
+            if (imgUrl && (imgUrl.includes('google.com/maps') || imgUrl.includes('maps.googleapis.com') || imgUrl.includes('staticmap') || imgUrl.includes('/maps/vt/'))) {
+                imgUrl = null;
+            }
+            return {
+                id: `serp-${evt.title?.substring(0,3)}-${i}`,
+                source: 'Local',
+                name: evt.title,
+                url: evt.link,
+                date: evt.date?.when || evt.date?.start_date || 'Date TBD',
+                time: null,
+                venueName: evt.venue?.name,
+                address: Array.isArray(evt.address) ? evt.address.join(', ') : evt.address,
+                image: imgUrl,
+                segment: evt.venue?.name ? 'Community' : 'Activity',
+                genre: category.charAt(0).toUpperCase() + category.slice(1),
+                priceMin: null,
+                currency: 'USD',
+                status: 'active'
+            };
+        });
     } catch (err) {
         console.warn('[SerpApi Error]', err.message);
         return [];
@@ -120,8 +126,23 @@ export const fetchEvents = async (supabase, city, category, size = 15, keys = {}
         serpEvents = await fetchSerpEvents(city, category, size, serpapi);
     }
 
-    // Merge and shuffle
-    const all = [...tmEvents, ...sgEvents, ...serpEvents].sort(() => Math.random() - 0.5);
+    // Merge and deduplicate by name, date and venue to avoid duplicates across TM, SG, and SerpApi
+    const seen = new Set();
+    const uniqueEvents = [];
+    for (const evt of [...tmEvents, ...sgEvents, ...serpEvents]) {
+        const nameNorm = (evt.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const dateNorm = evt.date || '';
+        const venueNorm = (evt.venueName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        // Fingerprint combines normalized name, date, and venue
+        const fingerprint = `${nameNorm}_${dateNorm}_${venueNorm}`;
+        if (!seen.has(fingerprint)) {
+            seen.add(fingerprint);
+            uniqueEvents.push(evt);
+        }
+    }
+
+    const all = uniqueEvents.sort(() => Math.random() - 0.5);
 
     // 5. ASYNC CACHE SAVE
     if (all.length > 0) {
@@ -162,7 +183,7 @@ export const fetchSeatGeekEvents = async (city, category, size = 15, clientId) =
             time: evt.datetime_local?.split('T')[1],
             venueName: evt.venue?.name,
             address: evt.venue?.address,
-            image: evt.performers?.[0]?.image,
+            image: evt.performers?.[0]?.images?.huge || evt.performers?.[0]?.images?.large || evt.performers?.[0]?.image,
             segment: evt.type?.toUpperCase(),
             genre: category.charAt(0).toUpperCase() + category.slice(1),
             priceMin: evt.stats?.lowest_price,
