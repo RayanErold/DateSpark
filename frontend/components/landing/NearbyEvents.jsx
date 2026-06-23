@@ -16,6 +16,10 @@ const CATEGORIES = [
     { id: 'sports',    label: 'Sports',     emoji: '🏆', color: 'from-orange-500 to-amber-600' },
     { id: 'theater',   label: 'Theater',    emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
     { id: 'comedy',    label: 'Comedy',     emoji: '😂', color: 'from-yellow-500 to-orange-500' },
+    { id: 'activities', label: 'Activities', emoji: '🎮', color: 'from-violet-500 to-purple-600' },
+    { id: 'outdoors',  label: 'Outdoors',   emoji: '🌳', color: 'from-emerald-500 to-green-600' },
+    { id: 'food',      label: 'Food & Drink', emoji: '🍷', color: 'from-red-500 to-rose-500' },
+    { id: 'festivals', label: 'Festivals',  emoji: '🎪', color: 'from-amber-500 to-red-500' },
     { id: 'classes',   label: 'Classes',    emoji: '🎨', color: 'from-indigo-500 to-purple-600' },
     { id: 'tech',      label: 'Tech',       emoji: '💻', color: 'from-cyan-500 to-blue-500' },
 ];
@@ -47,6 +51,26 @@ const CATEGORY_FALLBACK_IMAGES = {
     community: [
         'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80'
+    ],
+    activities: [
+        'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1513829096999-4978602297f7?auto=format&fit=crop&w=600&q=80'
+    ],
+    outdoors: [
+        'https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80'
+    ],
+    food: [
+        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80'
+    ],
+    festivals: [
+        'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1481162854517-d9e353af153d?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80'
     ],
     classes: [
         'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=600&q=80',
@@ -85,6 +109,10 @@ const getEventImage = (evt) => {
     else if (seg.includes('group') || seg.includes('meetup') || seg.includes('social') || seg.includes('community')) list = CATEGORY_FALLBACK_IMAGES.community;
     else if (seg.includes('class') || seg.includes('workshop')) list = CATEGORY_FALLBACK_IMAGES.classes;
     else if (seg.includes('tech') || seg.includes('network') || seg.includes('software') || seg.includes('science') || seg.includes('computer')) list = CATEGORY_FALLBACK_IMAGES.tech;
+    else if (seg.includes('activities') || seg.includes('arcade') || seg.includes('bowling') || seg.includes('game') || seg.includes('recreation')) list = CATEGORY_FALLBACK_IMAGES.activities;
+    else if (seg.includes('outdoor') || seg.includes('hike') || seg.includes('nature') || seg.includes('park') || seg.includes('scenic')) list = CATEGORY_FALLBACK_IMAGES.outdoors;
+    else if (seg.includes('food') || seg.includes('drink') || seg.includes('wine') || seg.includes('beer') || seg.includes('culinary') || seg.includes('dining')) list = CATEGORY_FALLBACK_IMAGES.food;
+    else if (seg.includes('festival') || seg.includes('fair') || seg.includes('expo') || seg.includes('exhibition') || seg.includes('carnival')) list = CATEGORY_FALLBACK_IMAGES.festivals;
 
     // Deterministic selection using event name hash to prevent layout shifting
     const name = evt.name || '';
@@ -178,6 +206,9 @@ const SEGMENT_COLORS = {
     Comedy:           'from-yellow-500 to-orange-500 shadow-yellow-500/20',
     Community:        'from-orange-400 to-red-500 shadow-orange-500/20',
     Activity:         'from-indigo-500 to-purple-600 shadow-indigo-500/20',
+    Outdoors:         'from-emerald-500 to-green-600 shadow-emerald-500/20',
+    Food:             'from-red-500 to-rose-500 shadow-red-500/20',
+    Festivals:        'from-amber-500 to-red-500 shadow-amber-500/20',
 };
 
 const segmentColor = (seg) => SEGMENT_COLORS[seg] || 'from-violet-600 to-fuchsia-600';

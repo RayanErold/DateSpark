@@ -50,6 +50,20 @@ const DATE_GOALS = [
         prompt: 'Plan a romantic date night with intimate lighting, a thoughtful dinner or drinks stop, and a memorable final moment.',
     },
     {
+        id: 'active_fun',
+        label: 'Active & Fun',
+        helper: 'Arcade, bowling, playful games',
+        icon: Sparkles,
+        prompt: 'Plan an active and fun date. Include interactive spots like an arcade, bowling, or other competitive games, paired with casual dining or drinks.',
+    },
+    {
+        id: 'outdoors',
+        label: 'Outdoor Adventure',
+        helper: 'Scenic walks, hiking, nature',
+        icon: Compass,
+        prompt: 'Plan an outdoor and scenic date. Focus on natural beauty, parks, scenic walks, or outdoor recreation, followed by cozy outdoor dining or drinks.',
+    },
+    {
         id: 'budget',
         label: 'Smart budget',
         helper: 'Great date, controlled spend',
@@ -296,9 +310,11 @@ const DateArchitectChat = ({
                     ? `Sparking a plan for your date at ${initialPrompt.split('Date at ')[1] || 'this venue'}! I've noted the vibe is ${initialVibe || 'custom'}. What else should I know to make it perfect?`
                     : `Hi! I'm Sparky, your premium AI Date & Trip Concierge. 🌟 I'm here to help you craft incredible dates, weekend getaways, neighborhood crawls, and epic travels. Tell me what you're thinking, or click one of the quick sparks below!`,
                 options: [
-                    "I want to plan a romantic weekend getaway ✈️",
                     "Looking for a chill date night near me 🍻",
-                    "Need a fun outdoor adventure day 🧗"
+                    "Need a fun outdoor adventure day 🌳",
+                    "Arcade & gaming date crawl 🎮",
+                    "Bowling & beer night 🎳",
+                    "I want to plan a romantic weekend getaway ✈️"
                 ]
             };
             setMessages([welcomeMsg]);
@@ -326,9 +342,11 @@ const DateArchitectChat = ({
                     ? `Sparking a plan for your date at ${initialPrompt.split('Date at ')[1] || 'this venue'}! I've noted the vibe is ${initialVibe || 'custom'}. What else should I know to make it perfect?`
                     : `Hi! I'm Sparky, your premium AI Date & Trip Concierge. 🌟 I'm here to help you craft incredible dates, weekend getaways, neighborhood crawls, and epic travels. Tell me what you're thinking, or click one of the quick sparks below!`,
                 options: [
-                    "I want to plan a romantic weekend getaway ✈️",
                     "Looking for a chill date night near me 🍻",
-                    "Need a fun outdoor adventure day 🧗"
+                    "Need a fun outdoor adventure day 🌳",
+                    "Arcade & gaming date crawl 🎮",
+                    "Bowling & beer night 🎳",
+                    "I want to plan a romantic weekend getaway ✈️"
                 ]
             }
         ]);
@@ -1024,6 +1042,9 @@ const DateArchitectChat = ({
                     {[
                         { label: '💸 Chill & Free ($0)', budget: '$0', goal: 'budget' },
                         { label: '🍻 Cozy & Casual ($50)', budget: '$50', goal: 'first_date' },
+                        { label: '🎮 Arcade & Gaming Crawl ($75)', budget: '$75', goal: 'active_fun' },
+                        { label: '🎳 Bowling & Beer Night ($75)', budget: '$75', goal: 'active_fun' },
+                        { label: '🌳 Outdoor & Scenic Walks ($30)', budget: '$30', goal: 'outdoors' },
                         { label: '💖 Romantic & Intimate ($150)', budget: '$150', goal: 'romantic' },
                         { label: '✨ Premium Celebration ($300+)', budget: '$300', goal: 'romantic' }
                     ].map(opt => (

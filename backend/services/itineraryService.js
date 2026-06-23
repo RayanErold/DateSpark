@@ -48,7 +48,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
         // Skip enrichment if already verified with a valid Google photo
         const hasValidGooglePhoto = step.googlePlaceId && 
             (step.photoUrl || '').includes('places.googleapis.com') && 
-            !(step.photoUrl || '').includes('/photos/Ab43m-');
+            !(step.photoUrl || '').includes('/photos/AU_ZV');
 
         if (hasValidGooglePhoto) {
             return step;
@@ -130,7 +130,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
 
             if (!place) {
                 // IMPORTANT: Keep the old photo if search fails entirely, but strip completely broken legacy ones
-                const cleanPhotoUrl = (step.photoUrl || '').includes('/photos/Ab43m-') ? null : step.photoUrl;
+                const cleanPhotoUrl = (step.photoUrl || '').includes('/photos/AU_ZV') ? null : step.photoUrl;
                 return { ...step, photoUrl: cleanPhotoUrl, verified: false };
             }
 
@@ -287,7 +287,7 @@ export const generateAIDate = async (params) => {
               "time": "e.g. 6:30 PM",
               "activity": "A concise category of the activity (max 3 words)",
               "venue": "A real popular matching venue name in the target city",
-              "description": "A short, concise (max 20-30 words) unique description tailored exactly to this venue and vibe, explaining why it's a stellar choice. It must be specific, distinct, and not repeated across other steps."
+              "description": "An extremely short, single-sentence blurb (max 15-20 words total) structured exactly as: 'One short sensory sentence (max 8-10 words). • 💡 Tip: [Max 5 words]. • 👔 Attire: [Max 2 words]. • 📅 Booking: [Max 2 words].'"
             }
           ]
         }
@@ -596,7 +596,7 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
                 !(s.photoUrl || '').includes('places.googleapis.com') ||
                 (s.photoUrl || '').includes('maps.googleapis.com') ||
                 (s.photoUrl || '').includes('unsplash') ||
-                (s.photoUrl || '').includes('/photos/Ab43m-') // Force enrichment for legacy Google photo reference
+                (s.photoUrl || '').includes('/photos/AU_ZV') // Force enrichment for legacy Google photo reference
             );
             
             if (needsEnrichment && steps.length > 0) {

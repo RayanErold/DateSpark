@@ -24,6 +24,8 @@ const SEATGEEK_TAXONOMY_MAP = {
     'theater': 'theater',
     'comedy': 'comedy',
     'family': 'family',
+    'food': 'festival',
+    'festivals': 'festival',
     'all': 'event'
 };
 
@@ -38,6 +40,10 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey) => {
         'music': 'live music concerts',
         'theater': 'theater shows',
         'comedy': 'comedy shows',
+        'activities': 'fun activities arcade bowling gaming',
+        'outdoors': 'outdoor recreation hiking scenic nature events',
+        'food': 'food drink festival culinary wine beer events',
+        'festivals': 'festivals cultural events fairs carnivals',
         'all': 'events'
     };
     
@@ -109,7 +115,7 @@ export const fetchEvents = async (supabase, city, category, size = 15, keys = {}
     console.log(`[EventCache] ❌ Cache MISS for "${cat}" in ${city}. Fetching fresh...`);
 
     // 2. Determine if this is a "Local-Heavy" category that REQUIRED SerpApi
-    const isLocalCategory = ['classes', 'tech', 'community'].includes(cat);
+    const isLocalCategory = ['classes', 'tech', 'community', 'activities', 'outdoors', 'food', 'festivals'].includes(cat);
     
     // 3. Fetch from standard sources (TM & SG)
     const [tmEvents, sgEvents] = await Promise.all([

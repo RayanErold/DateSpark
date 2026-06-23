@@ -166,11 +166,8 @@ async def generate_itinerary(request: ItineraryRequest):
         * 'activity': A concise, capitalized category (e.g., 'Dinner', 'Cocktails', 'Stroll'). Max 3 words.
         * 'venue': 'REAL PLACE TBD'
         * 'search_query': A high-intent, short Google Maps search string (e.g., 'Chic rooftop lounge with skyline views, Williamsburg Brooklyn').
-        * 'description': A rich, luxurious blurb (45-60 words) structured as follows:
-           "A sensory description of the vibe and aesthetic. 
-           • 💡 Concierge Tip: [Specific insider recommendation, e.g., signature cocktail, best table, hidden entrance].
-           • 👔 Attire: [Suggested dress code, e.g., Smart Casual / Cocktail].
-           • 📅 Booking: [Reservation urgency, e.g., Reserve 1 week ahead / Walk-ins only]."
+        * 'description': An extremely short, single-sentence blurb (max 15-20 words total) structured exactly as:
+           "One short sensory sentence (max 8-10 words). • 💡 Tip: [Max 5 words]. • 👔 Attire: [Max 2 words]. • 📅 Booking: [Max 2 words]."
     """
     
     # Try Gemini First
