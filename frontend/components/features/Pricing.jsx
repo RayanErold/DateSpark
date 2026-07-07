@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ArrowRight, Star, Heart, AlertCircle } from 'lucide-react';
+import { Check, ArrowRight, Star, Heart, AlertCircle, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
@@ -7,16 +7,16 @@ import { motion } from 'framer-motion';
 
 const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
+    visible: {
         opacity: 1,
-        transition: { staggerChildren: 0.15 }
+        transition: { staggerChildren: 0.12 }
     }
 };
 
 const itemVariants = {
     hidden: { opacity: 0, y: 30 },
-    visible: { 
-        opacity: 1, 
+    visible: {
+        opacity: 1,
         y: 0,
         transition: { duration: 0.6, ease: "easeOut" }
     }
@@ -24,6 +24,7 @@ const itemVariants = {
 
 const Pricing = () => {
     const [error, setError] = useState(null);
+
     const plans = [
         {
             name: "The Spark",
@@ -40,15 +41,16 @@ const Pricing = () => {
             ],
             cta: "Start free",
             highlight: false,
-            className: "bg-white/5 border-white/10 text-white hover:bg-white/10"
+            dark: false,
         },
         {
             name: "24-Hour Pass",
             tagline: "The instant plan for a perfect tonight.",
             price: "$1.99",
             period: "/24hr",
+            badge: "TONIGHT'S PICK",
             features: [
-                { text: "Unlimited plans generation", icon: Star },
+                { text: "Unlimited plan generation", icon: Star },
                 { text: "Access to unlimited swap spots", icon: Heart },
                 { text: "Access to best venues", icon: Check },
                 { text: "AI plans customizer (24h)", icon: Star },
@@ -57,8 +59,27 @@ const Pricing = () => {
             ],
             cta: "Unlock My Date Night",
             highlight: true,
-            badge: "MOST POPULAR FOR TONIGHT",
-            className: "bg-white text-navy border-white shadow-[0_20px_50px_rgba(244,63,94,0.3)] scale-[1.05]"
+            dark: false,
+        },
+        {
+            name: "Couples",
+            tagline: "Plan together. Surprise each other. Never run out of ideas.",
+            price: "$14.99",
+            period: "/mo",
+            badge: "NEW — PLAN TOGETHER",
+            savings: "Most Complete",
+            features: [
+                { text: "Unlimited plan generation", icon: Star },
+                { text: "Invite partner to collaborate", icon: Users },
+                { text: "Vote on stops together (love / maybe / skip)", icon: Heart },
+                { text: "Surprise Mode — hide plan until date night", icon: Star },
+                { text: "Date reminders & anniversary alerts", icon: Check },
+                { text: "Gift card purchase & redemption", icon: Check },
+                { text: "All Premium features included", icon: Check }
+            ],
+            cta: "Start Couples Plan",
+            highlight: false,
+            dark: true,
         },
         {
             name: "DateSpark Plus",
@@ -74,140 +95,174 @@ const Pricing = () => {
             ],
             cta: "Start Free Trial",
             highlight: false,
-            className: "bg-navy-light/50 border-white/20 text-white hover:border-coral/50",
+            dark: false,
             savings: "7 Days Free"
         }
     ];
 
+    const handlePlanClick = async (planName) => {
+        const planMap = {
+            "The Spark":      "free",
+            "24-Hour Pass":   "24H",
+            "Couples":        "COUPLES",
+            "DateSpark Plus": "ELITE"
+        };
+
+        const type = planMap[planName];
+        if (type === 'free') {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                window.location.href = user ? '/dashboard' : '/signup';
+            } catch {
+                window.location.href = '/signup';
+            }
+            return;
+        }
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                setError("Please log in to upgrade your plan!");
+                setTimeout(() => setError(null), 5000);
+                return;
+            }
+
+            const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+            const response = await axios.post('/api/create-checkout-session', {
+                planType: type,
+                userId: user.id,
+                email: user.email
+            });
+            const { id: sessionId, url } = response.data;
+
+            if (url) {
+                window.location.href = url;
+            } else if (stripe && sessionId) {
+                await stripe.redirectToCheckout({ sessionId });
+            }
+        } catch (err) {
+            console.error('Pricing Payment Error:', err);
+            setError("Connection error. Please try again later.");
+            setTimeout(() => setError(null), 5000);
+        }
+    };
+
     return (
-        <section id="pricing" className="section-padding bg-[#0A0F1E] text-white rounded-[40px] md:rounded-[60px] mx-4 md:mx-8 mb-20 overflow-hidden shadow-2xl relative border border-white/5">
-            {/* Background Decorative Element */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-coral/5 blur-[120px] rounded-full -mr-64 -mt-64" />
-            
+        <section id="pricing" className="section-padding">
             <div className="container-custom relative z-10">
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-50px" }}
                     transition={{ duration: 0.6 }}
-                    className="text-center max-w-3xl mx-auto mb-16 space-y-6"
+                    className="text-center max-w-3xl mx-auto mb-16 space-y-4"
                 >
-                    <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.1]">
-                        Plan the perfect date in <span className="text-coral">seconds.</span>
+                    <span className="editorial-label">Choose your plan</span>
+                    <h2 className="text-4xl md:text-5xl font-serif font-bold text-plum tracking-tight leading-[1.1]">
+                        Plan the perfect date in <span className="text-rose italic">seconds.</span>
                     </h2>
-                    <p className="text-xl text-gray-400 font-medium">
-                        Stop stressing. Start connecting. Choose the best way to spark your romance tonight.
+                    <p className="text-lg text-taupe font-medium">
+                        Stop stressing. Start connecting.
                     </p>
                 </motion.div>
 
-                <motion.div 
+                <motion.div
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, margin: "-50px" }}
                     variants={containerVariants}
-                    className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch"
+                    className="grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch"
                 >
                     {plans.map((sub, idx) => (
-                        <motion.div variants={itemVariants} key={idx} className={`relative p-8 rounded-[40px] border flex flex-col transition-all duration-500 hover:-translate-y-2 ${sub.className}`}>
+                        <motion.div
+                            variants={itemVariants}
+                            key={idx}
+                            className={`relative p-7 rounded-[2rem] border flex flex-col transition-all duration-500 hover:-translate-y-2 ${
+                                sub.dark
+                                    ? 'bg-plum border-plum text-ivory shadow-2xl shadow-plum/20'
+                                    : sub.highlight
+                                        ? 'bg-ivory border-rose shadow-xl shadow-rose/15 scale-[1.02]'
+                                        : 'editorial-card text-plum'
+                            }`}
+                        >
+                            {/* Badge */}
                             {sub.badge && (
-                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-coral text-white px-6 py-2 rounded-full text-[10px] font-black tracking-widest uppercase shadow-xl z-20 whitespace-nowrap animate-bounce">
+                                <div className={`absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full text-[9px] font-semibold tracking-widest uppercase shadow-xl z-20 whitespace-nowrap font-outfit ${
+                                    sub.dark ? 'bg-rose text-ivory' : 'bg-rose text-ivory'
+                                }`}>
                                     {sub.badge}
                                 </div>
                             )}
-                            
+
+                            {/* Savings badge */}
                             {sub.savings && (
-                                <div className="absolute top-6 right-6 text-[10px] font-black uppercase text-coral tracking-wider px-3 py-1 bg-coral/10 rounded-full">
+                                <div className={`absolute top-5 right-5 text-[9px] font-semibold uppercase tracking-wider px-3 py-1 rounded-full font-outfit ${
+                                    sub.dark ? 'text-ivory bg-ivory/10' : 'text-rose bg-rose/10'
+                                }`}>
                                     {sub.savings}
                                 </div>
                             )}
 
-                            <div className="mb-8">
-                                <h4 className="text-2xl font-black tracking-tight mb-2">{sub.name}</h4>
-                                <p className={`text-sm font-medium ${sub.highlight ? 'text-gray-500' : 'text-gray-400'}`}>
+                            {/* Plan name + tagline */}
+                            <div className="mb-6 mt-2">
+                                <h4 className={`text-xl font-bold tracking-tight mb-2 font-outfit ${sub.dark ? 'text-ivory' : 'text-plum'}`}>
+                                    {sub.name}
+                                </h4>
+                                <p className={`text-sm font-medium leading-relaxed ${sub.dark ? 'text-ivory/60' : 'text-taupe'}`}>
                                     {sub.tagline}
                                 </p>
                             </div>
 
-                            <div className="flex items-baseline gap-1 mb-8">
-                                <span className="text-5xl font-black">{sub.price}</span>
-                                <span className={`text-lg font-bold ${sub.highlight ? 'text-gray-400' : 'text-gray-500'}`}>{sub.period}</span>
+                            {/* Price */}
+                            <div className="flex items-baseline gap-1 mb-7">
+                                <span className={`text-4xl font-bold font-outfit ${sub.dark ? 'text-ivory' : 'text-plum'}`}>
+                                    {sub.price}
+                                </span>
+                                <span className={`text-base font-medium ${sub.dark ? 'text-ivory/50' : 'text-taupe'}`}>
+                                    {sub.period}
+                                </span>
                             </div>
 
-                            <ul className="space-y-4 mb-10 flex-grow">
+                            {/* Features */}
+                            <ul className="space-y-3.5 mb-8 flex-grow">
                                 {sub.features.map((feature, fIdx) => (
                                     <li key={fIdx} className="flex items-start gap-3">
-                                        <div className={`p-1 rounded-md ${sub.highlight ? 'bg-coral/10 text-coral' : 'bg-white/10 text-coral'}`}>
+                                        <div className={`p-1 rounded-md flex-shrink-0 ${
+                                            sub.dark
+                                                ? 'bg-rose/20 text-rose'
+                                                : sub.highlight
+                                                    ? 'bg-rose/10 text-rose'
+                                                    : 'bg-blush/60 text-rose'
+                                        }`}>
                                             <feature.icon className="w-3 h-3" />
                                         </div>
-                                        <span className={`text-sm font-medium leading-tight ${feature.muted ? 'opacity-50' : ''}`}>
+                                        <span className={`text-sm font-medium leading-tight ${sub.dark ? 'text-ivory/80' : 'text-taupe'}`}>
                                             {feature.text}
                                         </span>
                                     </li>
                                 ))}
                             </ul>
 
-                             <button
-                                onClick={async () => {
-                                    // Map UI names to internal server plan types
-                                    const planMap = {
-                                        "The Spark": "free",
-                                        "24-Hour Pass": "24H",
-                                        "DateSpark Plus": "ELITE"
-                                    };
-                                    
-                                    const type = planMap[sub.name];
-                                    if (type === 'free') {
-                                        try {
-                                            const { data: { user } } = await supabase.auth.getUser();
-                                            window.location.href = user ? '/dashboard' : '/signup';
-                                        } catch {
-                                            window.location.href = '/signup';
-                                        }
-                                        return;
-                                    }
-
-                                    try {
-                                        const { data: { user } } = await supabase.auth.getUser();
-                                        if (!user) {
-                                            setError("Please log in to upgrade your plan!");
-                                            setTimeout(() => setError(null), 5000);
-                                            return;
-                                        }
-
-                                        const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-                                        const response = await axios.post('/api/create-checkout-session', {
-                                            planType: type,
-                                            userId: user.id,
-                                            email: user.email
-                                        });
-                                        const { id: sessionId, url } = response.data;
-
-                                        if (url) {
-                                            window.location.href = url;
-                                        } else if (stripe && sessionId) {
-                                            await stripe.redirectToCheckout({ sessionId });
-                                        }
-                                    } catch (err) {
-                                        console.error('Pricing Payment Error:', err);
-                                        setError("Connection error. Please try again later.");
-                                        setTimeout(() => setError(null), 5000);
-                                    }
-                                }}
-                                className={`w-full py-5 rounded-2xl font-black text-center flex items-center justify-center gap-2 transition-all group overflow-hidden relative ${
-                                    sub.highlight 
-                                        ? 'bg-coral text-white hover:scale-[1.02] active:scale-[0.98] shadow-2xl shadow-coral/40' 
-                                        : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white'
+                            {/* CTA Button */}
+                            <button
+                                onClick={() => handlePlanClick(sub.name)}
+                                className={`w-full py-4 rounded-2xl font-semibold text-center flex items-center justify-center gap-2 transition-all group overflow-hidden relative text-sm uppercase tracking-widest font-outfit ${
+                                    sub.dark
+                                        ? 'bg-rose text-ivory hover:brightness-105 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-rose/30'
+                                        : sub.highlight
+                                            ? 'bg-plum text-ivory hover:bg-rose hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-plum/20'
+                                            : 'bg-ivory border border-blush text-plum hover:bg-blush/30 hover:border-rose/30'
                                 }`}
                             >
                                 <span className="relative z-10">{sub.cta}</span>
-                                <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${sub.highlight ? 'text-white' : 'text-coral'}`} />
+                                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                             </button>
 
-                            {error && (
-                                <motion.div 
+                            {error && idx === 0 && (
+                                <motion.div
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-500 text-xs font-bold"
+                                    className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-500 text-xs font-semibold"
                                 >
                                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                                     <span>{error}</span>
@@ -217,17 +272,18 @@ const Pricing = () => {
                     ))}
                 </motion.div>
 
+                {/* Social proof footer */}
                 <div className="mt-16 text-center space-y-4">
                     <div className="flex items-center justify-center -space-x-3 mb-4">
                         {[1, 2, 3, 4, 5].map(i => (
-                            <img key={i} src={`https://i.pravatar.cc/100?u=${i + 10}`} className="w-10 h-10 rounded-full border-4 border-[#0A0F1E]" alt="User" />
+                            <img key={i} src={`https://i.pravatar.cc/100?u=${i + 10}`} className="w-10 h-10 rounded-full border-4 border-ivory" alt="User" />
                         ))}
-                        <div className="w-10 h-10 rounded-full border-4 border-[#0A0F1E] bg-coral flex items-center justify-center text-[10px] font-black">
+                        <div className="w-10 h-10 rounded-full border-4 border-ivory bg-rose flex items-center justify-center text-[10px] font-semibold text-ivory font-outfit">
                             +
                         </div>
                     </div>
-                    <p className="text-gray-400 text-sm font-medium">
-                        Join <span className="text-white font-bold">couples in NYC &amp; New Jersey</span> planning stress-free dates.
+                    <p className="text-taupe text-sm font-medium">
+                        Join <span className="text-plum font-semibold">couples in NYC &amp; New Jersey</span> planning stress-free dates.
                     </p>
                 </div>
             </div>

@@ -645,7 +645,8 @@ const Dashboard = () => {
                                         <p className="text-xs text-gray-400 font-bold uppercase mt-1">{selectedPlan.location}</p>
                                     </div>
                                 </div>
-                                                 {/* Floating Tab Bar */ }
+                            </div>
+                                             {/* Floating Tab Bar */ }
                             <div className="px-2 md:px-8 -mt-6 z-10 w-full flex justify-center">
                                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-1.5 flex justify-between items-center text-xs font-bold text-gray-500 w-full max-w-sm">
                                     <button className="flex-1 flex flex-col items-center gap-1 py-1.5 text-navy bg-gray-50 rounded-xl">
@@ -799,7 +800,6 @@ const Dashboard = () => {
                                     })}
                                 </div>
                             </div>
-                        </div>
                         </div>
 
                         {/* Right Column: Embedded Google Map */}

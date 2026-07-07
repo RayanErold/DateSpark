@@ -1,5 +1,39 @@
 import axios from 'axios';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as cacheService from './cacheService.js';
+
+// Helper for cached Places searchText queries to optimize API usage and reduce costs
+const postPlacesSearchText = async (data, config) => {
+    // Generate a unique cache key based on query parameters (textQuery, locationBias, etc.)
+    const cacheKey = `places_search_${JSON.stringify(data)}`;
+    
+    try {
+        // Check cache
+        const cachedResult = await cacheService.getCachedPlace(cacheKey);
+        if (cachedResult) {
+            console.log(`[Google Cache Hit] for: "${data.textQuery}"`);
+            return { data: cachedResult };
+        }
+        
+        // Cache miss: execute live API call
+        console.log(`[Google Cache Miss] Fetching from Google Places API: "${data.textQuery}"`);
+        const response = await axios.post(
+            'https://places.googleapis.com/v1/places:searchText',
+            data,
+            config
+        );
+        
+        // Cache successful response
+        if (response && response.data) {
+            await cacheService.setCachedPlace(cacheKey, response.data);
+        }
+        
+        return response;
+    } catch (err) {
+        console.error(`[Google Places API Error] query "${data.textQuery}":`, err.message);
+        throw err;
+    }
+};
 
 /**
  * ItineraryService — The Bridge Module.
@@ -45,12 +79,12 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
     } : null;
 
     const enrichedSteps = await Promise.all(steps.map(async (step) => {
-        // Skip enrichment if already verified with a valid Google photo
+        // Skip enrichment if already verified with a valid Google photo or if enrichment was already attempted
         const hasValidGooglePhoto = step.googlePlaceId && 
             (step.photoUrl || '').includes('places.googleapis.com') && 
             !(step.photoUrl || '').includes('/photos/AU_ZV');
 
-        if (hasValidGooglePhoto) {
+        if (hasValidGooglePhoto || step.enrichment_attempted) {
             return step;
         }
 
@@ -69,8 +103,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             
             console.log(`[Google Search] Query: "${query}"`);
 
-            let response = await axios.post(
-                'https://places.googleapis.com/v1/places:searchText',
+            let response = await postPlacesSearchText(
                 { 
                     textQuery: query, 
                     maxResultCount: 1,
@@ -83,8 +116,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
 
             // Fallback A: If we searched by venue name and failed, try the search_query directly if it exists
             if (!place && !isPlaceholder && step.search_query) {
-                response = await axios.post(
-                    'https://places.googleapis.com/v1/places:searchText',
+                response = await postPlacesSearchText(
                     { 
                         textQuery: step.search_query, 
                         maxResultCount: 1,
@@ -98,8 +130,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             // Fallback B: Search by activity and city
             if (!place) {
                 const activityQuery = `${step.activity} near ${city}`;
-                response = await axios.post(
-                    'https://places.googleapis.com/v1/places:searchText',
+                response = await postPlacesSearchText(
                     { 
                         textQuery: activityQuery, 
                         maxResultCount: 1,
@@ -114,8 +145,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             if (!place) {
                 const genericQuery = `${step.activity} in ${city}`;
                 try {
-                    response = await axios.post(
-                        'https://places.googleapis.com/v1/places:searchText',
+                    response = await postPlacesSearchText(
                         { 
                             textQuery: genericQuery, 
                             maxResultCount: 1 
@@ -131,7 +161,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             if (!place) {
                 // IMPORTANT: Keep the old photo if search fails entirely, but strip completely broken legacy ones
                 const cleanPhotoUrl = (step.photoUrl || '').includes('/photos/AU_ZV') ? null : step.photoUrl;
-                return { ...step, photoUrl: cleanPhotoUrl, verified: false };
+                return { ...step, photoUrl: cleanPhotoUrl, verified: false, enrichment_attempted: true };
             }
 
             // --- STEP 3: Normalization ---
@@ -162,11 +192,12 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
                 googlePlaceId: place.name?.split('/').pop(),
                 websiteUrl: place.websiteUri,
                 reviews: reviews.length > 0 ? reviews : (step.reviews || []),
-                verified: true
+                verified: true,
+                enrichment_attempted: true
             };
         } catch (err) {
             console.warn(`[Enrichment Error] ${step.activity}:`, err.message);
-            return { ...step, verified: false };
+            return { ...step, verified: false, enrichment_attempted: true };
         }
     }));
 
@@ -353,8 +384,7 @@ export const generateGoogleDate = async (params) => {
         } : null;
 
         // 1. Find a Restaurant
-        const restResponse = await axios.post(
-            'https://places.googleapis.com/v1/places:searchText',
+        const restResponse = await postPlacesSearchText(
             {
                 textQuery: `top rated ${vibe} restaurant in ${city}`,
                 maxResultCount: 1,
@@ -364,8 +394,7 @@ export const generateGoogleDate = async (params) => {
         );
 
         // 2. Find an Activity
-        const actResponse = await axios.post(
-            'https://places.googleapis.com/v1/places:searchText',
+        const actResponse = await postPlacesSearchText(
             {
                 textQuery: `${vibe} activity or attraction in ${city}`,
                 maxResultCount: 1,
@@ -592,11 +621,13 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
             let steps = Array.isArray(itinerary) ? itinerary : (itinerary?.steps || []);
             
             const needsEnrichment = steps.some(s => 
-                !s.googlePlaceId || 
-                !(s.photoUrl || '').includes('places.googleapis.com') ||
-                (s.photoUrl || '').includes('maps.googleapis.com') ||
-                (s.photoUrl || '').includes('unsplash') ||
-                (s.photoUrl || '').includes('/photos/AU_ZV') // Force enrichment for legacy Google photo reference
+                !s.enrichment_attempted && (
+                    !s.googlePlaceId || 
+                    !(s.photoUrl || '').includes('places.googleapis.com') ||
+                    (s.photoUrl || '').includes('maps.googleapis.com') ||
+                    (s.photoUrl || '').includes('unsplash') ||
+                    (s.photoUrl || '').includes('/photos/AU_ZV') // Force enrichment for legacy Google photo reference
+                )
             );
             
             if (needsEnrichment && steps.length > 0) {
@@ -662,12 +693,14 @@ export const getPlanById = async (supabase, planId) => {
 // --- ENGAGEMENT LOGIC ---
 
 export const boostPlan = async (supabase, planId, userId) => {
+    const actualUserId = typeof userId === 'object' && userId !== null ? (userId.id || userId.userId || userId.user_id) : userId;
+    if (!actualUserId) throw new Error('userId is required');
     const { data: plan } = await supabase.from('plans').select('boost_count, boosted_by').eq('id', planId).single();
     const boostedBy = Array.isArray(plan.boosted_by) ? plan.boosted_by : [];
-    const alreadyBoosted = boostedBy.includes(userId);
+    const alreadyBoosted = boostedBy.includes(actualUserId);
 
     const newCount = alreadyBoosted ? Math.max(0, plan.boost_count - 1) : plan.boost_count + 1;
-    const newBoostedBy = alreadyBoosted ? boostedBy.filter(uid => uid !== userId) : [...boostedBy, userId];
+    const newBoostedBy = alreadyBoosted ? boostedBy.filter(uid => uid !== actualUserId) : [...boostedBy, actualUserId];
 
     const { data } = await supabase
         .from('plans')
@@ -698,8 +731,7 @@ export const getNearbyAlternatives = async (params) => {
     try {
         console.log(`[ItineraryService] Fetching alternatives for "${type}" near (${lat}, ${lng})`);
         
-        const response = await axios.post(
-            'https://places.googleapis.com/v1/places:searchText',
+        const response = await postPlacesSearchText(
             {
                 textQuery: `${type} near here`,
                 locationBias: { 
@@ -836,4 +868,84 @@ export const getRecommendations = async (supabase, userId) => {
         console.error('[RECOMMENDATIONS_ERROR]', err.message);
         return [];
     }
+};
+
+export const swapVenue = getNearbyAlternatives;
+
+export const getOrCreateWeeklySpark = async (supabase, userId) => {
+    const now = new Date();
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - now.getDay());
+    sunday.setHours(0, 0, 0, 0);
+
+    const { data: existing } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('generation_type', 'weekly_spark')
+        .gte('created_at', sunday.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    if (existing && existing.length > 0) {
+        return existing[0];
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('current_location, custom_location')
+        .eq('id', userId)
+        .single();
+    const location = profile?.custom_location || profile?.current_location || 'New York City';
+
+    const vibes = ['romantic', 'adventurous', 'cozy', 'trendy', 'secret spots'];
+    const randomVibe = vibes[Math.floor(Math.random() * vibes.length)];
+
+    const aiResult = await generateAIDate({
+        city: location,
+        vibe: randomVibe,
+        budget: 'moderate',
+        numActivities: 3
+    });
+
+    let steps = [];
+    let title = 'Your Weekly Spark';
+    let description = 'A curated surprise experience for this week';
+
+    if (typeof aiResult.data === 'object' && aiResult.data !== null) {
+        steps = aiResult.data.steps || aiResult.data.itinerary || [];
+        title = aiResult.data.title || title;
+        description = aiResult.data.description || description;
+    }
+
+    const { data: newPlan, error: insertError } = await supabase
+        .from('plans')
+        .insert([{
+            user_id: userId,
+            location: location,
+            vibe: randomVibe,
+            budget: 'moderate',
+            itinerary: {
+                steps: steps,
+                metadata: {
+                    is_scratch_revealed: false,
+                    user_input: 'Weekly Spark surprise date',
+                    location: location,
+                    vibe: randomVibe,
+                    budget: 'moderate',
+                    planDate: now.toISOString().split('T')[0]
+                }
+            },
+            title: title,
+            description: description,
+            is_favorite: false,
+            is_completed: false,
+            generation_type: 'weekly_spark',
+            created_at: now.toISOString()
+        }])
+        .select()
+        .single();
+
+    if (insertError) throw insertError;
+    return newPlan;
 };

@@ -63,7 +63,10 @@ import {
     Wand2,
     Gem,
     ShuffleIcon,
-    Footprints
+    Footprints,
+    Trophy,
+    Users,
+    Tag
 } from 'lucide-react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { useGoogleMaps } from '../../lib/googleMaps';
@@ -81,6 +84,12 @@ import ShareCardModal from '../../components/modals/ShareCardModal';
 import NearbyMapWidget from '../../components/dashboard/NearbyMapWidget';
 import SwipeCard from '../../components/dashboard/SwipeCard';
 import DateArchitectChat from '../../components/dashboard/DateArchitectChat';
+
+// Integration Components
+import CoupleChallenges from '../../components/dashboard/CoupleChallenges';
+import CollabInvitePanel from '../../components/dashboard/CollabInvitePanel';
+import CollabStatusBadge from '../../components/dashboard/CollabStatusBadge';
+import StopVoteBar from '../../components/dashboard/StopVoteBar';
 
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
@@ -167,6 +176,99 @@ const Dashboard = () => {
     const [discoverySelectedVibe, setDiscoverySelectedVibe] = useState('all');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1024);
     const [accountSubView, setAccountSubView] = useState('menu'); // 'menu', 'personal', 'billing', 'preferences', 'trash'
+
+    // Collaboration & Gifting States
+    const [showCollabModal, setShowCollabModal] = useState(false);
+    const [showPlanSelectorForCollab, setShowPlanSelectorForCollab] = useState(false);
+    const [collabStatus, setCollabStatus] = useState(null);
+    const [voteSummary, setVoteSummary] = useState({});
+    const [challengesProfile, setChallengesProfile] = useState(null);
+    const [collaborations, setCollaborations] = useState([]);
+    const [isCollabListLoading, setIsCollabListLoading] = useState(false);
+
+    const handleLinkPartnerClick = () => {
+        const activePlans = plans.filter(p => !p.deleted_at);
+        if (activePlans.length === 0) {
+            setToastMessage('Please create a plan first before co-planning! ⚡');
+            return;
+        }
+        if (activePlans.length === 1) {
+            setSelectedPlan(activePlans[0]);
+            setShowCollabModal(true);
+            return;
+        }
+        setShowPlanSelectorForCollab(true);
+    };
+
+    // Fetch collaboration details for a plan
+    const fetchCollabDetails = async (planId) => {
+        if (!planId) return;
+        try {
+            const [statusRes, votesRes] = await Promise.all([
+                fetch(`/api/collab/status/${planId}`),
+                fetch(`/api/collab/votes/${planId}`)
+            ]);
+            if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                setCollabStatus(statusData.collab);
+            } else {
+                setCollabStatus(null);
+            }
+            if (votesRes.ok) {
+                const votesData = await votesRes.json();
+                setVoteSummary(votesData);
+            } else {
+                setVoteSummary({});
+            }
+        } catch (err) {
+            console.error('Error fetching collab details:', err);
+        }
+    };
+
+    const fetchUserCollaborations = async () => {
+        if (!user) return;
+        setIsCollabListLoading(true);
+        try {
+            const res = await fetch(`/api/collab/all/${user.id}`);
+            const data = await res.json();
+            if (data.success) {
+                setCollaborations(data.collaborations || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch user collaborations:', err);
+        } finally {
+            setIsCollabListLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (currentTab === 'collaboration') {
+            fetchUserCollaborations();
+        }
+    }, [currentTab]);
+
+    useEffect(() => {
+        if (!selectedPlan?.id) {
+            setCollabStatus(null);
+            setVoteSummary({});
+            return;
+        }
+        fetchCollabDetails(selectedPlan.id);
+    }, [selectedPlan?.id]);
+
+    const handleStopVote = ({ stopIndex, vote }) => {
+        setVoteSummary(prev => {
+            const current = prev[stopIndex] || { love: 0, maybe: 0, skip: 0, myVote: null };
+            const oldVote = current.myVote;
+            const next = { ...current };
+            if (oldVote) {
+                next[oldVote] = Math.max(0, (next[oldVote] || 0) - 1);
+            }
+            next[vote] = (next[vote] || 0) + 1;
+            next.myVote = vote;
+            return { ...prev, [stopIndex]: next };
+        });
+    };
 
     // --- SETTINGS STATE ---
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -835,11 +937,17 @@ const Dashboard = () => {
                     localStorage.setItem('userEmail', user.email);
                 }
 
-                // Fetch premium status and usage from secure backend proxy
-                const [premRes, usageRes] = await Promise.all([
+                // Fetch premium status, usage and challenges profile from secure backend proxy
+                const [premRes, usageRes, challengesRes] = await Promise.all([
                     fetch(`/api/user-premium/${user.id}`),
-                    fetch(`/api/user-usage/${user.id}`)
+                    fetch(`/api/user-usage/${user.id}`),
+                    fetch(`/api/challenges?userId=${user.id}`).catch(() => null)
                 ]);
+
+                if (challengesRes && challengesRes.ok) {
+                    const data = await challengesRes.json();
+                    setChallengesProfile(data.profile);
+                }
 
                 if (premRes.ok) {
                     const data = await premRes.json();
@@ -2153,7 +2261,8 @@ const Dashboard = () => {
                         {homeSubTab === 'overview' ? (
                             <div className="space-y-6">
                                 {/* AI PLANNER INTERFACE (Sparky) */}
-                                <div className="mx-4 sm:mx-0 bg-white rounded-xl border border-orange-100/60 p-4 shadow-[0_12px_40px_rgba(255,127,80,0.06)] animate-in slide-in-from-bottom-4 duration-500">
+                                <div className="mx-4 sm:mx-0 bg-white/80 backdrop-blur-md rounded-[2.5rem] border border-orange-100/40 p-5 shadow-[0_20px_50px_rgba(255,127,80,0.04)] animate-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-coral to-pink-500" />
                                     <DateArchitectChat
                                         userId={user?.id}
                                         initialPrompt={pendingSettings?.initialPrompt}
@@ -2177,10 +2286,8 @@ const Dashboard = () => {
                                     />
                                 </div>
 
-                                {/* Mobile-only Parity: Maps & AI Suggestions */}
+                                {/* Mobile-only Parity: Maps */}
                                 <div className="lg:hidden flex flex-col gap-6 px-4 pb-10">
-                                    {/* AI Suggestions (Personalized) */}
-                                    {renderSparkSuggestions()}
 
                                     {/* Map View */}
                                     <div className="relative">
@@ -2224,35 +2331,85 @@ const Dashboard = () => {
 
                     </div> {/* End of lg:col-span-2 */}
 
-                    {/* Right Sidebar — AI Copilot */}
+                    {/* Right Sidebar — Connection & Progress Hub */}
                     {homeSubTab === 'overview' && (
-                        <div className="hidden lg:flex flex-col gap-5">
+                        <div className="hidden lg:flex flex-col gap-6">
 
-                            {/* Profile + Streak compact */}
-                            <div className="bg-white/70 backdrop-blur-xl border border-white/30 rounded-[2rem] p-5 shadow-xl flex items-center gap-4">
-                                <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-coral/20 shadow-md flex-shrink-0">
-                                    <img
-                                        src={profileData.avatar_url || user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300'}
-                                        alt="avatar"
-                                        className="w-full h-full object-cover"
-                                    />
+                            {/* Premium Connection Status Widget */}
+                            <div className="bg-white/95 backdrop-blur-xl border border-orange-100/50 rounded-[2.5rem] p-6 shadow-[0_10px_30px_rgba(0,0,0,0.015)] flex flex-col gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-coral/20 shadow-md flex-shrink-0">
+                                        <img
+                                            src={profileData.avatar_url || user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300'}
+                                            alt="avatar"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="text-base font-black text-navy truncate leading-snug">
+                                            {profileData.first_name || user?.user_metadata?.first_name || 'You'}
+                                        </h4>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                                            {isPremium ? '✨ Premium Concierge' : 'Free Tier Sparker'}
+                                        </p>
+                                    </div>
+                                    <span 
+                                        onClick={() => setCurrentTab('challenges')}
+                                        className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-br from-orange-500 via-coral to-amber-500 rounded-xl text-[10px] font-black text-white shadow-md shadow-coral/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                                        title="View Challenges & Streaks"
+                                    >
+                                        🔥 {challengesProfile?.streak_count || 0} Week{challengesProfile?.streak_count !== 1 ? 's' : ''}
+                                    </span>
                                 </div>
-                                <div className="min-w-0">
-                                    <h4 className="text-base font-black text-navy truncate">{profileData.first_name || user?.user_metadata?.first_name || 'You'}</h4>
-                                    <p className="text-[10px] text-slate-400 font-bold">{isPremium ? '✨ Premium Spark' : 'Free Tier'}</p>
+
+                                <div className="border-t border-slate-100/80 pt-4 mt-2">
+                                    <div className="flex items-center justify-between mb-2.5">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Weekly Streak Track</span>
+                                        <span className="text-[10px] font-black text-coral uppercase tracking-widest">
+                                            Level {challengesProfile?.level || 1}
+                                        </span>
+                                    </div>
+                                    
+                                    {/* Mon-Sun check-in checkmarks */}
+                                    <div className="flex justify-between items-center bg-gray-50/50 p-2.5 rounded-2xl border border-slate-100">
+                                        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
+                                            const todayIdx = (new Date().getDay() + 6) % 7; // Monday-based index
+                                            const isPast = idx < todayIdx;
+                                            const isToday = idx === todayIdx;
+                                            return (
+                                                <div key={idx} className="flex flex-col items-center gap-1">
+                                                    <span className={`text-[9px] font-black ${isToday ? 'text-coral' : 'text-slate-400'}`}>
+                                                        {day}
+                                                    </span>
+                                                    <div className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs transition-all ${
+                                                        isToday
+                                                            ? 'bg-gradient-to-br from-orange-500 to-amber-400 text-white font-black scale-110 shadow-md shadow-orange-500/20 animate-pulse'
+                                                            : isPast
+                                                                ? 'bg-rose-50 text-rose font-bold'
+                                                                : 'bg-white border border-slate-100 text-slate-300'
+                                                    }`}>
+                                                        {isToday ? '🔥' : isPast ? '✓' : '•'}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* XP Progress Bar */}
+                                    <div className="mt-4">
+                                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                                            <span>XP Progress</span>
+                                            <span>{(challengesProfile?.total_xp || 0) % 1000} / 1000 XP</span>
+                                        </div>
+                                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/50">
+                                            <div 
+                                                className="h-full bg-gradient-to-r from-orange-500 via-coral to-pink-500 rounded-full transition-all duration-1000"
+                                                style={{ width: `${((challengesProfile?.total_xp || 0) % 1000) / 10}%` }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <span className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-400 rounded-xl text-[10px] font-black text-white shadow-md flex-shrink-0">
-                                    🔥 7
-                                </span>
                             </div>
-
-
-
-                            {/* ── SPARK SUGGESTIONS — AI Prompt Recommender ── */}
-                            {renderSparkSuggestions()}
-
-
-
 
                             {/* Live Location Map Widget */}
                             <NearbyMapWidget
@@ -2261,17 +2418,28 @@ const Dashboard = () => {
                                 onFindEvents={() => setCurrentTab('events')}
                             />
 
-                            {/* Couples Tip Card */}
-                            <div className={`rounded-3xl p-5 shadow-lg relative overflow-hidden ${
-                                appTheme === 'dark' ? 'bg-[#1e293b] border border-white/5 text-white' : 'bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 text-indigo-950'
-                            }`}>
-                                <div className="flex items-center gap-2 mb-2.5">
-                                    <Heart className="w-4.5 h-4.5 text-coral fill-coral animate-pulse" />
-                                    <h4 className="text-xs font-black uppercase tracking-wider font-outfit">Date Recommendation</h4>
+                            {/* Connection Partner / Co-planning Card */}
+                            <div className="bg-gradient-to-br from-[#fff7f5] to-white border border-orange-100/60 rounded-[2.5rem] p-6 shadow-[0_10px_30px_rgba(255,127,80,0.03)] flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-8 h-8 rounded-xl bg-coral/10 flex items-center justify-center">
+                                            <Users className="w-4 h-4 text-coral" />
+                                        </div>
+                                        <h4 className="text-xs font-black uppercase tracking-wider text-navy font-outfit">
+                                            Connection Hub
+                                        </h4>
+                                    </div>
+                                    <p className="text-xs font-medium text-slate-500 leading-relaxed mb-5">
+                                        Link a partner to collaborate on itineraries, vote on stops together, and share surprise plans!
+                                    </p>
                                 </div>
-                                <p className={`text-[11px] font-medium leading-relaxed ${appTheme === 'dark' ? 'text-white/70' : 'text-indigo-900/80'}`}>
-                                    "Couples who try new activities together report 3x higher satisfaction levels than those who stick to routine dates." Try a creative workshop or active vibe this week!
-                                </p>
+                                <button 
+                                    onClick={handleLinkPartnerClick}
+                                    className="w-full py-3.5 bg-white border border-coral text-coral font-black rounded-2xl text-xs hover:bg-coral/5 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
+                                >
+                                    <span>Link Partner Invite</span>
+                                    <Plus className="w-4 h-4" />
+                                </button>
                             </div>
 
                         </div>
@@ -3062,6 +3230,105 @@ const Dashboard = () => {
         </div>
     );
 
+    const renderCollaboration = () => {
+        return (
+            <div className="space-y-8 animate-in fade-in duration-500 pt-4 pb-12">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4">
+                    <div>
+                        <h2 className={`text-2xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
+                            Co-planning Hub 🥂
+                        </h2>
+                        <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>
+                            Dates you are co-planning with your partner in real-time.
+                        </p>
+                    </div>
+                </div>
+
+                {isCollabListLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                        <Loader2 className="w-8 h-8 text-coral animate-spin" />
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Loading collaborations...</p>
+                    </div>
+                ) : collaborations.length === 0 ? (
+                    <div className="bg-white border border-slate-100 rounded-[2.5rem] p-12 text-center shadow-sm max-w-lg mx-auto animate-in zoom-in-95 duration-300">
+                        <div className="w-16 h-16 bg-rose/10 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                            <Users className="w-8 h-8 text-rose" />
+                        </div>
+                        <h3 className="text-xl font-black text-navy mb-2">No co-planned dates yet!</h3>
+                        <p className="text-sm font-medium text-slate-400 mb-8 leading-relaxed">
+                            Invite your partner to any date plan to start co-planning together, voting on stops, and co-creating perfect date nights.
+                        </p>
+                        <button 
+                            onClick={() => setCurrentTab('plans')} 
+                            className="px-8 py-4 bg-navy hover:bg-navy/90 text-white font-black rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all text-sm font-outfit"
+                        >
+                            Select a Plan to Share
+                        </button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4">
+                        {collaborations.map((collab) => {
+                            const plan = collab.plan;
+                            if (!plan) return null;
+                            return (
+                                <div 
+                                    key={collab.id} 
+                                    className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between"
+                                >
+                                    <div>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <span className="px-3 py-1 bg-coral/10 text-coral text-[10px] font-black rounded-lg uppercase tracking-wider">
+                                                {plan.vibe} Date
+                                            </span>
+                                            {collab.is_surprise_mode && (
+                                                <span className="px-2.5 py-1 bg-violet-50 text-violet-600 border border-violet-100 text-[10px] font-black rounded-lg flex items-center gap-1">
+                                                    🎁 Surprise Mode
+                                                </span>
+                                            )}
+                                        </div>
+                                        
+                                        <h3 className="text-lg font-black text-navy mb-1 tracking-tight truncate">
+                                            {plan.itinerary?.metadata?.title || `${plan.vibe} Night Out`}
+                                        </h3>
+                                        <p className="text-xs text-slate-400 font-medium mb-5 line-clamp-2 leading-relaxed">
+                                            {plan.description || "A custom co-planned date itinerary."}
+                                        </p>
+
+                                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl mb-6">
+                                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-white bg-navy/5 flex items-center justify-center text-xs font-black text-navy flex-shrink-0">
+                                                {collab.partnerAvatar ? (
+                                                    <img src={collab.partnerAvatar} alt="Partner" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    collab.partnerName.substring(0,2).toUpperCase()
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-black text-navy leading-none mb-1">
+                                                    Co-planning with {collab.partnerName}
+                                                </p>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                                                    Status: {collab.status}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setSelectedPlan(plan)}
+                                        className="w-full py-3.5 bg-navy hover:bg-navy/90 text-white font-black rounded-2xl text-xs font-outfit shadow-md transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <span>View shared details & vote</span>
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderHeader = () => {
         const tabTitles = {
             home: "Welcome Back",
@@ -3244,6 +3511,62 @@ const Dashboard = () => {
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Events</span>}
                         </button>
 
+                        {/* Challenges */}
+                        <button
+                            onClick={() => { setCurrentTab('challenges'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'challenges'
+                                    ? 'bg-coral/5 text-coral'
+                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
+                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
+                        >
+                            <Flame className={`w-5 h-5 shrink-0 ${currentTab === 'challenges' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Challenges</span>}
+                        </button>
+
+                        {/* Co-planning */}
+                        <button
+                            onClick={() => { setCurrentTab('collaboration'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'collaboration'
+                                    ? 'bg-coral/5 text-coral'
+                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
+                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
+                        >
+                            <Users className={`w-5 h-5 shrink-0 ${currentTab === 'collaboration' ? 'text-coral' : 'text-slate-400'}`} />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Co-planning</span>}
+                        </button>
+
+                        {/* Gift Cards */}
+                        <button
+                            onClick={() => { navigate('/gift'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
+                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all text-slate-500 hover:bg-gray-50 hover:text-navy ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
+                        >
+                            <Gift className="w-5 h-5 shrink-0 text-slate-400" />
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Gift Cards</span>}
+                        </button>
+
+                        {/* Exclusive Deals */}
+                        <button
+                            onClick={() => {
+                                if (isPremium) {
+                                    setToastMessage('Deals section coming soon! 🏷️');
+                                } else {
+                                    setLimitType('swaps');
+                                    setShowUpgradeModal(true);
+                                }
+                            }}
+                            className={`flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all text-slate-500 hover:bg-gray-50 hover:text-navy ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
+                        >
+                            <div className="flex items-center gap-3.5">
+                                <Tag className="w-5 h-5 shrink-0 text-slate-400 hover:text-coral" />
+                                {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Exclusive Deals</span>}
+                            </div>
+                            {(!isSidebarCollapsed || window.innerWidth < 768) && (
+                                <span className="px-1.5 py-0.5 bg-coral/10 text-coral text-[9px] font-black rounded-md flex-shrink-0 animate-pulse">
+                                    Soon
+                                </span>
+                            )}
+                        </button>
+
                         {/* Profile & Settings embedded */}
                         <button
                             onClick={() => { setCurrentTab('account'); setAccountSubView('menu'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
@@ -3316,6 +3639,12 @@ const Dashboard = () => {
                                 />
                             )}
                             {currentTab === 'events' && <EventsTab appTheme={appTheme} userCity={userCity} setToastMessage={setToastMessage} />}
+                            {currentTab === 'challenges' && (
+                                <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                    <CoupleChallenges user={user} setToastMessage={setToastMessage} />
+                                </div>
+                            )}
+                            {currentTab === 'collaboration' && renderCollaboration()}
                             {currentTab === 'account' && renderAccount()}
                         </motion.div>
                     </AnimatePresence>
@@ -3364,12 +3693,32 @@ const Dashboard = () => {
                                             <Heart className={`w-4 h-4 transition-all duration-300 ${selectedPlan.is_favorite ? 'fill-coral text-coral scale-110' : 'text-white/70'}`} />
                                         </button>
                                         <div className="min-w-0">
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
                                                 <h2 className="text-sm font-black font-inter tracking-tight truncate">{selectedPlan.vibe} Date</h2>
                                                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white/10 rounded-md border border-white/10 flex-shrink-0">
                                                     <History className="w-2.5 h-2.5 text-gray-400" />
                                                     <span className="text-[9px] font-black text-white/70">{selectedPlan.total_tries || 0}</span>
                                                 </div>
+                                                {collabStatus && (
+                                                    <CollabStatusBadge
+                                                        status={collabStatus.status}
+                                                        agreedCount={(() => {
+                                                            let count = 0;
+                                                            const itinerarySteps = Array.isArray(selectedPlan.itinerary)
+                                                                ? selectedPlan.itinerary
+                                                                : (selectedPlan.itinerary?.steps || selectedPlan.itinerary?.itinerary || selectedPlan.itinerary?.schedule || []);
+                                                            itinerarySteps.forEach((_, idx) => {
+                                                                const stopVotes = voteSummary[idx];
+                                                                if (stopVotes && stopVotes.love >= 2) count++;
+                                                            });
+                                                            return count;
+                                                        })()}
+                                                        totalStops={(Array.isArray(selectedPlan.itinerary)
+                                                            ? selectedPlan.itinerary
+                                                            : (selectedPlan.itinerary?.steps || selectedPlan.itinerary?.itinerary || selectedPlan.itinerary?.schedule || [])
+                                                        ).length}
+                                                    />
+                                                )}
                                             </div>
                                             <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70 truncate font-inter">
                                                 {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
@@ -3383,6 +3732,15 @@ const Dashboard = () => {
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         {/* Desktop Only Actions */}
                                         <div className="hidden sm:flex items-center gap-2">
+                                            {selectedPlan.user_id === user?.id && (!collabStatus || collabStatus.status !== 'accepted') && (
+                                                <button
+                                                    onClick={() => setShowCollabModal(true)}
+                                                    className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all text-[11px] font-black font-inter shadow-md animate-pulse"
+                                                >
+                                                    <Users className="w-3.5 h-3.5" />
+                                                    <span>Plan with Partner</span>
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => handleForkPlan(selectedPlan)}
                                                 className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all text-[11px] font-black group shadow-lg shadow-violet-500/20 font-inter"
@@ -3400,6 +3758,16 @@ const Dashboard = () => {
                                         </div>
 
                                         {/* Mobile/Compact Actions */}
+                                        {selectedPlan.user_id === user?.id && (!collabStatus || collabStatus.status !== 'accepted') && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCollabModal(true)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-violet-600 hover:bg-violet-700 border border-violet-500/30 rounded-xl transition-all text-[10px] font-black font-inter text-white min-h-[44px] shadow-sm"
+                                            >
+                                                <Users className="w-3.5 h-3.5" />
+                                                <span>Invite</span>
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={handleShare}
@@ -3673,6 +4041,16 @@ const Dashboard = () => {
                                                                 </a>
                                                             )}
                                                         </div>
+
+                                                        {collabStatus && collabStatus.status === 'accepted' && (
+                                                            <StopVoteBar
+                                                                planId={selectedPlan.id}
+                                                                stopIndex={idx}
+                                                                userId={user.id}
+                                                                voteSummary={voteSummary}
+                                                                onVote={handleStopVote}
+                                                            />
+                                                        )}
 
                                                         {/* Alternatives List */}
                                                         {activeSwitchIndex === idx && (
@@ -4011,6 +4389,86 @@ const Dashboard = () => {
                                     </div>
                                 )}
                             </motion.div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {showCollabModal && selectedPlan && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-[#0f172a]/60 backdrop-blur-sm animate-in fade-in">
+                    <CollabInvitePanel
+                        plan={selectedPlan}
+                        userId={user?.id}
+                        onClose={() => {
+                            setShowCollabModal(false);
+                            if (selectedPlan) fetchCollabDetails(selectedPlan.id);
+                        }}
+                        isPremium={isPremium}
+                    />
+                </div>
+            )}
+
+            {/* Choose a Plan to Co-plan Modal */}
+            <AnimatePresence>
+                {showPlanSelectorForCollab && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-[#0f172a]/60 backdrop-blur-sm"
+                        onClick={() => setShowPlanSelectorForCollab(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 10 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 10 }}
+                            className="bg-white border border-slate-100 rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl relative"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={() => setShowPlanSelectorForCollab(false)}
+                                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-12 h-12 rounded-2xl bg-coral/10 flex items-center justify-center">
+                                    <Users className="w-6 h-6 text-coral" />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-outfit">Connection Hub</span>
+                                    <h3 className="text-lg font-black text-navy font-outfit">Choose a Plan to Co-plan</h3>
+                                </div>
+                            </div>
+
+                            <p className="text-xs font-medium text-slate-500 leading-relaxed mb-6 font-outfit">
+                                Select one of your planned dates below to share it with your partner and start co-planning together.
+                            </p>
+
+                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                                {plans.filter(p => !p.deleted_at).map(plan => (
+                                    <button
+                                        key={plan.id}
+                                        onClick={() => {
+                                            setSelectedPlan(plan);
+                                            setShowPlanSelectorForCollab(false);
+                                            setShowCollabModal(true);
+                                        }}
+                                        className="w-full p-4 bg-gray-50/50 hover:bg-coral/5 border border-slate-100 hover:border-coral/20 rounded-2xl text-left transition-all active:scale-[0.99] flex items-center justify-between"
+                                    >
+                                        <div className="min-w-0">
+                                            <span className="px-2 py-0.5 bg-coral/10 text-coral text-[9px] font-black rounded uppercase tracking-wider font-outfit">
+                                                {plan.vibe}
+                                            </span>
+                                            <h4 className="text-sm font-black text-navy mt-1 truncate font-outfit">
+                                                {plan.itinerary?.metadata?.title || `${plan.vibe} Date`}
+                                            </h4>
+                                        </div>
+                                        <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                    </button>
+                                ))}
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}

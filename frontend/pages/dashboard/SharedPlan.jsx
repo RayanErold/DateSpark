@@ -5,6 +5,9 @@ import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGoogleMaps } from '../../lib/googleMaps';
 import { supabase } from '../../lib/supabase';
+import CollabStatusBadge from '../../components/dashboard/CollabStatusBadge';
+import StopVoteBar from '../../components/dashboard/StopVoteBar';
+
 
 const darkMapStyle = [
     { elementType: 'geometry', stylers: [{ color: '#111827' }] },
@@ -107,7 +110,50 @@ const SharedPlan = () => {
     const [appTheme] = useState(() => localStorage.getItem('appTheme') || 'light');
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [partnerFeedback, setPartnerFeedback] = useState({});
+    const [collabStatus, setCollabStatus] = useState(null);
+    const [voteSummary, setVoteSummary] = useState({});
+    const [user, setUser] = useState(null);
+
+    useEffect(() => {
+        if (!plan?.id) return;
+        const fetchCollabData = async () => {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            setUser(currentUser);
+            if (currentUser) {
+                try {
+                    const [statusRes, votesRes] = await Promise.all([
+                        fetch(`/api/collab/status/${plan.id}`),
+                        fetch(`/api/collab/votes/${plan.id}`)
+                    ]);
+                    if (statusRes.ok) {
+                        const statusData = await statusRes.json();
+                        setCollabStatus(statusData.collab);
+                    }
+                    if (votesRes.ok) {
+                        const votesData = await votesRes.json();
+                        setVoteSummary(votesData);
+                    }
+                } catch (err) {
+                    console.error('Error fetching collab data in shared view:', err);
+                }
+            }
+        };
+        fetchCollabData();
+    }, [plan?.id]);
+
+    const handleStopVote = ({ stopIndex, vote }) => {
+        setVoteSummary(prev => {
+            const current = prev[stopIndex] || { love: 0, maybe: 0, skip: 0, myVote: null };
+            const oldVote = current.myVote;
+            const next = { ...current };
+            if (oldVote) {
+                next[oldVote] = Math.max(0, (next[oldVote] || 0) - 1);
+            }
+            next[vote] = (next[vote] || 0) + 1;
+            next.myVote = vote;
+            return { ...prev, [stopIndex]: next };
+        });
+    };
 
     const API_URL = import.meta.env.VITE_API_URL || '';
     const getProxiedPhoto = (photoUrl) => {
@@ -429,7 +475,29 @@ const SharedPlan = () => {
                         <div className="w-px h-4 bg-gray-200" />
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Community Approved</p>
                     </div>
-                    <h1 className="text-3xl font-black text-navy mb-4 capitalize font-inter">{plan.vibe} Date</h1>
+                    <h1 className="text-3xl font-black text-navy mb-4 capitalize font-inter flex items-center justify-center gap-2 flex-wrap">
+                        {plan.vibe} Date
+                        {collabStatus && (
+                            <CollabStatusBadge
+                                status={collabStatus.status}
+                                agreedCount={(() => {
+                                    let count = 0;
+                                    const itinerarySteps = Array.isArray(plan.itinerary)
+                                        ? plan.itinerary
+                                        : (plan.itinerary?.steps || plan.itinerary?.itinerary || plan.itinerary?.schedule || []);
+                                    itinerarySteps.forEach((_, idx) => {
+                                        const stopVotes = voteSummary[idx];
+                                        if (stopVotes && stopVotes.love >= 2) count++;
+                                    });
+                                    return count;
+                                })()}
+                                totalStops={(Array.isArray(plan.itinerary)
+                                    ? plan.itinerary
+                                    : (plan.itinerary?.steps || plan.itinerary?.itinerary || plan.itinerary?.schedule || [])
+                                ).length}
+                            />
+                        )}
+                    </h1>
                     <p className="text-xs text-gray-500 font-medium max-w-md mx-auto mb-2 px-4">
                         Shared plans open in the browser. Some stops may appear as a preview until the full itinerary is unlocked.
                     </p>
@@ -499,8 +567,22 @@ const SharedPlan = () => {
                         {/* Spacer for Map on Mobile */}
                         <div className="h-[200px] md:hidden flex-shrink-0"></div>
                         <div className="bg-white md:bg-transparent rounded-t-[2.5rem] p-6 md:p-0 shadow-sm md:shadow-none">
-                            <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-12 pb-8">
-                                {itinerarySteps.map((step, idx) => {
+                            {collabStatus?.is_surprise_mode && (!user || user.id !== plan.user_id) ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-center px-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/20 to-white rounded-[2.5rem] border border-indigo-100/50 shadow-xl max-w-md mx-auto animate-in zoom-in-95 duration-500">
+                                    <div className="w-16 h-16 bg-gradient-to-tr from-coral to-rose-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-coral/30">
+                                        <Gift className="w-8 h-8 text-white animate-pulse" />
+                                    </div>
+                                    <h3 className="text-xl font-black text-navy mb-3 tracking-tight font-inter">Surprise Mode Active! 🎁</h3>
+                                    <p className="text-xs font-bold text-gray-500 mb-6 max-w-[280px] leading-relaxed">
+                                        Your partner has planned a surprise date! The timeline is hidden so the details remain a secret. We'll reveal each stop as you arrive!
+                                    </p>
+                                    <div className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-2xl text-[10px] font-black shadow-sm border border-indigo-100">
+                                        ✨ Get ready for a perfect surprise!
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-12 pb-8">
+                                    {itinerarySteps.map((step, idx) => {
                                     // Public Gating: If it's a preview plan, recipients only see 2 stops (idx 0, 1). 3rd stop (idx 2) is locked.
                                     const isPreview = plan.itinerary?.metadata?.isPreviewPlan || plan.is_preview || false;
                                     const isLockedStep = isPreview && idx >= 2;
@@ -655,29 +737,40 @@ const SharedPlan = () => {
                                                         </a>
                                                     )}
                                                 </div>
-                                                <div className="mt-4 grid grid-cols-3 gap-2">
-                                                    {[
-                                                        { value: 'love', label: 'Love' },
-                                                        { value: 'swap', label: 'Swap' },
-                                                        { value: 'skip', label: 'Skip' },
-                                                    ].map((vote) => {
-                                                        const key = `stop_${idx}`;
-                                                        const isActive = partnerFeedback[key] === vote.value;
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                key={vote.value}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handlePartnerVote(key, vote.value);
-                                                                }}
-                                                                className={`py-2.5 rounded-xl border text-[11px] font-black transition-all active:scale-[0.98] ${isActive ? 'bg-coral text-white border-coral' : 'bg-white text-gray-500 border-gray-100 hover:border-coral/30'}`}
-                                                            >
-                                                                {vote.label}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
+
+                                                {collabStatus && collabStatus.status === 'accepted' && user ? (
+                                                    <StopVoteBar
+                                                        planId={plan.id}
+                                                        stopIndex={idx}
+                                                        userId={user.id}
+                                                        voteSummary={voteSummary}
+                                                        onVote={handleStopVote}
+                                                    />
+                                                ) : (
+                                                    <div className="mt-4 grid grid-cols-3 gap-2">
+                                                        {[
+                                                            { value: 'love', label: 'Love' },
+                                                            { value: 'swap', label: 'Swap' },
+                                                            { value: 'skip', label: 'Skip' },
+                                                        ].map((vote) => {
+                                                            const key = `stop_${idx}`;
+                                                            const isActive = partnerFeedback[key] === vote.value;
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    key={vote.value}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handlePartnerVote(key, vote.value);
+                                                                    }}
+                                                                    className={`py-2.5 rounded-xl border text-[11px] font-black transition-all active:scale-[0.98] ${isActive ? 'bg-coral text-white border-coral' : 'bg-white text-gray-500 border-gray-100 hover:border-coral/30'}`}
+                                                                >
+                                                                    {vote.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
                                             
                                             {/* Walk Time Connector */}
@@ -703,6 +796,7 @@ const SharedPlan = () => {
                                     );
                                 })}
                             </div>
+                        )}
                         </div>
                     </div>
 
@@ -722,7 +816,7 @@ const SharedPlan = () => {
                                     gestureHandling: 'cooperative',
                                 }}
                             >
-                                {itinerarySteps.map((step, idx) => {
+                                {(!collabStatus?.is_surprise_mode || (user && user.id === plan.user_id)) && itinerarySteps.map((step, idx) => {
                                     const isPreview = plan.itinerary?.metadata?.isPreviewPlan || plan.is_preview || false;
                                     const isLockedStep = isPreview && idx >= 2;
                                     const lat = parseFloat(step.lat);

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,22 +16,29 @@ import * as paymentService from './services/paymentService.js';
 import * as userService from './services/userService.js';
 import * as generationService from './services/generationService.js';
 import * as emailService from './services/emailService.js';
+import * as giftCardService from './services/giftCardService.js';
+import * as collaborationService from './services/collaborationService.js';
+import * as cacheService from './services/cacheService.js';
 import cron from 'node-cron';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5005;
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+// Initialize Cache Service
+await cacheService.initCacheService({ supabaseAdmin });
 
 // Initialize Services (Inject Dependencies)
 itineraryService.initItineraryService({ 
     GOOGLE_API_KEY: process.env.VITE_GOOGLE_MAPS_API_KEY,
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    supabaseAdmin: supabaseAdmin
 });
 paymentService.initPaymentService(process.env.STRIPE_SECRET_KEY);
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Run every hour to archive or delete expired and incomplete plans
 cron.schedule('0 * * * *', async () => {
@@ -121,6 +129,283 @@ app.post('/api/nearby-alternatives', async (req, res) => {
         res.json({ success: true, alternatives });
     } catch (err) {
         console.error('[NEARBY_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- ENGAGEMENT ENGINE ROUTES ---
+
+const CHALLENGES = [
+    { id: 'ch_sunset', title: 'Sunset Seekers', description: 'Complete a date at a scenic park or rooftop at sunset.', xp: 50, category: 'stroll' },
+    { id: 'ch_foodie', title: 'Culinary Pioneers', description: 'Complete a dinner date at a highly-rated local restaurant.', xp: 50, category: 'dinner' },
+    { id: 'ch_speakeasy', title: 'Secret Agents', description: 'Visit a hidden speakeasy or vintage cocktail bar.', xp: 50, category: 'drinks' },
+    { id: 'ch_active', title: 'Playful Duo', description: 'Complete an interactive game, bowling, or arcade date.', xp: 50, category: 'entertainment' },
+    { id: 'ch_sweet', title: 'Sugar Rush', description: 'Share a dessert, gelato, or pastry at a famous sweet shop.', xp: 50, category: 'dessert' }
+];
+
+app.get('/api/weekly-spark', async (req, res) => {
+    try {
+        const userId = req.headers['x-user-id'] || req.query.userId;
+        if (!userId) return res.status(400).json({ error: 'userId is required' });
+        
+        const plan = await itineraryService.getOrCreateWeeklySpark(supabaseAdmin, userId);
+        res.json(plan);
+    } catch (err) {
+        console.error('[WEEKLY_SPARK_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/weekly-spark/reveal', async (req, res) => {
+    try {
+        const { planId, userId } = req.body;
+        if (!planId || !userId) return res.status(400).json({ error: 'planId and userId are required' });
+
+        // Fetch current plan
+        const { data: plan } = await supabaseAdmin.from('plans').select('*').eq('id', planId).single();
+        if (!plan) return res.status(404).json({ error: 'Plan not found' });
+
+        // Update scratch metadata
+        const itinerary = plan.itinerary || {};
+        if (itinerary.metadata) {
+            itinerary.metadata.is_scratch_revealed = true;
+        } else {
+            itinerary.metadata = { is_scratch_revealed: true };
+        }
+
+        const { data: updated, error } = await supabaseAdmin
+            .from('plans')
+            .update({ itinerary })
+            .eq('id', planId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, plan: updated });
+    } catch (err) {
+        console.error('[WEEKLY_SPARK_REVEAL_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/plans/:id/complete', async (req, res) => {
+    try {
+        const planId = req.params.id;
+        const { userId, notes, rating, photoUrl } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+        const { data: plan, error: planError } = await supabaseAdmin
+            .from('plans')
+            .update({
+                is_completed: true,
+                completed_at: new Date().toISOString(),
+                journal_notes: notes || '',
+                journal_rating: rating || 5.0,
+                journal_photo_url: photoUrl || null
+            })
+            .eq('id', planId)
+            .select()
+            .single();
+
+        if (planError) throw planError;
+
+        // Award 50 XP to the user
+        const updatedProfile = await userService.awardXPAndCheckStreak(supabaseAdmin, userId, 50);
+
+        res.json({ success: true, plan, profile: updatedProfile });
+    } catch (err) {
+        console.error('[PLAN_COMPLETE_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/challenges', async (req, res) => {
+    try {
+        const userId = req.headers['x-user-id'] || req.query.userId;
+        if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+        let { data: profile, error } = await supabaseAdmin
+            .from('profiles')
+            .select('xp, level, streak_count, completed_challenges, last_date_completed_at')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) throw error;
+
+        if (!profile) {
+            const defaultProfile = {
+                id: userId,
+                xp: 0,
+                level: 1,
+                streak_count: 0,
+                completed_challenges: [],
+                last_date_completed_at: null
+            };
+            const { data: inserted, error: insertError } = await supabaseAdmin
+                .from('profiles')
+                .insert([defaultProfile])
+                .select('xp, level, streak_count, completed_challenges, last_date_completed_at')
+                .single();
+
+            if (insertError) {
+                console.error('[PROFILE_CREATE_WARNING] Failed to insert default profile:', insertError.message);
+                profile = defaultProfile;
+            } else {
+                profile = inserted;
+            }
+        }
+
+        res.json({
+            profile: {
+                xp: profile.xp || 0,
+                level: profile.level || 1,
+                streak_count: profile.streak_count || 0,
+                completed_challenges: profile.completed_challenges || [],
+                last_date_completed_at: profile.last_date_completed_at
+            },
+            challenges: CHALLENGES
+        });
+    } catch (err) {
+        console.error('[CHALLENGES_GET_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+async function verifyProofWithAI(imageUrl, challenge) {
+    if (!genAI) {
+        console.warn('[AI Validator] Gemini not configured. Auto-verifying.');
+        return { verified: true, reason: 'AI not configured, auto-verifying.' };
+    }
+
+    try {
+        let imagePart;
+        
+        // Check if data URL
+        if (imageUrl.startsWith('data:image/')) {
+            const matches = imageUrl.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                imagePart = {
+                    inlineData: {
+                        data: matches[2],
+                        mimeType: `image/${matches[1]}`
+                    }
+                };
+            }
+        }
+
+        // Fetch URL
+        if (!imagePart) {
+            const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+            const buffer = Buffer.from(response.data, 'binary');
+            const mimeType = response.headers['content-type'] || 'image/jpeg';
+            imagePart = {
+                inlineData: {
+                    data: buffer.toString('base64'),
+                    mimeType: mimeType
+                }
+            };
+        }
+
+        // Use gemini-2.5-flash for speed and multimodal capabilities
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        
+        const prompt = `You are a strict, smart Date Night Proof Verification AI for DateSpark.
+Analyze the attached photo to verify if it represents a truthful proof of completion for this challenge:
+Challenge Title: "${challenge.title}"
+Challenge Description: "${challenge.description}"
+
+Identify objects, settings, food, drinks, arcade games, sunsets, or park outlines to verify if the photo matches the challenge.
+- Sunset Seekers: Sunset sky, park, or high rooftop at sunset/dusk.
+- Culinary Pioneers: Plates of dinner food, restaurant tables, upscale dining environments, or eating at a restaurant.
+- Secret Agents: Speakeasy bars, cocktails, bartenders, fancy glassware, or atmospheric mood bar lighting.
+- Playful Duo: Bowling alleys, pins, arcade screens, controllers, pool tables, or interactive game spaces.
+- Sugar Rush: Ice cream, gelato cups, cakes, cookies, crepes, or sweet desserts.
+
+Respond with a raw JSON object in this exact format (no markdown, no markdown blocks, no leading space, just raw JSON string):
+{
+  "verified": true or false,
+  "reason": "A warm, congratulatory sentence if verified is true. If verified is false, detail why the photo did not qualify and what they need to upload instead."
+}`;
+
+        const result = await model.generateContent([prompt, imagePart]);
+        const text = result.response.text().trim();
+        console.log('[AI Proof Validator Output]:', text);
+
+        let cleanText = text;
+        if (cleanText.includes('```json')) {
+            cleanText = cleanText.substring(cleanText.indexOf('```json') + 7);
+            cleanText = cleanText.substring(0, cleanText.lastIndexOf('```'));
+        } else if (cleanText.includes('```')) {
+            cleanText = cleanText.substring(cleanText.indexOf('```') + 3);
+            cleanText = cleanText.substring(0, cleanText.lastIndexOf('```'));
+        }
+
+        const parsed = JSON.parse(cleanText.trim());
+        return {
+            verified: !!parsed.verified,
+            reason: parsed.reason || (parsed.verified ? 'Verified!' : 'Proof does not match the challenge.')
+        };
+    } catch (err) {
+        console.error('[AI_PROOF_VERIFY_ERROR]', err);
+        throw new Error(`AI validator failed: ${err.message || 'Image URL is inaccessible or invalid.'}`);
+    }
+}
+
+app.post('/api/challenges/complete', async (req, res) => {
+    try {
+        const { userId, challengeId, proofUrl } = req.body;
+        if (!userId || !challengeId || !proofUrl) {
+            return res.status(400).json({ error: 'userId, challengeId and proofUrl are required' });
+        }
+
+        const challenge = CHALLENGES.find(c => c.id === challengeId);
+        if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
+
+        // Verify with Gemini
+        console.log(`[Challenges Service] Verifying challenge "${challenge.title}" with image: ${proofUrl}`);
+        const aiResult = await verifyProofWithAI(proofUrl, challenge);
+        
+        if (!aiResult.verified) {
+            return res.json({ success: true, verified: false, reason: aiResult.reason });
+        }
+
+        // Fetch current profile
+        let { data: profile } = await supabaseAdmin.from('profiles').select('completed_challenges').eq('id', userId).maybeSingle();
+        if (!profile) {
+            const defaultProfile = {
+                id: userId,
+                xp: 0,
+                level: 1,
+                streak_count: 0,
+                completed_challenges: [],
+                last_date_completed_at: null
+            };
+            const { data: inserted } = await supabaseAdmin
+                .from('profiles')
+                .insert([defaultProfile])
+                .select('completed_challenges')
+                .single();
+            profile = inserted || defaultProfile;
+        }
+
+        const completed = profile.completed_challenges || [];
+        if (completed.includes(challengeId)) {
+            return res.json({ success: true, verified: true, message: 'Challenge already claimed' });
+        }
+
+        const newCompleted = [...completed, challengeId];
+
+        // Award 50 XP and add to completed array
+        await supabaseAdmin
+            .from('profiles')
+            .update({ completed_challenges: newCompleted })
+            .eq('id', userId);
+
+        const updatedProfile = await userService.awardXPAndCheckStreak(supabaseAdmin, userId, 50);
+
+        res.json({ success: true, verified: true, profile: updatedProfile });
+    } catch (err) {
+        console.error('[CHALLENGES_COMPLETE_ERROR]', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -548,9 +833,10 @@ CRITICAL RULES:
    - The user asks you to generate the plan/concepts.
    When isReady is true, suggest exactly 2 distinct, creative concepts.
 6. NO DEFAULT LOCATION ASSUMPTIONS: If the Location/Destination parameter is 'Not set yet' (or empty/null) and the user's message/history does not explicitly name a specific city or neighborhood (e.g., if they say "near me" or click a quick prompt like "Looking for a chill date night near me 🍻"), you MUST NOT assume a default location like NYC or New York City, and you MUST NOT set isReady to true. Instead, you must keep isReady as false and write a response that explicitly and warmly asks the user to input or confirm their target location/city.
+8. CONVERSATIONAL PROBING: If you are not ready to generate concepts (isReady = false), you MUST ask exactly ONE question to gather missing information (e.g., "Where are we going?", "When?", "What's the vibe?"). Do not ask multiple questions at once.
 7. JSON FORMAT: You MUST return a single, valid JSON object with the following schema:
 {
-  "reply": "Warm conversational response with premium advice, thoughts, and a gentle question if not ready.",
+  "reply": "Warm conversational response with premium advice, thoughts, and exactly ONE gentle question if not ready.",
   "options": ["Option 1", "Option 2", "Option 3"],
   "isReady": boolean,
   "inferredParams": {
@@ -658,11 +944,14 @@ app.post('/api/create-checkout-session', async (req, res) => {
         }
 
         // Map planType to Price ID and Mode
-        let priceId = process.env.STRIPE_PRICE_PASS; 
+        let priceId = process.env.STRIPE_PRICE_PASS;
         let mode = 'payment'; // 24H Pass is a one-time payment
 
         if (planType === 'ELITE' || planType === 'PLUS') {
             priceId = process.env.STRIPE_PRICE_ELITE;
+            mode = 'subscription';
+        } else if (planType === 'COUPLES') {
+            priceId = process.env.STRIPE_PRICE_COUPLES;
             mode = 'subscription';
         }
 
@@ -712,31 +1001,161 @@ app.post('/api/webhook', async (req, res) => {
     // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const userId = session.metadata.userId;
-        const customerEmail = session.customer_details.email;
+        const isGiftCard = session.metadata?.type === 'gift_card';
 
-        console.log(`[Webhook] Payment successful for User: ${userId} (${customerEmail})`);
-
-        // Upgrade user to Premium in Supabase
-        const { error } = await supabaseAdmin
-            .from('profiles')
-            .update({ 
-                is_premium: true,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-
-        if (error) {
-            console.error('[Webhook] DB Update Failed:', error.message);
+        if (isGiftCard) {
+            // Gift card purchase — create the card row and email the recipient
+            try {
+                await giftCardService.fulfillGiftCard(supabaseAdmin, emailService, session);
+                console.log(`[Webhook] Gift card fulfilled for session ${session.id}`);
+            } catch (err) {
+                console.error('[Webhook] Gift card fulfillment failed:', err.message);
+            }
         } else {
-            console.log(`[Webhook] User ${userId} upgraded to Premium! 🚀`);
+            // Regular subscription or pass — upgrade user to Premium
+            const userId = session.metadata?.userId;
+            const customerEmail = session.customer_details?.email;
+            console.log(`[Webhook] Payment successful for User: ${userId} (${customerEmail})`);
+
+            const { error } = await supabaseAdmin
+                .from('profiles')
+                .update({
+                    is_premium: true,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', userId);
+
+            if (error) {
+                console.error('[Webhook] DB Update Failed:', error.message);
+            } else {
+                console.log(`[Webhook] User ${userId} upgraded to Premium! 🚀`);
+            }
         }
     }
 
     res.json({ received: true });
 });
 
-// 5. USERS & ACCOUNT
+app.post('/api/gift-cards/purchase', async (req, res) => {
+    try {
+        const { planType, giftCardType, brandName, amount, purchaserId, recipientEmail, message } = req.body;
+
+        const Stripe = (await import('stripe')).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        const origin = req.get('origin') || process.env.VITE_APP_URL;
+
+        const session = await giftCardService.purchaseGiftCard(stripe, {
+            planType,
+            giftCardType: giftCardType || 'datespark_pass',
+            brandName: brandName || '',
+            amount: amount || 0,
+            purchaserId: purchaserId || null,
+            recipientEmail: recipientEmail || '',
+            message: message || '',
+            successUrl: `${origin}/gift?success=1`,
+            cancelUrl: `${origin}/gift`,
+        });
+        res.json({ url: session.url });
+    } catch (err) {
+        console.error('[GIFT_CARD_PURCHASE_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/gift-cards/validate/:code', async (req, res) => {
+    try {
+        const card = await giftCardService.validateGiftCard(supabase, req.params.code);
+        res.json({ 
+            valid: true, 
+            planType: card.plan_type, 
+            giftCardType: card.gift_card_type,
+            brandName: card.brand_name,
+            faceValue: card.face_value,
+            message: card.message 
+        });
+    } catch (err) {
+        res.status(400).json({ valid: false, error: err.message });
+    }
+});
+
+app.post('/api/gift-cards/redeem', async (req, res) => {
+    try {
+        const { code, userId } = req.body;
+        if (!code || !userId) return res.status(400).json({ error: 'code and userId are required' });
+        const result = await giftCardService.redeemGiftCard(supabaseAdmin, code, userId);
+        res.json(result);
+    } catch (err) {
+        console.error('[GIFT_CARD_REDEEM_ERROR]', err);
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// 7. PARTNER COLLABORATION
+app.post('/api/collab/invite', async (req, res) => {
+    try {
+        const { planId, ownerId, partnerEmail, isSurpriseMode } = req.body;
+        if (!planId || !ownerId || !partnerEmail) return res.status(400).json({ error: 'planId, ownerId, and partnerEmail are required' });
+        const result = await collaborationService.invitePartner(supabase, emailService, { planId, ownerId, partnerEmail, isSurpriseMode });
+        res.json({ success: true, inviteLink: result.inviteLink, collabId: result.id });
+    } catch (err) {
+        console.error('[COLLAB_INVITE_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/collab/accept', async (req, res) => {
+    try {
+        const { token, userId } = req.query;
+        if (!token || !userId) return res.status(400).json({ error: 'token and userId are required' });
+        const result = await collaborationService.acceptInvite(supabase, token, userId);
+        res.json({ success: true, ...result });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.post('/api/collab/vote', async (req, res) => {
+    try {
+        const { planId, stopIndex, userId, vote } = req.body;
+        if (!planId || stopIndex === undefined || !userId || !vote) return res.status(400).json({ error: 'Missing required fields' });
+        const result = await collaborationService.submitVote(supabase, { planId, stopIndex, userId, vote });
+        res.json({ success: true, vote: result });
+    } catch (err) {
+        console.error('[COLLAB_VOTE_ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/collab/votes/:planId', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const summary = await collaborationService.getVoteSummary(supabase, req.params.planId, userId);
+        res.json({ success: true, votes: summary });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/collab/status/:planId', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const status = await collaborationService.getCollabStatus(supabase, req.params.planId, userId);
+        res.json({ success: true, collab: status });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/collab/all/:userId', async (req, res) => {
+    try {
+        const list = await collaborationService.getUserCollaborations(supabaseAdmin, req.params.userId);
+        res.json({ success: true, collaborations: list });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 8. USERS & ACCOUNT
 app.post('/api/increment-save-usage', async (req, res) => {
     try {
         const { userId } = req.body;

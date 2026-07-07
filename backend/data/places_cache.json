@@ -1,0 +1,270 @@
+{
+  "places_search_{\"textQuery\":\"La Colombe Torrefaction in NYC\",\"maxResultCount\":1}": {
+    "places": [
+      {
+        "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0",
+        "location": {
+          "latitude": 40.7282544,
+          "longitude": -73.9932413
+        },
+        "rating": 4.4,
+        "websiteUri": "https://www.lacolombe.com/pages/cafes/noho?utm_source=google&utm_medium=organic&utm_campaign=gbp",
+        "userRatingCount": 854,
+        "displayName": {
+          "text": "La Colombe Coffee Workshop",
+          "languageCode": "en"
+        },
+        "shortFormattedAddress": "400 Lafayette St, New York",
+        "reviews": [
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/reviews/Ci9DQUlRQUNvZENodHljRjlvT25KVGRFY3RSVlI2TWpaS1ltbGtaVEZxZFZkNFpXYxAB",
+            "relativePublishTimeDescription": "a month ago",
+            "rating": 5,
+            "text": {
+              "text": "Flat white good but not exceptional. Could be more fruity and deep. Latte art average. Peanut butter cookie out of this world (a little less sugar would be great).",
+              "languageCode": "en"
+            },
+            "originalText": {
+              "text": "Flat white good but not exceptional. Could be more fruity and deep. Latte art average. Peanut butter cookie out of this world (a little less sugar would be great).",
+              "languageCode": "en"
+            },
+            "authorAttribution": {
+              "displayName": "Malvina Goldfeld",
+              "uri": "https://www.google.com/maps/contrib/118030244642321592520/reviews",
+              "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjW5hrV7rWO4TlrSLYtTv2k8JO1VemNX7RtV4JXDQFMHcmBt7p3pdQ=s128-c0x00000000-cc-rp-mo-ba4"
+            },
+            "publishTime": "2026-05-18T13:02:44.533515035Z",
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=Ci9DQUlRQUNvZENodHljRjlvT25KVGRFY3RSVlI2TWpaS1ltbGtaVEZxZFZkNFpXYxAB&d=17924085&t=1",
+            "googleMapsUri": "https://www.google.com/maps/reviews/data=!4m6!14m5!1m4!2m3!1sCi9DQUlRQUNvZENodHljRjlvT25KVGRFY3RSVlI2TWpaS1ltbGtaVEZxZFZkNFpXYxAB!2m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/reviews/Ci9DQUlRQUNvZENodHljRjlvT2tOdFFUUTNPV3B4TXpOdFNWRmFNMnBFUVcxRFMwRRAB",
+            "relativePublishTimeDescription": "2 months ago",
+            "rating": 1,
+            "text": {
+              "text": "The coffee is good and the store has a nice interior. They also have a restroom for customers, which is a plus. However, it’s honestly in disgusting condition. They really need to take better care of it—especially if they expect people to spend time there. Right now, it’s basically unusable and not functional at all.",
+              "languageCode": "en"
+            },
+            "originalText": {
+              "text": "The coffee is good and the store has a nice interior. They also have a restroom for customers, which is a plus. However, it’s honestly in disgusting condition. They really need to take better care of it—especially if they expect people to spend time there. Right now, it’s basically unusable and not functional at all.",
+              "languageCode": "en"
+            },
+            "authorAttribution": {
+              "displayName": "Maribel",
+              "uri": "https://www.google.com/maps/contrib/109881519420422308850/reviews",
+              "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocKQZVtg7xPNIePogAVv3-vy80hgzNAv5KRUrMXEHi5TUm44sA=s128-c0x00000000-cc-rp-mo"
+            },
+            "publishTime": "2026-04-11T22:16:58.574605346Z",
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=Ci9DQUlRQUNvZENodHljRjlvT2tOdFFUUTNPV3B4TXpOdFNWRmFNMnBFUVcxRFMwRRAB&d=17924085&t=1",
+            "googleMapsUri": "https://www.google.com/maps/reviews/data=!4m6!14m5!1m4!2m3!1sCi9DQUlRQUNvZENodHljRjlvT2tOdFFUUTNPV3B4TXpOdFNWRmFNMnBFUVcxRFMwRRAB!2m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/reviews/Ci9DQUlRQUNvZENodHljRjlvT2t0Rk1XZ3laVlp0U0ROeVRuWkZabFExV1hkclZuYxAB",
+            "relativePublishTimeDescription": "2 months ago",
+            "rating": 3,
+            "text": {
+              "text": "Solid coffee. Cashier was friendly. Baristas were borderline rude, on their phones all the time, barely speaking the names on the orders. Double espresso shot is TINY. Place is a bit chaotic, not particularly clean and loud.",
+              "languageCode": "en"
+            },
+            "originalText": {
+              "text": "Solid coffee. Cashier was friendly. Baristas were borderline rude, on their phones all the time, barely speaking the names on the orders. Double espresso shot is TINY. Place is a bit chaotic, not particularly clean and loud.",
+              "languageCode": "en"
+            },
+            "authorAttribution": {
+              "displayName": "Pedro Giraudo",
+              "uri": "https://www.google.com/maps/contrib/111560882364048935690/reviews",
+              "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjVlt8mE1jxaW4LtY9ZUeVs4FhgdvcXZG9CSYemuae8OwBsCIIR-=s128-c0x00000000-cc-rp-mo-ba4"
+            },
+            "publishTime": "2026-04-14T22:04:30.987582470Z",
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=Ci9DQUlRQUNvZENodHljRjlvT2t0Rk1XZ3laVlp0U0ROeVRuWkZabFExV1hkclZuYxAB&d=17924085&t=1",
+            "googleMapsUri": "https://www.google.com/maps/reviews/data=!4m6!14m5!1m4!2m3!1sCi9DQUlRQUNvZENodHljRjlvT2t0Rk1XZ3laVlp0U0ROeVRuWkZabFExV1hkclZuYxAB!2m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/reviews/ChZDSUhNMG9nS0VJQ0FnTURvcmNhT0t3EAE",
+            "relativePublishTimeDescription": "a year ago",
+            "rating": 1,
+            "text": {
+              "text": "I’ve bought this strawberry latte twice before and it was fine, but today’s order was a joke. I hadn’t even taken a sip yet — after the foam settled, it was barely half full. Really disappointing. Not sure if I’ll come back.",
+              "languageCode": "en"
+            },
+            "originalText": {
+              "text": "I’ve bought this strawberry latte twice before and it was fine, but today’s order was a joke. I hadn’t even taken a sip yet — after the foam settled, it was barely half full. Really disappointing. Not sure if I’ll come back.",
+              "languageCode": "en"
+            },
+            "authorAttribution": {
+              "displayName": "HaeiYn W",
+              "uri": "https://www.google.com/maps/contrib/118019490830382907974/reviews",
+              "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjW3excPC7GPNkPsoaimp2gMzpoYwxiZzYSe3dx0OjFzSfS2cdNJ=s128-c0x00000000-cc-rp-mo"
+            },
+            "publishTime": "2025-04-27T15:44:35.044155Z",
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=ChZDSUhNMG9nS0VJQ0FnTURvcmNhT0t3EAE&d=17924085&t=1",
+            "googleMapsUri": "https://www.google.com/maps/reviews/data=!4m6!14m5!1m4!2m3!1sChZDSUhNMG9nS0VJQ0FnTURvcmNhT0t3EAE!2m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/reviews/ChZDSUhNMG9nS0VJQ0FnSUNfLU4zM2F3EAE",
+            "relativePublishTimeDescription": "a year ago",
+            "rating": 5,
+            "text": {
+              "text": "Very crowded and vibey on a Sunday afternoon. Great spot to catchup or work if you can find a table. Line moves quickly. Fun draft cold brews but even the black iced coffee is good.",
+              "languageCode": "en"
+            },
+            "originalText": {
+              "text": "Very crowded and vibey on a Sunday afternoon. Great spot to catchup or work if you can find a table. Line moves quickly. Fun draft cold brews but even the black iced coffee is good.",
+              "languageCode": "en"
+            },
+            "authorAttribution": {
+              "displayName": "Rose Brutkiewicz",
+              "uri": "https://www.google.com/maps/contrib/103519369904692326183/reviews",
+              "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocJE3aHLUXeKHl3HVZB3yyWemp_exeTUEB8VHBImW_q_vWevJA=s128-c0x00000000-cc-rp-mo-ba4"
+            },
+            "publishTime": "2025-01-12T19:22:18.329654Z",
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=ChZDSUhNMG9nS0VJQ0FnSUNfLU4zM2F3EAE&d=17924085&t=1",
+            "googleMapsUri": "https://www.google.com/maps/reviews/data=!4m6!14m5!1m4!2m3!1sChZDSUhNMG9nS0VJQ0FnSUNfLU4zM2F3EAE!2m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          }
+        ],
+        "photos": [
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3mjunmB3Si_gEDfSlc4MaAvA-gTu-P2uJcjAvEX8uvxljlVUkyIWFb3BsBHmegECxvkgKtSOpaMblaZL6g1_qLdsJobOrXYHxFG_EzueJ4N7j-alzeM5oaKZP2VsMCW3CX9PAbGXSn8dJyZTxFAmGyKDMNG5HihpHeDSz6KzuNjYIeXcc9zNpDThWbKXlGcnQ1zRe9a9aH4DAN-gCD8HNCbKAk0hzZis93NX5qVeKC-1RF_lSSNiMzf4hgeg5ObE_EhCdf-sx5fx-pURU_5Sw6paCK805zpMhzIxfG_iLCMZHDVHGxxTe1WOxqxzVeTgt8YhHjHjxj0elUJ4_AISCQzP4vi-7RlbkIUT4bTd7S2IQamT0j2ZUy8iL8BHPtwQw2eM8mhMHLxrz86l7-R37lIGrZGoBSf6hUqfjEeQNGdng",
+            "widthPx": 2448,
+            "heightPx": 3059,
+            "authorAttributions": [
+              {
+                "displayName": "Ken Takahashi",
+                "uri": "https://maps.google.com/maps/contrib/109462984833618143732",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjXRLeMgXprjRd3y25cV9rU1uKcTGAis3FYOsZNxMp30JbJesmGFUA=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDE-8GqLg&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDE-8GqLg!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3kxK5TNxEH5zXWBo22ZyTDVSxAVIwusJ5YJrACspb2KDexmtklADzTgMas7-mAi2rk1o5gndWAwfJI7wgcIMpImzJcGFZ1-3-ItCFjEXj8qgZpb62VkcbLimE-PPl-y5JWP573FXeYhaxN_5AfiC9YCUhuQESrKFR2RenICc2jr3Xfjvfb6BozUUCKemc1rczoemVgPZPw4xVinPu_g04LEYR53n7Yyj9YfyAHSL9FvyP4DBTySr5uf-Sv6zW0vlz05Ge7SAlgicH-OBWlhnJ3PzEkW5l-fRKYED2GUGRABQy_vCwWnbnLSxkMnxywVu7nW_U4lVD2h1BVkPn_cAYJC_jUKzjJINq2FxnkhI0QIoqGyWNGPrss-Wud7Nd-RexAd-Ee3dHxJhE5JVlDE0eZ0Yop5paJ1fe11WkOxrWD3w-mf53-S1j7Asi-ahW2B",
+            "widthPx": 3024,
+            "heightPx": 4032,
+            "authorAttributions": [
+              {
+                "displayName": "Julissa Solano",
+                "uri": "https://maps.google.com/maps/contrib/113035610342143878010",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjXm3jkZGG_yye3gkH1UDOZrc_6gXnLCwuUabCXt6b2u2803OsVb=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhChrJEjapiW4obJTalYETz2&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhChrJEjapiW4obJTalYETz2!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3mjEDYylO827t5pDzFeX91aRbUINO7BSrLbh-xYTdc-3SJ2-95m8OpyBnvSxV8_2H8VNj-C3ilRAkPfl7fwWjUIeOslK_MvnHe3M1cNlOi_J9vZOP75hizZpRwWWzPNNrRWazkJBVQaNxcEy9uEpdNsB5eRfep0S1GvBn6s20wKzobMK7ib86RVuMEdrjRPcT8wqSMgQbY5gmpA8aEXbL3XSNcUCL0HxLZ6X8obb1Qyyvg2UP47Pa_raVtnaCNNjvz63Mcx8RcD90zN1yf1KVLzeqQN9btRIddscxYuo3_MfnClBQ8prpJSKtroWwT2a-Niwy7wES3Q7OCAcd-8qfuA47Me8NOhkElD6HxbvaIoFnpp40p4UMGpNoJEZ07FlDWNRo2bznWVYd4vx6AqX1UwglE3el4-yBPrFz1pnFUOQ6xhlFhCkKOZHjrmq3j6",
+            "widthPx": 3072,
+            "heightPx": 4080,
+            "authorAttributions": [
+              {
+                "displayName": "Erin Alexis Randolph",
+                "uri": "https://maps.google.com/maps/contrib/117621939867369300836",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjVt9IEUxb7ilnC5hgTKkreTlgBLxSfcepzKnw2N490ty-vbV7My=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhAXrSKBPaAsB0VB-KIGR-cq&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhAXrSKBPaAsB0VB-KIGR-cq!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3lpfaQ67S8R0I0ECDzLvnLH1cs4-nxxvEkjxUc6qXDquLvex2wincBxyotUlYg6VAY_pRyYs1iiUO7SF9g6-hkzKbSMRQxDpVsg--6rNLLqtmilKGov9PU7lUPuiV3xF6GwkDyvrutc2CIy-MizrP7BX1dvR4wRwSPABeWcxcCa2VEkVVXzzPAglm64LvxUp9Q_yn83VEXRE9fFDJr7dJrzj4ocp54bYYKvLt9PTe7SazlmWAhcGJ5Q1X-eUl8N6mKA7fa3z-2fgS7HfNZnRcxSpbrIodKWA-aOFPbW4mknMIlj_AhxdKFh_lKIOl-T_V-UFLJHEUqqgbB9wED6JW9mYveK_Jdb0tM_OrPfUj12m6Fys65xl171tKGLcArGLXoa_Lo70Sq4P6EL6kuYWmUPb-uHG6qXAx8ZMH3mhiMIwS37iCUisilPo0GmJSrW",
+            "widthPx": 4032,
+            "heightPx": 3024,
+            "authorAttributions": [
+              {
+                "displayName": "Jungmin Kim",
+                "uri": "https://maps.google.com/maps/contrib/113837643436185198242",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjXMZsfwSGQMTK-U6CHDR_b_Hynkj8xD6dBnhzuj14Gk8av-W2-68g=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBIuDceYgHvs4vHTkhZuPdx&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBIuDceYgHvs4vHTkhZuPdx!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3l5Z-z7qkFUwJIpUOVeree6CDwJFQPm_mmP97xO-SKYQZazZSsOdu4zr2YTq90WAca0n8xAY85-cfWvrKVqR8yyfrpAYtIA98XExzn_AUoUoxeTVvk4_hrfyMLtBpwZLDLOBwZJOSErOPpSyp6oHBe6LSNZAJqnBrVWBbZYTJOIrXOfVonT34XtbWyhWyUXkAACcmm3dc3W_6q6LPHUuXDScz6mBpT3oFOgjYqokNIbkyiU2cxbkeXyA7tvpZtDxEfK9OImZQ2lnrRu2Bt_8_THsyGoUU06GN50-1C-1WDwahZ15sR9G5ajnkzcVGa11f_QUwCwfcMYm8UkMrYE4PO_ACe1BDs9FQccjZvbXdRDP2A2LQju4T6MOqSDXOtGNroU0dpke3AI83AoOR3zqL0wghgCaGXGgDMnfGkeFclAwhUQ9AlojUsV5EDtq2AP",
+            "widthPx": 2376,
+            "heightPx": 3439,
+            "authorAttributions": [
+              {
+                "displayName": "G C",
+                "uri": "https://maps.google.com/maps/contrib/104367673449245631221",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjU4rsUwmPKH1l41kQ8IAGD5fAWZn7W6a3Eva1qE2U9LZ9b9C5_mxg=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhCq4GnlNC-5X9tqySf8FlFH&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhCq4GnlNC-5X9tqySf8FlFH!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3kbRD6bPCmzbJELbhXxWDnqmLrAh9uv_SvrksTl8_HfdkOhaU0RsokyIYNDirhoGxXkgrECku9U3XVqOajYW7yLtPZoxL6HpQUgTrEduQPQ3dOT4TnCmrQBKuf8GD1hQgkM5QGxGMMr2DR0C6VFx0vJSN-l02fnPd964poBZTn2qdMYmhfqaTCw0JZLBqYNvwDCvteBQFSCo4FTdsZbmitEmlxoHN2D7MCrL_S0zY-AfykBVvaX4qoWg2mfjE7uUUPWV93H6cIRStOSBsEQNfgwMRrKKFahPg-zDzE6GYtWwFuUj9Kg1Exa_biKrnbvg-7AXer7cXbnARSje7XZMZCinT5bQ5EI92DQ06RxKUZZJffTon22QjZ3TZYnZq-AtuVu1zGo1VrgVwDA22tpUjXA-NiS74bQo0NJBQgUwjMBtbhK6c5zeB8vpVrlCw",
+            "widthPx": 3024,
+            "heightPx": 4032,
+            "authorAttributions": [
+              {
+                "displayName": "James “Moonceft” Kim",
+                "uri": "https://maps.google.com/maps/contrib/100723343803186645229",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjUFBzjYsa36wEBCfxVinK3zvraUGD9WCGnjalunfmO9hXOeeyuc=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhDsybbGlIrFlzCP_vxkcajG&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhDsybbGlIrFlzCP_vxkcajG!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3m2YLR5W2OIb1ETK-0Mh57WtEZml03GRB41MejYAWcrLl809geBJ6XqBQ6NDa9nQsljc7iORlQk-zVtQyL0SiCYjrW9T7z4VgsiLsZtUQrcMRgvl6xDONFvh4jTwNZANtj2x0rpAVIT5J42eXOZZQXSaBVr-xUQtxs4Lqn8Rr0Z2AX8VQNTyLievUbZgoIFVpDJZPCEnNTGJh3marL3PDbau8NPBV-g9qJwTwKIBpGYkOePSKhD-XtZ-K8hdeSlaiRPFp0THoKbKX3UVvWgyaiIlFb5TmWfHPWDPEGq3tXtZ59s1N7oYk4WCwp6ZGOlR3pqxcMM9hRsKx2dSfsHpbIWhwjiU12ZzrY9KwI8sL9huRjIi5LBzkn5mGwn2nWybAkeKCmORRBqhGREles0VCc-SmL3JAU7wq9Sal0xQ-sWZ_I",
+            "widthPx": 3024,
+            "heightPx": 4032,
+            "authorAttributions": [
+              {
+                "displayName": "Ashley Park",
+                "uri": "https://maps.google.com/maps/contrib/116534450563205529749",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocKRPKa3J08XKLwKCzKo9QhASalTmpYFXH9-jcsH2oLbWxCgK04H=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDHpcLChQE&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDHpcLChQE!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3m-OQVuDM1zGRRXu2iz1x8Q1aWN9QbbwJCGjEaKCdt4cgn9bwwoX36VvMBHrzRdLxR9DKuhz6z1uD0vV2rhN2B40MB-WOpWbomBkIqrYPDDO9HIV6pL8azcIcEeYr7PNz0wGFxaVwMDatGgZ5gDmcGotVlbzZw95dMlNraOcG8Z0sRGTmxRJk43yrdQb6LCAHezLE57jVg4lgU0tP1ZSF960TZIyuNeN1iJ4sgK_vCnaU_bpcGuJbEtMVS3V8NSdINGqtXtYp1NeB_uWM3i6Ww1mwttaTJcEBYtcttIC5unhNNoXvHvyUTjLMtFcWw3V5uBIytMd5YEBDN2qe5QS2CVvpv_UR-uXC_LqkPFVws-34DQ2h06Wh4cUXE2sCsZsac9SaMo8tOs1rDWeR_rKda8aZyVkgxErPI_IHM",
+            "widthPx": 800,
+            "heightPx": 695,
+            "authorAttributions": [
+              {
+                "displayName": "Olivia Schmidt",
+                "uri": "https://maps.google.com/maps/contrib/117965900656191853330",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocIDCXoEUfsYTPUgnKRykfUTIt7Linc0q9wx7mCjpCmTUIaM6Q=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDq6vUR&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDq6vUR!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3kg3x1Am1-paTBlNH_bqAutqJ7OdAcCQwp4MKT1k3w3TLul4JDv11gW3AVNEOcGcVfhM6MjDmi7NW-IDQGLF0tNE4aQL8TY75Yp-gevYIZcg1C5tV1tB_gVJnuO7kkUj0c1jfYz0wgpRzcaB2VGjPCqeZ2yAPsLW5XqBY0-Rx4MA8T9GsmvKxqmIk9K3dBmzDhDlKpJrgodCzKkXTayhT9mqTuQPrH8IfpRGmR3RgCpe6gXa1NZPYJJmOMzjo_edOe6bW_PaEsWBp3s10BQAQ7q7Ccpbqm91xmQXyj20hikwc1ZpYLaY-Hha9I_WBoZx18AKqbNxzPDax3pf7V47KWuNozz6ocEdzbhDItxKMjvJ-WyJV2evzjtnvSKn5eY5uJZHSUAX8nu8rIy3RyVbgYmGvUBu-JYRsdhqXvSEgR_720",
+            "widthPx": 3000,
+            "heightPx": 4000,
+            "authorAttributions": [
+              {
+                "displayName": "Duran S",
+                "uri": "https://maps.google.com/maps/contrib/110669566069417744328",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWwisMUeTGXBYOYWZpsSAaUWEgwceseFnlYxjPAUyLAUS3iVQ7hnA=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgMCAn9eL4gE&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgMCAn9eL4gE!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          },
+          {
+            "name": "places/ChIJITzs6ppZwokRS5MAY3a5ee0/photos/AaVGc3knmN2wbFmdf2UWCHHqQJjUc-vTBW2iExgUG7gH37bC9ZuBSb1OAz2lc2rgcOl_9BxMk3RexfDmgpMmktnuQ8lJNAZXp2NifqfUAt1qkwalYF2tsTcTach4s1xblixHSbBwbSiEN0vZnpHa-9v99moPthZNe-2Kdmh1gmupJlg1pXRJvIbw76PtRPJVfQbv3_HKHb9d0vgWaG7bXok3SqatGKzIx19lyF2jckOIRjR0BntA_TyJ0srGcRu14nIoIhAWJ89PRTKdoOwg_ZtMljlRqoMs5yo6BdGJhkgMFR2ogRylAcjdLy2mkIbDtGeESisWZkfIqdPMOnp2p7TckG6FrUwgEfAuDccBal305K-1hFD3m703-0DCaiqBT4ebSM2ldk7camevLtGdkwEY6B6zVaXCfVJWHr4tjcln3s_Ooe0hzMf8LOCqWD_QfQ",
+            "widthPx": 3600,
+            "heightPx": 4800,
+            "authorAttributions": [
+              {
+                "displayName": "G C",
+                "uri": "https://maps.google.com/maps/contrib/104367673449245631221",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjU4rsUwmPKH1l41kQ8IAGD5fAWZn7W6a3Eva1qE2U9LZ9b9C5_mxg=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBwnpJFQI_Q35hVDy9xfrMh&t=27&cb_client=maps_api_places.places_api&hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBwnpJFQI_Q35hVDy9xfrMh!2e10!4m2!3m1!1s0x89c2599aeaec3c21:0xed79b9766300934b"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -245,7 +245,7 @@ const EventCard = ({ evt, isDark, idx }) => {
 
                 {/* Source Badge */}
                 <div className={`absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white/90 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 z-10 shadow-sm`}>
-                    {evt.source === 'SeatGeek' ? 'SG' : 'TM'}
+                    {evt.source === 'SeatGeek' ? 'SG' : evt.source === 'Local' ? 'Google' : 'TM'}
                 </div>
 
                 {/* Cancelled badge */}

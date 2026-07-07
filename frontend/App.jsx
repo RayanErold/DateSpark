@@ -19,18 +19,20 @@ const VibeOnboarding = lazy(() => import('./pages/dashboard/VibeOnboarding'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const VibeFeed = lazy(() => import('./pages/dashboard/VibeFeed'));
 const AdminDashboard = lazy(() => import('./pages/dashboard/AdminDashboard'));
+const GiftCardPage = lazy(() => import('./pages/GiftCardPage'));
+const CollabAcceptPage = lazy(() => import('./pages/CollabAcceptPage'));
 
 
 const LoadingScreen = () => (
-    <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#060B1A] z-[9999]">
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-ivory z-[9999]">
         <div className="relative">
-            <div className="w-16 h-16 border-2 border-white/10 rounded-full"></div>
-            <div className="absolute top-0 left-0 w-16 h-16 border-2 border-coral border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-16 h-16 border-2 border-blush rounded-full"></div>
+            <div className="absolute top-0 left-0 w-16 h-16 border-2 border-rose border-t-transparent rounded-full animate-spin"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2 h-2 bg-coral rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-rose rounded-full animate-pulse"></div>
             </div>
         </div>
-        <p className="mt-6 text-white/40 font-black uppercase tracking-[0.2em] text-[10px] animate-pulse">Initializing DateSpark</p>
+        <p className="mt-6 text-taupe/60 font-semibold uppercase tracking-[0.2em] text-[10px] animate-pulse font-outfit">Initializing DateSpark</p>
     </div>
 );
 
@@ -54,6 +56,8 @@ function App() {
           <Route path="/refund" element={<RefundPolicy />} />
           <Route path="/cookies" element={<CookiePolicy />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/gift" element={<GiftCardPage />} />
+          <Route path="/collab/accept" element={<CollabAcceptPage />} />
 
 
           {/* Protected Routes */}

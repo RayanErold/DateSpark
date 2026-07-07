@@ -119,6 +119,8 @@ const DateArchitectChat = ({
     onSettingsChange,
     onPlanSaved,
     isStudio = false,
+    hideHeader = false,
+    userName = 'Rayan',
 }) => {
     const navigate = useNavigate();
     const API_URL = import.meta.env.VITE_API_URL || '';
@@ -308,13 +310,13 @@ const DateArchitectChat = ({
                 role: 'assistant',
                 content: initialPrompt 
                     ? `Sparking a plan for your date at ${initialPrompt.split('Date at ')[1] || 'this venue'}! I've noted the vibe is ${initialVibe || 'custom'}. What else should I know to make it perfect?`
-                    : `Hi! I'm Sparky, your premium AI Date & Trip Concierge. 🌟 I'm here to help you craft incredible dates, weekend getaways, neighborhood crawls, and epic travels. Tell me what you're thinking, or click one of the quick sparks below!`,
+                    : `Hi ${userName}! I've analyzed your preferences, past dates, and what's happening around you. What kind of vibe are we going for? 💅`,
                 options: [
-                    "Looking for a chill date night near me 🍻",
-                    "Need a fun outdoor adventure day 🌳",
-                    "Arcade & gaming date crawl 🎮",
-                    "Bowling & beer night 🎳",
-                    "I want to plan a romantic weekend getaway ✈️"
+                    "💖 Romantic / something sweet",
+                    "🏕️ Adventurous / let's explore",
+                    "☕ Chill & Casual / low key vibe",
+                    "💵 Budget Friendly / save & enjoy",
+                    "✨ Surprise Me / I'm open to ideas"
                 ]
             };
             setMessages([welcomeMsg]);
@@ -328,7 +330,7 @@ const DateArchitectChat = ({
                 setCurrentStep(0); // Starts in concierge mode
             }
         }
-    }, [messages.length, initialPrompt, initialVibe]);
+    }, [initialPrompt, initialVibe, userName]);
 
     const resetToInitialState = () => {
         setProposedPlan(null);
@@ -767,74 +769,7 @@ const DateArchitectChat = ({
             return;
         }
 
-        // If in guided step mode, advance the wizard
-        if (currentStep > 0) {
-            // Treat typed input as step answer
-            if (currentStep === 1) {
-                setLocation(textToSend);
-                const nextMessages = [
-                    ...messages,
-                    { role: 'user', content: textToSend },
-                    { role: 'assistant', content: `Got the location! 🗺️ When are you looking to go?` }
-                ];
-                setMessages(nextMessages);
-                setCurrentStep(2);
-                setInput('');
-                return;
-            } else if (currentStep === 2) {
-                setPlanDate(new Date().toISOString().split('T')[0]);
-                setPlanTime(textToSend);
-                const nextMessages = [
-                    ...messages,
-                    { role: 'user', content: textToSend },
-                    { role: 'assistant', content: `Awesome! ⚡ How many activities/stops would you like in this plan?` }
-                ];
-                setMessages(nextMessages);
-                setCurrentStep(3);
-                setInput('');
-                return;
-            } else if (currentStep === 3) {
-                const stops = parseInt(textToSend) || 3;
-                setNumActivities(stops);
-                const nextMessages = [
-                    ...messages,
-                    { role: 'user', content: textToSend },
-                    { role: 'assistant', content: `Perfect, a ${stops}-step adventure! 🗺️ What search radius makes sense?` }
-                ];
-                setMessages(nextMessages);
-                setCurrentStep(4);
-                setInput('');
-                return;
-            } else if (currentStep === 4) {
-                setRadius(4000); // Default
-                const nextMessages = [
-                    ...messages,
-                    { role: 'user', content: textToSend },
-                    { role: 'assistant', content: `Understood. Finally, what's your target vibe and budget?` }
-                ];
-                setMessages(nextMessages);
-                setCurrentStep(5);
-                setInput('');
-                return;
-            } else if (currentStep === 5) {
-                setBudget("$100");
-                setSelectedGoal("romantic");
-                setCurrentStep(0);
-                setInput('');
-                const nextMessages = [
-                    ...messages,
-                    { role: 'user', content: textToSend }
-                ];
-                setMessages(nextMessages);
-                generateProposedPlan(null, {
-                    budget: "$100",
-                    goal: "romantic"
-                });
-                return;
-            }
-        }
-
-        // If currentStep === 0 and no proposedPlan, generate initial plan from prompt immediately!
+        // Fallback for direct prompt execution if not in concierge mode
         const userMessage = {
             role: 'user',
             content: textToSend,
@@ -1069,33 +1004,14 @@ const DateArchitectChat = ({
         let text = contentStr.split('READY')[0];
         let options = isObject && msg.options ? msg.options : [];
         
-        // Backward compatibility for standard strings
+        // Handle backward compatibility for standard strings
         const optionsMatch = text.match(/\[OPTIONS:\s*([\s\S]*?)\]/i);
         if (optionsMatch) {
             options = optionsMatch[1].split('|').map(option => option.trim().replace(/\n/g, ' ')).filter(Boolean);
             text = text.replace(optionsMatch[0], '');
         }
 
-        // Handle custom start options if messages.length === 1 and chatMode === 'concierge'
-        if (isLast && role === 'assistant' && chatMode === 'concierge' && messages.length === 1) {
-            options = [
-                ...options,
-                "⚡ Or, let's do the 5-Tap Quick Wizard!"
-            ];
-        }
-
         const handleOptionClick = (option) => {
-            if (option === "⚡ Or, let's do the 5-Tap Quick Wizard!") {
-                setChatMode('wizard');
-                setCurrentStep(1);
-                setMessages([
-                    {
-                        role: 'assistant',
-                        content: `Hi! I'm Sparky, your AI Date Architect. Let's customize your perfect date plan in 5 quick taps! \n\n📍 First, where is the starting point for your date?`
-                    }
-                ]);
-                return;
-            }
             sendPrompt(option);
         };
 
@@ -1104,17 +1020,28 @@ const DateArchitectChat = ({
                 <div className="whitespace-pre-wrap leading-relaxed">{text.trim()}</div>
                 {options.length > 0 && isLast && role === 'assistant' && (
                     <div className="flex flex-wrap gap-2 pt-1">
-                        {options.map((option) => (
-                            <button
-                                key={option}
-                                type="button"
-                                onClick={() => handleOptionClick(option)}
-                                disabled={isStreaming}
-                                className="rounded-xl border border-orange-100 bg-orange-50/80 px-3 py-1.5 text-left text-[11px] font-black text-orange-700 transition hover:border-orange-300 hover:bg-white active:scale-95 disabled:opacity-50 cursor-pointer"
-                            >
-                                {option}
-                            </button>
-                        ))}
+                        {options.map((option) => {
+                            const parts = option.split(' / ');
+                            const hasSub = parts.length > 1;
+                            return (
+                                <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => handleOptionClick(hasSub ? parts[0].trim() : option)}
+                                    disabled={isStreaming}
+                                    className="rounded-2xl border border-slate-100 bg-white px-3.5 py-2 text-left transition hover:border-rose-350 hover:shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                                >
+                                    <span className="text-[11px] font-black text-slate-800 flex items-center gap-1">
+                                        {parts[0]}
+                                    </span>
+                                    {hasSub && (
+                                        <span className="text-[9px] text-slate-400 font-bold">
+                                            / {parts[1]}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
                 {isObject && msg.concepts && msg.concepts.length > 0 && isLast && role === 'assistant' && (
@@ -1162,79 +1089,81 @@ const DateArchitectChat = ({
     const chatContent = (
         <div className={containerClasses}>
                 {/* Header with maximum interactive controls */}
-                <div className="border-b border-orange-100 bg-gradient-to-r from-orange-50/70 via-orange-50/20 to-white px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-orange-500 to-coral text-white shadow-md shadow-orange-500/20">
-                            <Heart className="h-4.5 w-4.5 fill-current animate-pulse" />
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-black tracking-tight uppercase bg-gradient-to-r from-orange-600 via-orange-500 to-coral bg-clip-text text-transparent">
-                                Sparky
-                            </h3>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-ping" />
-                                <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">
-                                    {currentStep > 0 ? `Customizing: Step ${currentStep} of 5` : chatMode === 'concierge' ? 'AI Concierge 🌟' : 'AI Live Architect'}
-                                </span>
+                {!hideHeader && (
+                    <div className="border-b border-rose-100 bg-gradient-to-r from-rose-50/70 via-rose-50/20 to-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-rose-500 to-coral text-white shadow-md shadow-rose-500/20">
+                                <Heart className="h-4.5 w-4.5 fill-current animate-pulse" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black tracking-tight uppercase bg-gradient-to-r from-rose-600 via-rose-500 to-coral bg-clip-text text-transparent">
+                                    Sparky
+                                </h3>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping" />
+                                    <span className="text-[9px] font-black uppercase text-rose-600 tracking-wider">
+                                        {currentStep > 0 ? `Customizing: Step ${currentStep} of 5` : chatMode === 'concierge' ? 'AI Concierge 🌟' : 'AI Live Architect'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
+
+                        <div className="flex items-center gap-2">
+                            {/* Go back 1 step in Wizard */}
+                            {currentStep > 1 && currentStep <= 5 && (
+                                <button
+                                    onClick={() => {
+                                        const prevStep = currentStep - 1;
+                                        setCurrentStep(prevStep);
+                                        // Remove the last user & assistant messages to revert the chat history
+                                        setMessages(prev => prev.slice(0, prev.length - 2));
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-slate-500 hover:text-navy bg-slate-100 px-2.5 py-1 rounded-xl transition-all"
+                                >
+                                    ⬅ Back
+                                </button>
+                            )}
+
+                            {/* Prominent Back to Start / Wizard if we are in free chat / proposed plan mode */}
+                            {currentStep === 0 && chatMode === 'wizard' && (
+                                <button
+                                    onClick={resetToInitialState}
+                                    className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-orange-600 hover:text-navy bg-orange-50 px-2.5 py-1 rounded-xl transition-all font-bold"
+                                >
+                                    ⬅ Back to Wizard
+                                </button>
+                            )}
+
+                            {/* Reset / Start Over if not at step 1 */}
+                            {(currentStep !== 1 || proposedPlan !== null || messages.length > 1) && (
+                                <button
+                                    onClick={resetToInitialState}
+                                    className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-coral hover:text-navy bg-coral/10 px-2.5 py-1 rounded-xl transition-all"
+                                >
+                                    Start Over
+                                </button>
+                            )}
+
+                            {/* Skip guidance helper when wizard is running */}
+                            {currentStep > 0 && currentStep <= 5 && (
+                                <button
+                                    onClick={handleSkipAndGenerate}
+                                    className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black uppercase text-rose-600 hover:text-navy bg-rose-50 px-2.5 py-1 rounded-xl transition-all"
+                                >
+                                    Skip Guidance
+                                </button>
+                            )}
+                            {/* Expandable toggle */}
+                            <button
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                                aria-label={isExpanded ? "Collapse Spark AI" : "Expand Spark AI"}
+                            >
+                                {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        {/* Go back 1 step in Wizard */}
-                        {currentStep > 1 && currentStep <= 5 && (
-                            <button
-                                onClick={() => {
-                                    const prevStep = currentStep - 1;
-                                    setCurrentStep(prevStep);
-                                    // Remove the last user & assistant messages to revert the chat history
-                                    setMessages(prev => prev.slice(0, prev.length - 2));
-                                }}
-                                className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-slate-500 hover:text-navy bg-slate-100 px-2.5 py-1 rounded-xl transition-all"
-                            >
-                                ⬅ Back
-                            </button>
-                        )}
-
-                        {/* Prominent Back to Start / Wizard if we are in free chat / proposed plan mode */}
-                        {currentStep === 0 && chatMode === 'wizard' && (
-                            <button
-                                onClick={resetToInitialState}
-                                className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-orange-600 hover:text-navy bg-orange-50 px-2.5 py-1 rounded-xl transition-all font-bold"
-                            >
-                                ⬅ Back to Wizard
-                            </button>
-                        )}
-
-                        {/* Reset / Start Over if not at step 1 */}
-                        {(currentStep !== 1 || proposedPlan !== null || messages.length > 1) && (
-                            <button
-                                onClick={resetToInitialState}
-                                className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-coral hover:text-navy bg-coral/10 px-2.5 py-1 rounded-xl transition-all"
-                            >
-                                Start Over
-                            </button>
-                        )}
-
-                        {/* Skip guidance helper when wizard is running */}
-                        {currentStep > 0 && currentStep <= 5 && (
-                            <button
-                                onClick={handleSkipAndGenerate}
-                                className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black uppercase text-orange-600 hover:text-navy bg-orange-50 px-2.5 py-1 rounded-xl transition-all"
-                            >
-                                Skip Guidance
-                            </button>
-                        )}
-                        {/* Expandable toggle */}
-                        <button
-                            onClick={() => setIsExpanded(!isExpanded)}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-                            aria-label={isExpanded ? "Collapse Spark AI" : "Expand Spark AI"}
-                        >
-                            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                        </button>
-                    </div>
-                </div>
+                )}
 
                 {/* Progress bar */}
                 {currentStep > 0 && currentStep <= 5 && (
@@ -1478,7 +1407,7 @@ const DateArchitectChat = ({
                     </div>
 
                     {/* Chat footer input */}
-                    <div className="border-t border-slate-100 bg-white p-3">
+                    <div className="border-t border-slate-100 bg-white p-3 flex-shrink-0">
                         <div className="relative flex items-center">
                             <input
                                 ref={inputRef}
@@ -1496,10 +1425,10 @@ const DateArchitectChat = ({
                                         setIsExpanded(true);
                                     }
                                 }}
-                                placeholder={currentStep > 0 ? "Or type a custom answer here..." : "Refine your date, add vibes..."}
+                                placeholder={currentStep > 0 ? "Or type a custom answer here..." : "Tell me what you're thinking..."}
                                 disabled={isStreaming || isForceGenerating}
                                 autoFocus={isExpanded}
-                                className="h-11 w-full rounded-xl border-2 border-slate-100 bg-slate-50 pl-4 pr-24 text-base md:text-xs font-bold text-navy outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white disabled:opacity-60"
+                                className="h-11 w-full rounded-xl border border-slate-200/60 bg-slate-50 pl-4 pr-24 text-base md:text-xs font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-rose-350 focus:bg-white disabled:opacity-60"
                             />
                             <div className="absolute inset-y-0 right-1 flex items-center gap-1">
                                 <button
@@ -1515,14 +1444,39 @@ const DateArchitectChat = ({
                                     type="button"
                                     onClick={() => sendPrompt()}
                                     disabled={!input.trim() || isStreaming || isForceGenerating}
-                                    className="rounded-lg bg-navy hover:bg-orange-600 p-2 text-white shadow-md transition active:scale-95 disabled:opacity-40"
+                                    className="rounded-full bg-rose-500 hover:bg-rose-600 p-2 text-white shadow-md transition active:scale-95 disabled:opacity-40 flex items-center justify-center w-8 h-8"
                                     aria-label="Send message to Sparky"
                                 >
-                                    {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                                 </button>
                             </div>
                         </div>
-                        <p className="mt-1.5 text-center text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        
+                        {/* Try saying Chips */}
+                        {currentStep === 0 && (
+                            <div className="flex items-center gap-1.5 mt-2 overflow-x-auto scrollbar-hide py-0.5">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider shrink-0">Try saying:</span>
+                                {[
+                                    "Rooftop dinner under $100",
+                                    "Fun indoor activities",
+                                    "Weekend getaway",
+                                    "Arcade date night"
+                                ].map((chip) => (
+                                    <button
+                                        key={chip}
+                                        onClick={() => {
+                                            setInput(chip);
+                                            inputRef.current?.focus();
+                                        }}
+                                        className="px-2 py-0.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200/50 text-[9px] font-bold text-slate-500 transition-all whitespace-nowrap cursor-pointer active:scale-95"
+                                    >
+                                        {chip}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <p className="mt-1.5 text-center text-[8px] font-black uppercase tracking-widest text-slate-400">
                             Powered by Sparky AI Engine • Capped 5-Step Customizer
                         </p>
                     </div>

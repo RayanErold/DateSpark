@@ -13,17 +13,17 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
     if (!isTop) {
         return (
             <div className="absolute inset-0 rounded-[2rem] overflow-hidden shadow-2xl scale-[0.96] translate-y-4 opacity-50 transition-all duration-500">
-                <div className="h-full w-full bg-navy/60 backdrop-blur-sm" />
+                <div className="h-full w-full bg-plum/60 backdrop-blur-sm" />
             </div>
         );
     }
 
     if (!plan || (!Array.isArray(plan.itinerary) && !plan.itinerary?.steps)) {
         return (
-            <div className="absolute inset-0 bg-navy rounded-[2rem] flex flex-col items-center justify-center p-8 text-center gap-4 shadow-xl">
-                <Sparkles className="w-8 h-8 text-white/20" />
-                <p className="text-white/40 text-sm font-bold">Plan data unavailable</p>
-                <button onClick={() => onSwipe('left')} className="px-6 py-2 bg-white/10 text-white rounded-xl text-xs font-black">Skip</button>
+            <div className="absolute inset-0 bg-plum rounded-[2rem] flex flex-col items-center justify-center p-8 text-center gap-4 shadow-xl">
+                <Sparkles className="w-8 h-8 text-ivory/20" />
+                <p className="text-ivory/40 text-sm font-semibold font-outfit">Plan data unavailable</p>
+                <button onClick={() => onSwipe('left')} className="px-6 py-2 bg-ivory/10 text-ivory rounded-xl text-xs font-semibold font-outfit">Skip</button>
             </div>
         );
     }
@@ -31,14 +31,9 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
     const API_URL = import.meta.env.VITE_API_URL || '';
     const getProxiedPhoto = (photoUrl) => {
         if (!photoUrl) return null;
-        if (photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com/maps/api/staticmap')) {
-            return null;
-        }
-        if (photoUrl.includes('googleusercontent.com')) {
-            return photoUrl;
-        }
-        if (photoUrl.includes('places.googleapis.com') || 
-            photoUrl.includes('maps.googleapis.com')) {
+        if (photoUrl.includes('staticmap') || photoUrl.includes('maps.googleapis.com/maps/api/staticmap')) return null;
+        if (photoUrl.includes('googleusercontent.com')) return photoUrl;
+        if (photoUrl.includes('places.googleapis.com') || photoUrl.includes('maps.googleapis.com')) {
             return `${API_URL}/api/photo-proxy?url=${encodeURIComponent(photoUrl)}`;
         }
         return photoUrl;
@@ -54,10 +49,8 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
         .filter(Boolean)
         .map(getProxiedPhoto)
         .filter(Boolean);
-    const hasPhotos = photos.length > 0;
-    const currentPhoto = hasPhotos ? photos[photoIndex] : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+    const currentPhoto = photos.length > 0 ? photos[photoIndex] : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
     const currentVenue = steps[photoIndex]?.venue || 'Discovery Stop';
-    const currentActivity = steps[photoIndex]?.activity || plan.vibe;
 
     const handlePhotoTap = (e) => {
         e.stopPropagation();
@@ -84,7 +77,7 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
             className="absolute inset-0 rounded-[2rem] overflow-hidden cursor-grab active:cursor-grabbing shadow-2xl"
             onClick={handlePhotoTap}
         >
-            {/* ── FULL-BLEED BACKGROUND PHOTO ── */}
+            {/* Full-bleed photo */}
             <motion.img
                 key={currentPhoto}
                 src={currentPhoto}
@@ -95,68 +88,62 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
                 className="absolute inset-0 w-full h-full object-cover"
             />
 
-            {/* ── TOP GRADIENT OVERLAY ── */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-transparent z-10" />
+            {/* Top gradient */}
+            <div className="absolute inset-0 bg-gradient-to-b from-plum/60 via-transparent to-transparent z-10" />
 
-            {/* ── BOTTOM GRADIENT OVERLAY ── */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
+            {/* Bottom gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-plum/90 via-plum/40 to-transparent z-10" />
 
-            {/* ── SWIPE INDICATORS ── */}
+            {/* Swipe indicators */}
             <motion.div
                 style={{ opacity: likeOpacity }}
-                className="absolute top-12 left-6 z-30 rotate-[-12deg] border-[3px] border-green-400 rounded-xl px-4 py-2"
+                className="absolute top-12 left-6 z-30 rotate-[-12deg] border-[3px] border-rose rounded-xl px-4 py-2"
             >
-                <span className="text-green-400 font-black text-2xl tracking-widest">SAVE ♡</span>
+                <span className="text-rose font-semibold text-2xl tracking-widest font-outfit">SAVE ♡</span>
             </motion.div>
             <motion.div
                 style={{ opacity: passOpacity }}
-                className="absolute top-12 right-6 z-30 rotate-[12deg] border-[3px] border-red-400 rounded-xl px-4 py-2"
+                className="absolute top-12 right-6 z-30 rotate-[12deg] border-[3px] border-champagne/80 rounded-xl px-4 py-2"
             >
-                <span className="text-red-400 font-black text-2xl tracking-widest">PASS ✕</span>
+                <span className="text-champagne font-semibold text-2xl tracking-widest font-outfit">PASS ✕</span>
             </motion.div>
 
-            {/* ── TOP BAR: Pagination + Location ── */}
+            {/* Top bar: Pagination + Badges */}
             <div className="absolute top-0 inset-x-0 z-20 px-4 pt-4">
-                {/* Pagination bars */}
                 {photos.length > 1 && (
                     <div className="flex gap-1.5 mb-3">
                         {photos.map((_, idx) => (
                             <div
                                 key={idx}
                                 className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${
-                                    idx === photoIndex
-                                        ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]'
-                                        : 'bg-white/30'
+                                    idx === photoIndex ? 'bg-ivory shadow-[0_0_8px_rgba(250,247,242,0.8)]' : 'bg-ivory/30'
                                 }`}
                             />
                         ))}
                     </div>
                 )}
-                {/* Badges row */}
                 <div className="flex items-center gap-2 flex-wrap">
-                    <div className="bg-gradient-to-r from-coral to-pink-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">
+                    <div className="bg-gradient-to-r from-rose to-pink-400 text-ivory text-[9px] font-semibold px-3 py-1 rounded-full uppercase tracking-widest shadow-sm font-outfit">
                         TRENDING
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white/80">
-                        <MapPin className="w-3 h-3 text-coral" /> {cardLocation}
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-tighter px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-md border border-ivory/20 text-ivory/80 font-outfit">
+                        <MapPin className="w-3 h-3 text-rose" /> {cardLocation}
                     </div>
                 </div>
             </div>
 
-            {/* ── BOTTOM OVERLAY: Info + CTA ── */}
+            {/* Bottom overlay: Info + CTA */}
             <div className="absolute bottom-0 inset-x-0 z-20 px-5 pb-6 pt-10">
-                {/* Plan title */}
-                <h3 className="text-[26px] font-black text-white leading-tight tracking-tight mb-1 drop-shadow-lg">
+                <h3 className="text-[26px] font-bold text-ivory leading-tight tracking-tight mb-1 drop-shadow-lg font-serif">
                     {cardTitle}
                 </h3>
-                {/* Current venue name */}
                 <div className="flex items-center gap-1.5 mb-4">
-                    <div className="w-1.5 h-1.5 rounded-full bg-coral" />
-                    <span className="text-white/70 text-xs font-black uppercase tracking-widest truncate">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose" />
+                    <span className="text-ivory/70 text-xs font-semibold uppercase tracking-widest truncate font-outfit">
                         {currentVenue}
                     </span>
                     {photos.length > 1 && (
-                        <span className="text-white/40 text-[10px] font-black ml-auto">
+                        <span className="text-ivory/40 text-[10px] font-semibold ml-auto font-outfit">
                             {photoIndex + 1} / {photos.length}
                         </span>
                     )}
@@ -167,15 +154,15 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                                <span className="font-black text-white text-base">{cardRating}</span>
+                                <Star className="w-4 h-4 text-rose fill-rose" />
+                                <span className="font-semibold text-ivory text-base font-outfit">{cardRating}</span>
                             </div>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Rating</span>
+                            <span className="text-[9px] font-semibold uppercase tracking-widest text-ivory/40 font-outfit">Rating</span>
                         </div>
-                        <div className="w-px h-7 bg-white/10" />
+                        <div className="w-px h-7 bg-ivory/10" />
                         <div className="flex flex-col">
-                            <span className="font-black text-white text-base">{triesCount}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Tries</span>
+                            <span className="font-semibold text-ivory text-base font-outfit">{triesCount}</span>
+                            <span className="text-[9px] font-semibold uppercase tracking-widest text-ivory/40 font-outfit">Tries</span>
                         </div>
                     </div>
 
@@ -185,7 +172,7 @@ const SwipeCard = ({ plan, isTop, onSwipe, onView, theme }) => {
                             e.preventDefault();
                             onView();
                         }}
-                        className="px-5 py-2.5 bg-white/15 backdrop-blur-md border border-white/25 text-white font-black rounded-xl text-xs shadow-lg active:scale-95 transition-all flex items-center gap-2 hover:bg-white/25 group/btn"
+                        className="px-5 py-2.5 bg-ivory/15 backdrop-blur-md border border-ivory/25 text-ivory font-semibold rounded-xl text-xs shadow-lg active:scale-95 transition-all flex items-center gap-2 hover:bg-ivory/25 group/btn font-outfit uppercase tracking-wider"
                     >
                         View Plan
                         <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />

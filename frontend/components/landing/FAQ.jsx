@@ -28,22 +28,27 @@ const FAQ = () => {
     const [openIndex, setOpenIndex] = useState(0);
 
     return (
-        <section id="faq" className="section-padding">
+        <section id="faq" className="section-padding bg-mist">
             <div className="container-custom">
                 <div className="max-w-3xl mx-auto">
-                    <h2 className="text-3xl font-bold text-navy mb-12 text-center">Frequently Asked Questions</h2>
-                    <div className="space-y-4">
+                    <div className="text-center mb-12">
+                        <span className="editorial-label mb-3 block">Got Questions?</span>
+                        <h2 className="text-3xl font-serif font-bold text-plum">Frequently Asked Questions</h2>
+                    </div>
+                    <div className="space-y-2">
                         {faqs.map((faq, index) => (
-                            <div key={index} className="border-b border-gray-100 last:border-0 pb-4">
+                            <div key={index} className={`editorial-card overflow-hidden transition-all duration-300 ${openIndex === index ? 'shadow-md' : ''}`}>
                                 <button
-                                    className="w-full flex items-center justify-between text-left py-4 hover:text-coral transition-colors"
+                                    className="w-full flex items-center justify-between text-left px-6 py-5 hover:text-rose transition-colors"
                                     onClick={() => setOpenIndex(openIndex === index ? -1 : index)}
                                 >
-                                    <span className="text-lg font-bold text-navy">{faq.question}</span>
-                                    {openIndex === index ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                                    <span className="text-base font-semibold text-plum pr-4 font-outfit">{faq.question}</span>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${openIndex === index ? 'bg-rose/15 text-rose' : 'bg-blush/50 text-taupe'}`}>
+                                        {openIndex === index ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                    </div>
                                 </button>
                                 {openIndex === index && (
-                                    <div className="text-gray-600 pb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="px-6 pb-5 text-taupe text-sm leading-relaxed animate-in fade-in slide-in-from-top-2 duration-300 border-t border-blush/30 pt-4">
                                         {faq.answer}
                                     </div>
                                 )}

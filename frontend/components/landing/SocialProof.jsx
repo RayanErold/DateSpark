@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
+    visible: {
         opacity: 1,
         transition: { staggerChildren: 0.15 }
     }
@@ -12,8 +12,8 @@ const containerVariants = {
 
 const itemVariants = {
     hidden: { opacity: 0, y: 30 },
-    visible: { 
-        opacity: 1, 
+    visible: {
+        opacity: 1,
         y: 0,
         transition: { duration: 0.6, ease: "easeOut" }
     }
@@ -52,29 +52,30 @@ const stats = [
 
 const SocialProof = () => {
     return (
-        <section className="py-16 md:py-24 bg-gray-50 relative overflow-hidden">
-            <div className="absolute left-0 bottom-0 w-96 h-96 bg-coral/5 rounded-full blur-[120px] pointer-events-none" />
+        <section className="py-16 md:py-24 bg-ivory relative overflow-hidden">
+            <div className="absolute left-0 bottom-0 w-96 h-96 bg-rose/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute right-0 top-0 w-64 h-64 bg-champagne/20 rounded-full blur-[80px] pointer-events-none" />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
                 {/* Header */}
-                <motion.div 
+                <motion.div
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, margin: "-50px" }}
                     variants={itemVariants}
                     className="text-center mb-10 md:mb-16"
                 >
-                    <span className="inline-block text-xs font-black text-coral uppercase tracking-[0.2em] bg-coral/10 px-4 py-1.5 rounded-full mb-5">
+                    <span className="inline-block editorial-label bg-rose/10 px-4 py-1.5 rounded-full mb-5">
                         Real Reviews
                     </span>
-                    <h2 className="text-4xl md:text-5xl font-black text-navy leading-tight">
+                    <h2 className="text-4xl md:text-5xl font-serif font-bold text-plum leading-tight">
                         Loved by couples<br />across NYC.
                     </h2>
                 </motion.div>
 
                 {/* Stats bar */}
-                <motion.div 
+                <motion.div
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, margin: "-50px" }}
@@ -82,15 +83,15 @@ const SocialProof = () => {
                     className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14"
                 >
                     {stats.map((s, i) => (
-                        <motion.div variants={itemVariants} key={i} className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-3xl font-black text-navy">{s.value}</div>
-                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{s.label}</div>
+                        <motion.div variants={itemVariants} key={i} className="editorial-card p-6 text-center hover:shadow-md transition-shadow">
+                            <div className="text-3xl font-semibold text-plum font-outfit">{s.value}</div>
+                            <div className="editorial-label mt-1">{s.label}</div>
                         </motion.div>
                     ))}
                 </motion.div>
 
                 {/* Testimonial cards */}
-                <motion.div 
+                <motion.div
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, margin: "-50px" }}
@@ -101,28 +102,28 @@ const SocialProof = () => {
                         <motion.div
                             variants={itemVariants}
                             key={i}
-                            className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col"
+                            className="editorial-card p-8 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col"
                         >
                             {/* Stars */}
                             <div className="flex gap-0.5 mb-5">
                                 {Array.from({ length: t.rating }).map((_, j) => (
-                                    <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                                    <Star key={j} className="w-4 h-4 fill-rose text-rose" />
                                 ))}
                             </div>
 
-                            <p className="text-gray-600 leading-relaxed flex-1 text-[15px] mb-6">
+                            <p className="text-taupe leading-relaxed flex-1 text-[15px] mb-6 italic font-serif">
                                 "{t.text}"
                             </p>
 
-                            <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
+                            <div className="flex items-center gap-3 pt-4 border-t border-blush/40">
                                 <img
                                     src={t.avatar}
                                     alt={t.author}
-                                    className="w-10 h-10 rounded-full object-cover border-2 border-gray-100"
+                                    className="w-10 h-10 rounded-full object-cover border-2 border-blush"
                                 />
                                 <div>
-                                    <div className="font-black text-navy text-sm">{t.author}</div>
-                                    <div className="text-xs text-gray-400 font-medium">{t.role}</div>
+                                    <div className="font-semibold text-plum text-sm font-outfit">{t.author}</div>
+                                    <div className="text-xs text-taupe/70 font-medium">{t.role}</div>
                                 </div>
                             </div>
                         </motion.div>

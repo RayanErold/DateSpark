@@ -491,7 +491,7 @@ const NearbyEvents = () => {
  
                                         {/* Source Badge */}
                                         <div className="absolute top-3 right-3 bg-black/45 backdrop-blur-md text-white/90 text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 shadow-sm">
-                                            {evt.source === 'SeatGeek' ? 'SeatGeek' : 'Ticketmaster'}
+                                            {evt.source === 'SeatGeek' ? 'SeatGeek' : evt.source === 'Local' ? 'Google Events' : 'Ticketmaster'}
                                         </div>
                                     </div>
  

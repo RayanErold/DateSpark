@@ -7,22 +7,22 @@ const Features = () => {
     const navigate = useNavigate();
     const features = [
         {
-            icon: <Calendar className="w-6 h-6 text-coral" />,
+            icon: <Calendar className="w-6 h-6 text-rose" />,
             title: 'Personalized Plans',
             description: 'Get date ideas tailored to your interests, vibe, and budget.',
-            color: 'bg-coral/10'
+            color: 'bg-rose/10'
         },
         {
-            icon: <Ticket className="w-6 h-6 text-violet-500" />,
+            icon: <Ticket className="w-6 h-6 text-violet-400" />,
             title: 'Local Events',
             description: 'Discover curated events happening near you.',
             color: 'bg-violet-50'
         },
         {
-            icon: <Sparkles className="w-6 h-6 text-pink-500" />,
+            icon: <Sparkles className="w-6 h-6 text-pink-400" />,
             title: 'Smart Suggestions',
             description: 'AI-powered ideas that actually get you.',
-            color: 'bg-pink-50'
+            color: 'bg-blush/60'
         },
         {
             icon: <MapPin className="w-6 h-6 text-emerald-500" />,
@@ -33,10 +33,11 @@ const Features = () => {
     ];
 
     return (
-        <section className="py-16 md:py-24 bg-white border-y border-gray-50">
+        <section className="py-16 md:py-24 bg-mist border-y border-blush/30">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-10 md:mb-16">
-                    <h2 className="text-3xl md:text-4xl font-black text-navy tracking-tight">
+                    <span className="editorial-label mb-3 block">Why couples love us</span>
+                    <h2 className="text-3xl md:text-4xl font-serif font-bold text-plum tracking-tight">
                         Everything you need to plan the perfect date
                     </h2>
                 </div>
@@ -55,8 +56,8 @@ const Features = () => {
                             <div className={`w-16 h-16 rounded-full ${feature.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                                 {feature.icon}
                             </div>
-                            <h3 className="text-lg font-black text-navy uppercase tracking-wider">{feature.title}</h3>
-                            <p className="text-gray-500 text-sm font-medium leading-relaxed max-w-[200px]">
+                            <h3 className="text-base font-semibold text-plum uppercase tracking-wider font-outfit">{feature.title}</h3>
+                            <p className="text-taupe text-sm font-medium leading-relaxed max-w-[200px]">
                                 {feature.description}
                             </p>
                         </motion.div>
