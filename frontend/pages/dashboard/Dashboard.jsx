@@ -1060,7 +1060,7 @@ const Dashboard = () => {
             setIsTrendingLoading(true);
             try {
                 console.log('[Trending] Refreshing community favorites...');
-                const response = await fetch('/api/trending-plans');
+                const response = await fetch(`/api/trending-plans?userId=${user.id}`);
                 if (response.ok) {
                     const data = await response.json();
                     // Backend already shuffles from top 100, but we can do a client-side shuffle too for extra randomness
