@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&family=Outfit:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@100;200;300;400;500;600&family=Outfit:wght@100;200;300;400;700;900&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -104,9 +104,31 @@
 /* ─── BASE ────────────────────────────────────────────────────────────────── */
 body {
   font-family: var(--font-sans);
+  font-weight: 300;
   background-color: #F8FAFC !important;
   color: #0F172A !important;
   overflow-x: hidden;
+}
+
+/* Force thin typography globally across all elements unless overridden */
+h1, h2, h3, h4, h5, h6, p, span, button, input, label, select, textarea, div, a {
+  font-weight: 300;
+}
+
+h1, h2, .text-thin-title {
+  font-weight: 200 !important;
+}
+
+strong, b, .font-bold, .font-extrabold {
+  font-weight: 400 !important; /* Elegant medium-light weight for bold elements */
+}
+
+.font-semibold, .font-medium, .font-normal {
+  font-weight: 300 !important; /* Enforce light font weight for normal and semibold words */
+}
+
+.font-light, .font-thin {
+  font-weight: 200 !important; /* Ultra thin weight */
 }
 
 /* ─── LAYOUT UTILITIES ────────────────────────────────────────────────────── */
@@ -178,17 +200,22 @@ body {
   @apply px-6 py-3.5 rounded-2xl font-semibold text-sm
          tracking-wide transition-all hover:bg-slate-50 hover:border-slate-300
          active:scale-[0.98] shadow-sm flex items-center justify-center gap-2;
-}
-
-/* ─── TYPOGRAPHY UTILITIES ────────────────────────────────────────────────── */
+}/* ─── TYPOGRAPHY UTILITIES ────────────────────────────────────────────────── */
 .editorial-headline {
   font-family: var(--font-sans);
-  @apply font-extrabold text-slate-900 leading-tight tracking-tight;
+  font-weight: 200 !important;
+  color: #0F172A;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
 }
 
 .editorial-label {
   font-family: var(--font-outfit);
-  @apply text-xs uppercase tracking-[0.15em] font-bold text-slate-400;
+  font-weight: 300 !important;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #94A3B8;
 }
 
 /* ─── DARK THEME OVERRIDE (MODERN AI STYLE) ───────────────────────────────── */

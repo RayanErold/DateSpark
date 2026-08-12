@@ -266,5 +266,35 @@
         ]
       }
     ]
+  },
+  "places_search_chic_speakeasy_bar_in_west_village_nyc": {
+    "places": [
+      {
+        "name": "places/ChIJwaHnQI9ZwokRvlECeQqpHdg",
+        "displayName": {
+          "text": "Employees Only"
+        }
+      }
+    ]
+  },
+  "place_id_ChIJwaHnQI9ZwokRvlECeQqpHdg": {
+    "places": [
+      {
+        "name": "places/ChIJwaHnQI9ZwokRvlECeQqpHdg",
+        "displayName": {
+          "text": "Employees Only"
+        }
+      }
+    ]
+  },
+  "venue_employeesonly_nyc": {
+    "places": [
+      {
+        "name": "places/ChIJwaHnQI9ZwokRvlECeQqpHdg",
+        "displayName": {
+          "text": "Employees Only"
+        }
+      }
+    ]
   }
 }

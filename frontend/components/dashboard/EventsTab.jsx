@@ -11,18 +11,12 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const CATEGORIES = [
     { id: 'all',     label: 'All Events', emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
-    { id: 'family',  label: 'Family',     emoji: '👨‍👩‍👧', color: 'from-sky-500 to-blue-600' },
-    { id: 'community', label: 'Groups',   emoji: '🤝', color: 'from-orange-400 to-red-500' },
     { id: 'music',   label: 'Music',      emoji: '🎵', color: 'from-pink-500 to-rose-600' },
     { id: 'sports',  label: 'Sports',     emoji: '🏆', color: 'from-orange-500 to-amber-600' },
     { id: 'theater', label: 'Theater',    emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
     { id: 'comedy',  label: 'Comedy',     emoji: '😂', color: 'from-yellow-500 to-orange-500' },
-    { id: 'activities', label: 'Activities', emoji: '🎮', color: 'from-violet-500 to-purple-600' },
-    { id: 'outdoors', label: 'Outdoors',  emoji: '🌳', color: 'from-emerald-500 to-green-600' },
     { id: 'food',    label: 'Food & Drink', emoji: '🍷', color: 'from-red-500 to-rose-500' },
-    { id: 'festivals', label: 'Festivals', emoji: '🎪', color: 'from-amber-500 to-red-500' },
-    { id: 'classes', label: 'Classes',    emoji: '🎨', color: 'from-indigo-500 to-purple-600' },
-    { id: 'tech',    label: 'Tech',       emoji: '💻', color: 'from-cyan-500 to-blue-500' },
+    { id: 'tech',    label: 'Tech Events', emoji: '💻', color: 'from-blue-500 to-indigo-600' },
 ];
 
 const SEGMENT_COLORS = {
@@ -76,63 +70,158 @@ const CATEGORY_FALLBACK_IMAGES = {
     music: [
         'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1487180142328-054b783fc471?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=600&q=80'
     ],
     sports: [
         'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1519766304817-4f37bda74a27?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1505666287802-931dc83948e9?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1518063319789-7217e6706b04?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1502224562085-639556652f33?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1516238840914-94dfc0c873ae?auto=format&fit=crop&w=600&q=80'
     ],
     theater: [
         'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1516307364728-22f12d51c02e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1503095391757-f1fc01850d7c?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1530973427494-14227f29a008?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1505686994434-e3cc5abf1330?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=600&q=80'
     ],
     comedy: [
         'https://images.unsplash.com/photo-1585699324551-f6c309eed262?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1527224857830-43a7acc85260?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1516280440614-37939bbacd6a?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1527224857830-43a7acc85260?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1543536448-d209d2d13a1c?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1588698798007-88981600c3b8?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1485872299829-c673f5194813?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1523821741446-edb2b68bb7a0?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1550928431-ee0ec6db1afe?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1560169897-fc0cdbdfa4d5?auto=format&fit=crop&w=600&q=80'
     ],
     family: [
         'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1489659639091-8b687bc4386e?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1489659639091-8b687bc4386e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1472289065668-ce650ac443d2?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1536640712247-c57f8cfbe58b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1484712401471-05c7215834eb?auto=format&fit=crop&w=600&q=80'
     ],
     community: [
         'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80'
     ],
     activities: [
         'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1513829096999-4978602297f7?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1513829096999-4978602297f7?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1511882150382-421056c89033?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1605899435973-ca2d1a8861cf?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1518133680790-39857304dd95?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=600&q=80'
     ],
     outdoors: [
         'https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1472214222541-d510753a4707?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1525203135335-74d272fc8d9c?auto=format&fit=crop&w=600&q=80'
     ],
     food: [
         'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80'
     ],
     festivals: [
         'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1481162854517-d9e353af153d?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1513418630520-22c6793c5c56?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1505232458729-26417ff63cfa?auto=format&fit=crop&w=600&q=80'
     ],
     classes: [
         'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1541829019-25f239131227?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=600&q=80'
     ],
     tech: [
         'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=600&q=80',
         'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1504639725590-34d0984388bd?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1535378917042-10a22c95931a?auto=format&fit=crop&w=600&q=80'
     ],
     all: [
         'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80'
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1481162854517-d9e353af153d?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80'
     ]
 };
 
@@ -187,8 +276,13 @@ const EventSkeleton = ({ isDark }) => (
 const EventCard = ({ evt, isDark, idx }) => {
     const color = segmentColor(evt.segment);
     const isCancelled = evt.status === 'cancelled';
-    const imgUrl = getEventImage(evt);
-    const isGstatic = imgUrl.includes('gstatic.com') || imgUrl.includes('googleusercontent.com');
+    
+    // Check if the event's raw image is a low-res gstatic image
+    const rawImg = evt.image || '';
+    const isGstatic = rawImg.includes('gstatic.com') || rawImg.includes('googleusercontent.com');
+    
+    // Main image: if it's a gstatic thumbnail, use high-res fallback; otherwise use the real event image
+    const mainImgUrl = isGstatic ? getEventImage({ ...evt, image: null }) : getEventImage(evt);
 
     return (
         <motion.a
@@ -198,55 +292,50 @@ const EventCard = ({ evt, isDark, idx }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.04 } }}
             whileHover={{ y: -4 }}
-            className={`block rounded-[1.5rem] overflow-hidden border group transition-shadow hover:shadow-xl ${
-                isDark ? 'bg-[#111827] border-white/8 hover:border-white/20' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'
+            className={`block rounded-[2rem] overflow-hidden border group transition-all duration-500 hover:shadow-xl hover:-translate-y-1.5 p-3 ${
+                isDark ? 'bg-[#111827] border-white/8 hover:border-white/20 text-white' : 'bg-white border-slate-100 text-navy shadow-sm'
             } ${isCancelled ? 'opacity-50 pointer-events-none' : ''}`}
         >
             {/* Image Section */}
-            <div className="relative h-40 overflow-hidden bg-black/10 flex items-center justify-center">
-                {isGstatic ? (
-                    <>
-                        {/* Blurred Backdrop */}
-                        <img
-                            src={imgUrl}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-60 scale-125 select-none pointer-events-none"
-                        />
-                        {/* Crisp contained foreground */}
-                        <motion.img
-                            src={imgUrl}
-                            alt={evt.name}
-                            whileHover={{ scale: 1.05 }}
-                            transition={{ duration: 0.4 }}
-                            className="h-full w-auto object-contain relative z-10 animate-fade-in"
-                            onError={(e) => {
-                                e.target.src = getEventImage({ ...evt, image: null });
-                            }}
-                        />
-                    </>
-                ) : (
-                    <motion.img
-                        src={imgUrl}
-                        alt={evt.name}
-                        whileHover={{ scale: 1.1 }}
-                        transition={{ duration: 0.6 }}
-                        className="w-full h-full object-cover animate-fade-in"
-                        onError={(e) => {
-                            e.target.src = getEventImage({ ...evt, image: null });
-                        }}
-                    />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <div className="relative aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-slate-900/5 mb-3 shadow-inner">
+                <motion.img
+                    src={mainImgUrl}
+                    alt={evt.name}
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.6 }}
+                    className="w-full h-full object-cover animate-fade-in"
+                    onError={(e) => {
+                        e.target.src = getEventImage({ ...evt, image: null });
+                    }}
+                />
+                
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-70 group-hover:opacity-85 transition-opacity" />
 
                 {/* Category badge */}
-                <div className={`absolute top-3 left-3 bg-gradient-to-r ${color} text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest z-10 shadow-sm`}>
+                <div className={`absolute top-3 left-3 bg-gradient-to-r ${color} text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider z-10 shadow-sm`}>
                     {evt.genre || evt.segment}
                 </div>
 
                 {/* Source Badge */}
-                <div className={`absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white/90 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 z-10 shadow-sm`}>
+                <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white/90 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 z-10 shadow-sm">
                     {evt.source === 'SeatGeek' ? 'SG' : evt.source === 'Local' ? 'Google' : 'TM'}
                 </div>
+
+                {/* Event logo / avatar badge (for Google Events with thumbnails) */}
+                {isGstatic && evt.image && (
+                    <div className={`absolute bottom-3 right-3 w-11 h-11 rounded-full overflow-hidden border-2 shadow-lg z-10 bg-white ${
+                        isDark ? 'border-gray-900' : 'border-white'
+                    }`}>
+                        <img 
+                            src={evt.image} 
+                            alt="Event logo" 
+                            className="w-full h-full object-cover select-none pointer-events-none" 
+                            onError={(e) => {
+                                e.target.parentNode.style.display = 'none';
+                            }}
+                        />
+                    </div>
+                )}
 
                 {/* Cancelled badge */}
                 {isCancelled && (
@@ -256,30 +345,34 @@ const EventCard = ({ evt, isDark, idx }) => {
                         </span>
                     </div>
                 )}
+
+                {/* Date overlay badge */}
+                <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-xl">
+                    <Calendar className="w-3 h-3 text-rose" />
+                    <span className="text-[9px] font-black text-white/90 uppercase tracking-widest">
+                        {evt.date ? new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : 'TBD'}
+                    </span>
+                </div>
             </div>
 
             {/* Info */}
-            <div className="p-4">
-                <h4 className={`font-black text-[15px] leading-tight line-clamp-2 mb-2 group-hover:text-violet-500 transition-colors ${isDark ? 'text-white' : 'text-navy'}`}>
+            <div className="px-1 py-1 font-outfit">
+                <h4 className={`font-black text-sm leading-snug line-clamp-1 mb-1 group-hover:text-rose transition-colors ${isDark ? 'text-white' : 'text-navy'}`}>
                     {evt.name}
                 </h4>
                 {evt.venueName && (
-                    <div className="flex items-center gap-1 mb-1">
-                        <MapPin className="w-3 h-3 text-coral flex-shrink-0" />
-                        <p className="text-xs text-gray-500 font-medium truncate">{evt.venueName}</p>
+                    <div className="flex items-center gap-1 mb-2">
+                        <MapPin className="w-3 h-3 text-rose/80 flex-shrink-0" />
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{evt.venueName}</p>
                     </div>
                 )}
-                <div className="flex items-center gap-1 mb-3">
-                    <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                    <p className="text-xs text-gray-400 font-medium">{formatDate(evt.date, evt.time)}</p>
-                </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between">
-                    <span className={`text-xs font-black ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
+                <div className="flex items-center justify-between border-t pt-2 mt-1 border-gray-100/50">
+                    <span className={`text-[11px] font-black ${isDark ? 'text-white/60' : 'text-slate-500'}`}>
                         {formatPrice(evt.priceMin, evt.priceMax, evt.currency)}
                     </span>
-                    <div className={`flex items-center gap-1 text-[10px] font-black px-3 py-1.5 rounded-full bg-gradient-to-r ${color} text-white group-hover:opacity-90 transition-opacity`}>
+                    <div className={`flex items-center gap-1 text-[9px] font-black px-3 py-1.5 rounded-full bg-gradient-to-r ${color} text-white group-hover:opacity-90 transition-opacity`}>
                         Get Tickets <ExternalLink className="w-2.5 h-2.5" />
                     </div>
                 </div>
@@ -299,6 +392,9 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
     const [error, setError]         = useState(null);
     const [apiReady, setApiReady]   = useState(true);
     const [autocomplete, setAutocomplete] = useState(null);
+    const [dateFilter, setDateFilter] = useState('all');
+    const [keywordInput, setKeywordInput] = useState('');
+    const [appliedKeyword, setAppliedKeyword] = useState('');
 
 
 
@@ -328,7 +424,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         }
     };
 
-    const fetchEvents = useCallback(async (c = city, cat = category) => {
+    const fetchEvents = useCallback(async (c = city, cat = category, kw = appliedKeyword, forceRefresh = false) => {
         setLoading(true);
         setError(null);
         
@@ -340,7 +436,14 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/events?city=${encodeURIComponent(searchCity)}&category=${cat}&size=${cat === 'all' ? 100 : 100}`);
+            let url = `${API_BASE}/api/events?city=${encodeURIComponent(searchCity)}&category=${cat}&size=${cat === 'all' ? 100 : 100}`;
+            if (kw) {
+                url += `&keyword=${encodeURIComponent(kw)}`;
+            }
+            if (forceRefresh) {
+                url += `&refresh=true`;
+            }
+            const res = await fetch(url);
             if (res.status === 503) {
                 setApiReady(false);
                 setLoading(false);
@@ -357,9 +460,13 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         } finally {
             setLoading(false);
         }
-    }, [city, category]);
+    }, [city, category, appliedKeyword]);
 
-    useEffect(() => { fetchEvents(city, category); }, [city, category]);
+    useEffect(() => { fetchEvents(city, category, appliedKeyword); }, [city, category, appliedKeyword]);
+
+    const handleRefreshEvents = () => {
+        fetchEvents(city, category, appliedKeyword, true);
+    };
 
     const handleCitySearch = (e) => {
         e.preventDefault();
@@ -399,57 +506,178 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         </div>
     );
 
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        const trimmed = cityInput.trim();
+        if (trimmed && trimmed.toLowerCase() !== city.toLowerCase()) {
+            setCity(trimmed);
+        }
+        setAppliedKeyword(keywordInput);
+    };
+
+    const filteredEvents = events.filter(e => {
+        // 1. Keyword search match (appliedKeyword)
+        if (appliedKeyword) {
+            const kw = appliedKeyword.toLowerCase().trim();
+            const nameMatches = (e.name || '').toLowerCase().includes(kw);
+            const venueMatches = (e.venueName || '').toLowerCase().includes(kw);
+            const genreMatches = (e.genre || '').toLowerCase().includes(kw);
+            const segmentMatches = (e.segment || '').toLowerCase().includes(kw);
+            if (!nameMatches && !venueMatches && !genreMatches && !segmentMatches) {
+                return false;
+            }
+        }
+
+        // 2. Date match (dateFilter)
+        if (dateFilter && dateFilter !== 'all') {
+            const eventDateStr = e.date;
+            if (!eventDateStr) return false;
+            
+            const eventDate = new Date(eventDateStr);
+            const today = new Date();
+            
+            // Normalize dates to midnight for clean comparison
+            const getMidnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const evMidnight = getMidnight(eventDate);
+            const tdMidnight = getMidnight(today);
+            
+            const diffTime = evMidnight.getTime() - tdMidnight.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (dateFilter === 'today') {
+                if (diffDays !== 0) return false;
+            } else if (dateFilter === 'tomorrow') {
+                if (diffDays !== 1) return false;
+            } else if (dateFilter === 'weekend') {
+                const day = eventDate.getDay();
+                if (day !== 0 && day !== 5 && day !== 6) return false;
+                if (diffDays < -1 || diffDays > 6) return false;
+            } else if (dateFilter === 'week') {
+                if (diffDays < 0 || diffDays > 7) return false;
+            } else if (dateFilter === 'next_week') {
+                if (diffDays < 8 || diffDays > 14) return false;
+            }
+        }
+        
+        return true;
+    });
+
     return (
-        <div className="pt-6 max-w-4xl mx-auto">
+        <div className="pt-6 max-w-4xl mx-auto font-outfit">
             {/* Header */}
-            <div className="flex items-center gap-4 mb-6 px-1">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/20 flex-shrink-0">
-                    <Ticket className="w-6 h-6 text-white" />
+            <div className="flex items-center justify-between mb-6 px-1">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/20 flex-shrink-0">
+                        <Ticket className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                        <h2 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-navy'}`}>Live Events</h2>
+                        <p className={`text-sm font-medium ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                            Real events near you — click any to get tickets
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-navy'}`}>Live Events</h2>
-                    <p className={`text-sm font-medium ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
-                        Real events near you — click any to get tickets
-                    </p>
-                </div>
+                <button
+                    type="button"
+                    onClick={handleRefreshEvents}
+                    disabled={loading}
+                    className={`p-2.5 rounded-2xl border transition-all duration-300 flex items-center justify-center ${
+                        isDark 
+                            ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80 hover:text-white' 
+                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-navy'
+                    } disabled:opacity-50`}
+                    title="Refresh events"
+                >
+                    <RefreshCw className={`w-4.5 h-4.5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
             </div>
 
-            {/* City Search */}
-            <form onSubmit={handleCitySearch} className="mb-5">
-                <div className={`flex items-center gap-2 rounded-2xl border px-4 py-3 transition-colors ${
-                    isDark ? 'bg-white/5 border-white/10 focus-within:border-violet-500/40' : 'bg-white border-gray-200 shadow-sm focus-within:border-violet-300'
+            {/* Premium Ticketmaster-style unified search bar layout */}
+            <form onSubmit={handleSearchSubmit} className="mb-8 px-1">
+                <div className={`flex flex-col md:flex-row items-stretch rounded-3xl border shadow-sm overflow-hidden bg-white transition-all ${
+                    isDark ? 'border-white/10 bg-white/5 focus-within:border-violet-500/40' : 'border-gray-200 bg-white focus-within:border-violet-300'
                 }`}>
-                    <MapPin className="w-4 h-4 text-coral flex-shrink-0" />
-                    <Autocomplete
-                        onLoad={onAutocompleteLoad}
-                        onPlaceChanged={onPlaceChanged}
-                        options={{ types: ['(cities)'] }}
-                        className="flex-1"
-                    >
-                        <input
-                            type="text"
-                            value={cityInput}
-                            onChange={e => setCityInput(e.target.value)}
-                            placeholder="City (e.g. New York, Los Angeles)"
-                            className={`w-full bg-transparent text-sm font-medium outline-none ${isDark ? 'text-white placeholder-white/30' : 'text-navy placeholder-gray-400'}`}
-                        />
-                    </Autocomplete>
-                    <button type="submit" className="text-violet-500 hover:text-violet-400 transition-colors">
-                        <Search className="w-4 h-4" />
-                    </button>
+                    {/* Location Segment */}
+                    <div className="flex-1 flex items-center gap-3 px-5 py-3 border-b md:border-b-0 md:border-r border-gray-100/50">
+                        <MapPin className="w-5 h-5 text-coral flex-shrink-0" />
+                        <div className="flex-1 flex flex-col items-start w-full">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</span>
+                            <Autocomplete
+                                onLoad={onAutocompleteLoad}
+                                onPlaceChanged={onPlaceChanged}
+                                options={{ types: ['(cities)'] }}
+                                className="w-full"
+                            >
+                                <input
+                                    type="text"
+                                    value={cityInput}
+                                    onChange={e => setCityInput(e.target.value)}
+                                    placeholder="City or Zip Code"
+                                    className={`w-full bg-transparent text-xs font-bold outline-none border-none p-0 mt-0.5 ${
+                                        isDark ? 'text-white placeholder-white/30' : 'text-navy placeholder-slate-400'
+                                    }`}
+                                />
+                            </Autocomplete>
+                        </div>
+                    </div>
+
+                    {/* Dates Segment */}
+                    <div className="flex-1 flex items-center gap-3 px-5 py-3 border-b md:border-b-0 md:border-r border-gray-100/50">
+                        <Calendar className="w-5 h-5 text-violet-500 flex-shrink-0" />
+                        <div className="flex-1 flex flex-col items-start w-full">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dates</span>
+                            <select
+                                value={dateFilter}
+                                onChange={e => setDateFilter(e.target.value)}
+                                className={`w-full bg-transparent text-xs font-bold outline-none border-none p-0 mt-0.5 cursor-pointer appearance-none ${
+                                    isDark ? 'text-white bg-navy' : 'text-navy bg-white'
+                                }`}
+                            >
+                                <option value="all">All Dates</option>
+                                <option value="today">Today</option>
+                                <option value="tomorrow">Tomorrow</option>
+                                <option value="weekend">This Weekend</option>
+                                <option value="week">This Week</option>
+                                <option value="next_week">Next Week</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Search / Keyword Segment */}
+                    <div className="flex-[1.5] flex items-center gap-3 px-5 py-3 relative">
+                        <Search className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                        <div className="flex-1 flex flex-col items-start w-full pr-24">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Search</span>
+                            <input
+                                type="text"
+                                value={keywordInput}
+                                onChange={e => setKeywordInput(e.target.value)}
+                                placeholder="Artist, Event or Venue"
+                                className={`w-full bg-transparent text-xs font-bold outline-none border-none p-0 mt-0.5 ${
+                                    isDark ? 'text-white placeholder-white/30' : 'text-navy placeholder-slate-400'
+                                }`}
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+                        >
+                            Search
+                        </button>
+                    </div>
                 </div>
             </form>
 
             {/* Category pills */}
-            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 mb-6">
+            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 mb-6 px-1">
                 {CATEGORIES.map(cat => (
                     <button
                         key={cat.id}
                         onClick={() => setCategory(cat.id)}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black transition-all ${
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black transition-all border shrink-0 ${
                             category === cat.id
-                                ? `bg-gradient-to-r ${cat.color} text-white shadow-lg`
-                                : isDark ? 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'
+                                ? `bg-gradient-to-r ${cat.color} border-transparent text-white shadow-lg`
+                                : isDark ? 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                         }`}
                     >
                         <span>{cat.emoji}</span> {cat.label}
@@ -472,11 +700,27 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                         <RefreshCw className="w-4 h-4" /> Try Again
                     </button>
                 </div>
-            ) : events.length === 0 ? (
+            ) : filteredEvents.length === 0 ? (
                 <div className="text-center py-16">
                     <Ticket className={`w-10 h-10 mx-auto mb-4 ${isDark ? 'text-white/20' : 'text-gray-200'}`} />
-                    <p className={`font-black text-base mb-1 ${isDark ? 'text-white/50' : 'text-gray-400'}`}>No events found in {city}</p>
-                    <p className={`text-sm ${isDark ? 'text-white/30' : 'text-gray-400'}`}>Try a different city or category</p>
+                    <p className={`font-black text-base mb-1 ${isDark ? 'text-white/50' : 'text-gray-400'}`}>
+                        {appliedKeyword || dateFilter !== 'all' ? 'No matching events found' : `No events found in ${city}`}
+                    </p>
+                    <p className={`text-sm ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                        {appliedKeyword || dateFilter !== 'all' ? 'Try adjusting your search filters or tags.' : 'Try a different city or category'}
+                    </p>
+                    {(appliedKeyword || dateFilter !== 'all') && (
+                        <button
+                            onClick={() => {
+                                setKeywordInput('');
+                                setAppliedKeyword('');
+                                setDateFilter('all');
+                            }}
+                            className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-md"
+                        >
+                            Reset Filters
+                        </button>
+                    )}
                 </div>
             ) : category === 'all' ? (
                 (() => {
@@ -485,39 +729,18 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                     return (
                         <div className="space-y-12">
                             {CATEGORIES.filter(c => c.id !== 'all').map(cat => {
-                                const catEvents = events.filter(e => {
+                                const catEvents = filteredEvents.filter(e => {
                                     if (renderedIds.has(e.id)) return false;
                                     
                                     const matches = e.segment?.toLowerCase() === cat.id || 
                                                     e.genre?.toLowerCase() === cat.id ||
                                                     (cat.id === 'theater' && e.segment === 'Arts & Theatre') ||
-                                                    (cat.id === 'activities' && (
-                                                        e.segment?.toLowerCase() === 'activity' || 
-                                                        e.segment?.toLowerCase() === 'recreation' || 
-                                                        e.genre?.toLowerCase() === 'recreation' ||
-                                                        e.genre?.toLowerCase().includes('arcade') ||
-                                                        e.genre?.toLowerCase().includes('bowling') ||
-                                                        e.genre?.toLowerCase().includes('game')
-                                                    )) ||
-                                                    (cat.id === 'outdoors' && (
-                                                        e.segment?.toLowerCase() === 'outdoor' || 
-                                                        e.segment?.toLowerCase() === 'outdoors' || 
-                                                        e.genre?.toLowerCase().includes('hiking') ||
-                                                        e.genre?.toLowerCase().includes('park') ||
-                                                        e.genre?.toLowerCase().includes('nature')
-                                                    )) ||
                                                     (cat.id === 'food' && (
                                                         e.segment?.toLowerCase() === 'food' || 
                                                         e.genre?.toLowerCase().includes('food') ||
                                                         e.genre?.toLowerCase().includes('drink') ||
                                                         e.genre?.toLowerCase().includes('wine') ||
                                                         e.genre?.toLowerCase().includes('culinary')
-                                                    )) ||
-                                                    (cat.id === 'festivals' && (
-                                                        e.segment?.toLowerCase() === 'festival' || 
-                                                        e.genre?.toLowerCase().includes('festival') ||
-                                                        e.genre?.toLowerCase().includes('fair') ||
-                                                        e.genre?.toLowerCase().includes('expo')
                                                     ));
                                     
                                     if (matches) {
@@ -556,7 +779,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                             
                             {/* Catch-all for events that didn't match the main categories */}
                             {(() => {
-                                const otherEvents = events.filter(e => !renderedIds.has(e.id));
+                                const otherEvents = filteredEvents.filter(e => !renderedIds.has(e.id));
                                 
                                 if (otherEvents.length === 0) return null;
 
@@ -580,14 +803,14 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                 })()
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {events.map((evt, idx) => (
+                    {filteredEvents.map((evt, idx) => (
                         <EventCard key={evt.id} evt={evt} isDark={isDark} idx={idx} />
                     ))}
                 </div>
             )}
 
             {/* Footer attribution */}
-            {!loading && events.length > 0 && (
+            {!loading && filteredEvents.length > 0 && (
                 <div className={`mt-10 flex flex-col items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-gray-300'}`}>
                     <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1"><Ticket className="w-2.5 h-2.5" /> Ticketmaster</span>

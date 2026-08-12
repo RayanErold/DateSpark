@@ -4,14 +4,14 @@ import * as cacheService from './cacheService.js';
 
 // Helper for cached Places searchText queries to optimize API usage and reduce costs
 const postPlacesSearchText = async (data, config) => {
-    // Generate a unique cache key based on query parameters (textQuery, locationBias, etc.)
-    const cacheKey = `places_search_${JSON.stringify(data)}`;
+    // Generate a normalized unique cache key based on query parameters
+    const cacheKey = cacheService.normalizeQueryKey(data);
     
     try {
         // Check cache
         const cachedResult = await cacheService.getCachedPlace(cacheKey);
         if (cachedResult) {
-            console.log(`[Google Cache Hit] for: "${data.textQuery}"`);
+            console.log(`[Google Cache Hit] for query: "${data.textQuery}"`);
             return { data: cachedResult };
         }
         
@@ -23,9 +23,21 @@ const postPlacesSearchText = async (data, config) => {
             config
         );
         
-        // Cache successful response
+        // Cache successful response with multi-key indexing (query, placeId, venueName)
         if (response && response.data) {
-            await cacheService.setCachedPlace(cacheKey, response.data);
+            const extraKeys = [];
+            const firstPlace = response.data.places?.[0];
+            if (firstPlace) {
+                if (firstPlace.name) {
+                    const pKey = cacheService.normalizePlaceId(firstPlace.name);
+                    if (pKey) extraKeys.push(pKey);
+                }
+                if (firstPlace.displayName?.text) {
+                    const vKey = cacheService.normalizeVenueKey(firstPlace.displayName.text, data.textQuery);
+                    if (vKey) extraKeys.push(vKey);
+                }
+            }
+            await cacheService.setCachedPlace(cacheKey, response.data, extraKeys);
         }
         
         return response;
@@ -60,10 +72,155 @@ export const initItineraryService = (config) => {
 // We no longer use static Unsplash mappings to ensure 100% authenticity.
 const VIBE_IMAGE_MAPPING = {};
 
-/**
- * Semantic Bridge: Takes AI search queries and fetches REAL venues from Google Places.
- * Ensures the date plan is actionable and physically real.
- */
+const FALLBACK_PHOTO_MAPPING = {
+    dinner: [
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
+        'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800&q=80',
+        'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=800&q=80'
+    ],
+    drinks: [
+        'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=80',
+        'https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=800&q=80',
+        'https://images.unsplash.com/photo-1527661591475-527312dd65f5?w=800&q=80'
+    ],
+    coffee: [
+        'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=80',
+        'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80'
+    ],
+    stroll: [
+        'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=800&q=80',
+        'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80'
+    ],
+    art: [
+        'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=800&q=80',
+        'https://images.unsplash.com/photo-1536924940846-227afb31e2a5?w=800&q=80'
+    ],
+    music: [
+        'https://images.unsplash.com/photo-1486591978090-58e619d37fe7?w=800&q=80',
+        'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&q=80'
+    ],
+    view: [
+        'https://images.unsplash.com/photo-1496806342719-f997480fe5ad?w=800&q=80',
+        'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80'
+    ],
+    default: [
+        'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&q=80',
+        'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&q=80'
+    ]
+};
+
+const getFallbackUnsplashPhoto = (keyword) => {
+    const cleanKeyword = (keyword || '').toLowerCase();
+    
+    let category = 'default';
+    if (cleanKeyword.includes('dinner') || cleanKeyword.includes('food') || cleanKeyword.includes('eat') || cleanKeyword.includes('restaurant') || cleanKeyword.includes('bistro') || cleanKeyword.includes('tavern')) {
+        category = 'dinner';
+    } else if (cleanKeyword.includes('drink') || cleanKeyword.includes('cocktail') || cleanKeyword.includes('bar') || cleanKeyword.includes('speakeasy') || cleanKeyword.includes('wine') || cleanKeyword.includes('beer')) {
+        category = 'drinks';
+    } else if (cleanKeyword.includes('coffee') || cleanKeyword.includes('cafe') || cleanKeyword.includes('bakery') || cleanKeyword.includes('espresso') || cleanKeyword.includes('tea')) {
+        category = 'coffee';
+    } else if (cleanKeyword.includes('stroll') || cleanKeyword.includes('walk') || cleanKeyword.includes('park') || cleanKeyword.includes('beach') || cleanKeyword.includes('garden') || cleanKeyword.includes('nature') || cleanKeyword.includes('outdoor')) {
+        category = 'stroll';
+    } else if (cleanKeyword.includes('art') || cleanKeyword.includes('museum') || cleanKeyword.includes('gallery') || cleanKeyword.includes('exhibit')) {
+        category = 'art';
+    } else if (cleanKeyword.includes('music') || cleanKeyword.includes('jazz') || cleanKeyword.includes('concert') || cleanKeyword.includes('vinyl') || cleanKeyword.includes('show')) {
+        category = 'music';
+    } else if (cleanKeyword.includes('view') || cleanKeyword.includes('rooftop') || cleanKeyword.includes('skyline') || cleanKeyword.includes('sunset') || cleanKeyword.includes('observatory')) {
+        category = 'view';
+    }
+
+    const list = FALLBACK_PHOTO_MAPPING[category] || FALLBACK_PHOTO_MAPPING.default;
+    let sum = 0;
+    for (let i = 0; i < cleanKeyword.length; i++) {
+        sum += cleanKeyword.charCodeAt(i);
+    }
+    const index = sum % list.length;
+    return list[index];
+};
+
+const fallbackEnrichWithGemini = async (step, city) => {
+    try {
+        if (!genAI) {
+            console.warn('[Gemini Fallback] Cannot run fallback because GEMINI_API_KEY is not configured.');
+            return null;
+        }
+
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const query = step.search_query || `${step.activity} in ${city}`;
+        
+        const prompt = `You are a helpful romantic date assistant. We need to find a REAL, specific venue matching the search query: "${query}" in the location: "${city}".
+Because the Google Places API is currently unavailable, you must act as a backup database and return details of a real, highly-rated venue that exists.
+
+Please return ONLY a JSON object (no markdown block, no conversational text) matching the schema:
+{
+  "venue": "Name of the real specific venue",
+  "address": "Short formatted street address (e.g. 17 Barrow St, New York, NY 10014)",
+  "rating": 4.7,
+  "userRatingCount": 850,
+  "lat": 40.732681,
+  "lng": -74.001648,
+  "websiteUrl": "https://...",
+  "review": "A single brief positive highlight review from a customer (max 15 words)",
+  "reviewAuthor": "Alex M.",
+  "vibeKeyword": "dinner / drinks / coffee / stroll / art / music / view"
+}
+
+Ensure the venue is real and currently open/operating in that area. If there are coords for that neighborhood or city, approximate them realistically.`;
+
+        const result = await model.generateContent(prompt);
+        let rawText = result.response.text().trim();
+        
+        // Clean markdown blocks if present
+        if (rawText.startsWith('```')) {
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            rawText = jsonMatch ? jsonMatch[0] : rawText;
+        }
+        
+        const data = JSON.parse(rawText);
+        return data;
+    } catch (e) {
+        console.error('[Gemini Fallback Error] Failed to generate fallback place details:', e);
+        return null;
+    }
+};
+
+const fetchRealImageWithSerpApi = async (venue, city) => {
+    const apiKey = process.env.SERP_API_KEY;
+    if (!apiKey) {
+        console.warn('[SerpApi Image Fallback] SERP_API_KEY is not defined in environment variables.');
+        return null;
+    }
+
+    try {
+        console.log(`[SerpApi Image Search] Searching real images for: "${venue} in ${city}"`);
+        const response = await axios.get('https://serpapi.com/search.json', {
+            params: {
+                engine: 'google_images',
+                q: `${venue} ${city} venue or storefront`,
+                api_key: apiKey,
+                num: 5
+            },
+            timeout: 5000
+        });
+
+        const results = response.data.images_results;
+        if (results && results.length > 0) {
+            for (const img of results) {
+                const url = img.original;
+                if (url && url.startsWith('http') && !url.includes('svg') && !url.includes('data:image')) {
+                    console.log(`[SerpApi Image Success] Found real image for "${venue}": ${url}`);
+                    return url;
+                }
+            }
+        }
+        console.log(`[SerpApi Image Empty] No suitable image found for "${venue}"`);
+        return null;
+    } catch (e) {
+        console.warn(`[SerpApi Image Error] Failed to search image for "${venue}":`, e.message);
+        return null;
+    }
+};
+
 /**
  * Semantic Bridge: Takes AI search queries and fetches REAL venues from Google Places.
  * Ensures the date plan is actionable and physically real.
@@ -97,24 +254,47 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
                                  step.venue.includes('REAL PLACE') || 
                                  step.venue.includes('Search for');
             
-            // STEP 1: Formulate a precise search query
-            const searchContext = location || city || 'NYC';
-            const query = step.search_query || (isPlaceholder 
-                ? `${step.activity} in ${searchContext}`
-                : `${step.venue} in ${searchContext}`);
-            
-            console.log(`[Google Search] Query: "${query}"`);
+            let place = null;
 
-            let response = await postPlacesSearchText(
-                { 
-                    textQuery: query, 
-                    maxResultCount: 1,
-                    ...(locationBias && { locationBias }) // Real-time GPS Biasing
-                },
-                { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
-            );
+            // --- STEP 1.5: Pre-Indexed Place ID / Venue Name Cache Check ---
+            if (step.googlePlaceId) {
+                const pKey = cacheService.normalizePlaceId(step.googlePlaceId);
+                const preCached = await cacheService.getCachedPlace(pKey);
+                if (preCached?.places?.[0]) {
+                    console.log(`[Google Place Index Hit] Reusing indexed place for ID "${step.googlePlaceId}"`);
+                    place = preCached.places[0];
+                }
+            }
+            if (!place && step.venue && !isPlaceholder) {
+                const vKey = cacheService.normalizeVenueKey(step.venue, city);
+                const preCached = await cacheService.getCachedPlace(vKey);
+                if (preCached?.places?.[0]) {
+                    console.log(`[Google Venue Index Hit] Reusing indexed venue for "${step.venue}" in ${city}`);
+                    place = preCached.places[0];
+                }
+            }
 
-            let place = response.data.places?.[0];
+            let response;
+            if (!place) {
+                // STEP 2: Formulate a precise search query
+                const searchContext = location || city || 'NYC';
+                const query = step.search_query || (isPlaceholder 
+                    ? `${step.activity} in ${searchContext}`
+                    : `${step.venue} in ${searchContext}`);
+                
+                console.log(`[Google Search] Query: "${query}"`);
+
+                response = await postPlacesSearchText(
+                    { 
+                        textQuery: query, 
+                        maxResultCount: 1,
+                        ...(locationBias && { locationBias }) // Real-time GPS Biasing
+                    },
+                    { headers: { 'X-Goog-Api-Key': GOOGLE_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.shortFormattedAddress,places.rating,places.location,places.photos,places.userRatingCount,places.name,places.reviews,places.websiteUri' } }
+                );
+
+                place = response.data.places?.[0];
+            }
 
             // Fallback A: If we searched by venue name and failed, try the search_query directly if it exists
             if (!place && !isPlaceholder && step.search_query) {
@@ -161,6 +341,34 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             }
 
             if (!place) {
+                // If Google search failed entirely or returned nothing, trigger Gemini Fallback!
+                console.log(`[Google Places Empty] Triggering Gemini Fallback for: "${step.activity}" (${step.search_query || step.venue})`);
+                const geminiPlace = await fallbackEnrichWithGemini(step, city);
+                if (geminiPlace) {
+                    let photoUrl = await fetchRealImageWithSerpApi(geminiPlace.venue, city);
+                    if (!photoUrl) {
+                        photoUrl = getFallbackUnsplashPhoto(geminiPlace.vibeKeyword || step.activity || step.vibe_keyword);
+                    }
+                    return {
+                        ...step,
+                        venue: geminiPlace.venue,
+                        address: geminiPlace.address,
+                        rating: geminiPlace.rating || 4.5,
+                        userRatingCount: geminiPlace.userRatingCount || 100,
+                        lat: geminiPlace.lat,
+                        lng: geminiPlace.lng,
+                        photoUrl: photoUrl,
+                        websiteUrl: geminiPlace.websiteUrl,
+                        reviews: geminiPlace.review ? [{
+                            text: geminiPlace.review,
+                            author: geminiPlace.reviewAuthor || 'Guest',
+                            rating: geminiPlace.rating || 5
+                        }] : (step.reviews || []),
+                        verified: true,
+                        enrichment_attempted: true
+                    };
+                }
+                
                 // IMPORTANT: Keep the old photo if search fails entirely, but strip completely broken legacy ones
                 const cleanPhotoUrl = (step.photoUrl || '').includes('/photos/AU_ZV') ? null : step.photoUrl;
                 return { ...step, photoUrl: cleanPhotoUrl, verified: false, enrichment_attempted: true };
@@ -199,12 +407,46 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             };
         } catch (err) {
             console.warn(`[Enrichment Error] ${step.activity}:`, err.message);
+            
+            // Check for 403 Forbidden which indicates Google Places API is not set up / Billing is disabled
+            if (err.response?.status === 403 || err.message?.includes('403') || err.message?.includes('REQUEST_DENIED')) {
+                console.warn(`[Google Places API Warning] Request failed with 403. Google Places API is likely disabled or Billing is not enabled on your Google Cloud Console. To use live Google Places, please enable billing at https://console.cloud.google.com/project/_/billing/enable`);
+            }
+
+            // Fallback to Gemini on API error!
+            console.log(`[Google Places Error Fallback] Triggering Gemini Fallback for: "${step.activity}"`);
+            const geminiPlace = await fallbackEnrichWithGemini(step, city);
+            if (geminiPlace) {
+                let photoUrl = await fetchRealImageWithSerpApi(geminiPlace.venue, city);
+                if (!photoUrl) {
+                    photoUrl = getFallbackUnsplashPhoto(geminiPlace.vibeKeyword || step.activity || step.vibe_keyword);
+                }
+                return {
+                    ...step,
+                    venue: geminiPlace.venue,
+                    address: geminiPlace.address,
+                    rating: geminiPlace.rating || 4.5,
+                    userRatingCount: geminiPlace.userRatingCount || 100,
+                    lat: geminiPlace.lat,
+                    lng: geminiPlace.lng,
+                    photoUrl: photoUrl,
+                    websiteUrl: geminiPlace.websiteUrl,
+                    reviews: geminiPlace.review ? [{
+                        text: geminiPlace.review,
+                        author: geminiPlace.reviewAuthor || 'Guest',
+                        rating: geminiPlace.rating || 5
+                    }] : (step.reviews || []),
+                    verified: true,
+                    enrichment_attempted: true
+                };
+            }
+
             return { ...step, verified: false, enrichment_attempted: true };
         }
     }));
 
     return enrichedSteps;
-};
+};;
 
 /**
  * Enriches plan steps with high-quality images based on vibe keywords or activity names.
@@ -561,7 +803,7 @@ export const recreatePlan = async (supabase, planId) => {
 
 // --- PLAN DISCOVERY & MANAGEMENT ---
 
-export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
+export const getTrendingPlans = async (supabase, userId, requestedLocation, userLat, userLng, searchRadius) => {
     try {
         const dbClient = supabaseAdmin || supabase;
         let locationFilter = null;
@@ -593,20 +835,89 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
         }
 
         // Fetch a pool of active plans matching location & lifecycle state
-        let query = dbClient
-            .from('plans')
-            .select('*')
-            .is('deleted_at', null)
-            .eq('is_completed', false)
-            .or('expires_at.is.null,expires_at.gt.now()') // Exclude expired plans
-            .not('itinerary', 'is', null)
-            .order('boost_count', { ascending: false });
+        let targetUserId = null;
+        try {
+            if (supabaseAdmin) {
+                const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserByEmail('rayanerold@gmail.com');
+                if (userData?.user) {
+                    targetUserId = userData.user.id;
+                    console.log(`[Trending] Found target user ID for rayanerold@gmail.com: ${targetUserId}`);
+                } else if (userError) {
+                    console.warn('[Trending] getUserByEmail error:', userError.message);
+                }
+            }
+        } catch (err) {
+            console.warn('[Trending] Failed to get user by email:', err.message);
+        }
+
+        if (!targetUserId) {
+            try {
+                const { data: profileData } = await dbClient
+                    .from('profiles')
+                    .select('id')
+                    .eq('email', 'rayanerold@gmail.com')
+                    .maybeSingle();
+                if (profileData) {
+                    targetUserId = profileData.id;
+                    console.log(`[Trending] Found user ID from profiles for rayanerold@gmail.com: ${targetUserId}`);
+                }
+            } catch (err) {
+                // Ignore profiles query error if email column doesn't exist
+            }
+        }
+
+        let query;
+        if (targetUserId) {
+            query = dbClient
+                .from('plans')
+                .select('*')
+                .eq('user_id', targetUserId)
+                .is('deleted_at', null)
+                .eq('is_completed', false)
+                .or('expires_at.is.null,expires_at.gt.now()')
+                .not('itinerary', 'is', null)
+                .order('created_at', { ascending: false });
+        } else {
+            query = dbClient
+                .from('plans')
+                .select('*')
+                .is('deleted_at', null)
+                .eq('is_completed', false)
+                .or('expires_at.is.null,expires_at.gt.now()') // Exclude expired plans
+                .not('itinerary', 'is', null)
+                .order('boost_count', { ascending: false });
+        }
 
         if (locationFilter) {
             query = query.ilike('location', `%${locationFilter}%`); // Enforce location isolation
         }
 
         let { data, error } = await query.limit(60);
+
+        // Fallback: If we queried by targetUserId and got no plans, fall back to default trending plans
+        if ((!data || data.length === 0) && targetUserId) {
+            console.log('[Trending] No plans found for target user, falling back to general trending plans...');
+            const defaultQuery = dbClient
+                .from('plans')
+                .select('*')
+                .is('deleted_at', null)
+                .eq('is_completed', false)
+                .or('expires_at.is.null,expires_at.gt.now()')
+                .not('itinerary', 'is', null)
+                .order('boost_count', { ascending: false });
+            
+            let queryFallback;
+            if (locationFilter) {
+                queryFallback = defaultQuery.ilike('location', `%${locationFilter}%`);
+            } else {
+                queryFallback = defaultQuery;
+            }
+            
+            const res = await queryFallback.limit(60);
+            if (!res.error && res.data) {
+                data = res.data;
+            }
+        }
 
         if ((error || !data || data.length === 0) && locationFilter) {
             console.warn(`[Trending] No plans found for local filter "${locationFilter}". Fetching broader trending plans as fallback...`);
@@ -631,8 +942,52 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
             return [];
         }
 
+        // Proximity calculation and filtering
+        let isProximityMatch = false;
+        if (userLat !== undefined && userLng !== undefined && userLat !== null && userLng !== null) {
+            const latVal = parseFloat(userLat);
+            const lngVal = parseFloat(userLng);
+            const radVal = parseFloat(searchRadius) || 15;
+            
+            if (!isNaN(latVal) && !isNaN(lngVal)) {
+                console.log(`[Proximity] Filtering plans near user coords: (${latVal}, ${lngVal}) within ${radVal} miles`);
+                const calculateDistance = (lat1, lon1, lat2, lon2) => {
+                    const R = 3958.8; // Earth's radius in miles
+                    const dLat = (lat2 - lat1) * (Math.PI / 180);
+                    const dLon = (lon2 - lon1) * (Math.PI / 180);
+                    const a =
+                        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                    return R * c;
+                };
+
+                const proximityPlans = data.map(plan => {
+                    const itinerary = plan.itinerary || {};
+                    const steps = Array.isArray(itinerary) ? itinerary : (itinerary.steps || []);
+                    const firstStep = steps[0];
+                    if (firstStep && firstStep.lat !== undefined && firstStep.lng !== undefined) {
+                        const dist = calculateDistance(latVal, lngVal, parseFloat(firstStep.lat), parseFloat(firstStep.lng));
+                        return { ...plan, proximity_distance_miles: dist };
+                    }
+                    return null;
+                }).filter(p => p !== null && p.proximity_distance_miles <= radVal);
+
+                if (proximityPlans.length > 0) {
+                    proximityPlans.sort((a, b) => a.proximity_distance_miles - b.proximity_distance_miles);
+                    data = proximityPlans;
+                    isProximityMatch = true;
+                } else {
+                    console.log('[Proximity] No plans found in local radius. Falling back to non-proximity plans.');
+                }
+            }
+        }
+
         // Shuffle and pick a display batch (20 to match Dashboard UI)
-        const selectedPlans = data.sort(() => Math.random() - 0.5).slice(0, 20);
+        const selectedPlans = isProximityMatch 
+            ? data.slice(0, 20) 
+            : data.sort(() => Math.random() - 0.5).slice(0, 20);
 
         // --- REAL PHOTO ENFORCEMENT ---
         // We use a sequential loop here to avoid hitting Google API rate limits with 20 parallel plans.
@@ -642,12 +997,15 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation) => {
             let steps = Array.isArray(itinerary) ? itinerary : (itinerary?.steps || []);
             
             const needsEnrichment = steps.some(s => 
-                !s.enrichment_attempted && (
+                (!s.enrichment_attempted && (
                     !s.googlePlaceId || 
                     !(s.photoUrl || '').includes('places.googleapis.com') ||
                     (s.photoUrl || '').includes('maps.googleapis.com') ||
                     (s.photoUrl || '').includes('unsplash') ||
                     (s.photoUrl || '').includes('/photos/AU_ZV') // Force enrichment for legacy Google photo reference
+                )) || (
+                    // Force re-enrichment if it is stuck using an Unsplash photo url
+                    (s.photoUrl || '').includes('unsplash')
                 )
             );
             

@@ -414,7 +414,8 @@ app.get('/api/trending-plans', async (req, res) => {
     try {
         const userId = req.headers['x-user-id'] || req.query.userId;
         const requestedLocation = req.query.location;
-        const plans = await itineraryService.getTrendingPlans(supabase, userId, requestedLocation);
+        const { lat, lng, radius } = req.query;
+        const plans = await itineraryService.getTrendingPlans(supabase, userId, requestedLocation, lat, lng, radius);
         res.json(plans);
     } catch (err) {
         console.error('[TRENDING_ERROR]', err);
@@ -929,7 +930,16 @@ app.get('/api/events', async (req, res) => {
         serpapi: process.env.SERP_API_KEY,
         seatgeek: process.env.SEATGEEK_CLIENT_ID
     };
-    const events = await fetchEvents(supabase, req.query.city, req.query.category, 50, keys);
+    const forceRefresh = req.query.refresh === 'true';
+    const events = await fetchEvents(
+        supabaseAdmin || supabase, 
+        req.query.city, 
+        req.query.category, 
+        50, 
+        keys, 
+        req.query.keyword, 
+        forceRefresh
+    );
     res.json(events);
 });
 
@@ -1037,122 +1047,40 @@ app.post('/api/webhook', async (req, res) => {
 });
 
 app.post('/api/gift-cards/purchase', async (req, res) => {
-    try {
-        const { planType, giftCardType, brandName, amount, purchaserId, recipientEmail, message } = req.body;
-
-        const Stripe = (await import('stripe')).default;
-        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-        const origin = req.get('origin') || process.env.VITE_APP_URL;
-
-        const session = await giftCardService.purchaseGiftCard(stripe, {
-            planType,
-            giftCardType: giftCardType || 'datespark_pass',
-            brandName: brandName || '',
-            amount: amount || 0,
-            purchaserId: purchaserId || null,
-            recipientEmail: recipientEmail || '',
-            message: message || '',
-            successUrl: `${origin}/gift?success=1`,
-            cancelUrl: `${origin}/gift`,
-        });
-        res.json({ url: session.url });
-    } catch (err) {
-        console.error('[GIFT_CARD_PURCHASE_ERROR]', err);
-        res.status(500).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Gift card purchase is temporarily disabled.' });
 });
 
 app.get('/api/gift-cards/validate/:code', async (req, res) => {
-    try {
-        const card = await giftCardService.validateGiftCard(supabase, req.params.code);
-        res.json({ 
-            valid: true, 
-            planType: card.plan_type, 
-            giftCardType: card.gift_card_type,
-            brandName: card.brand_name,
-            faceValue: card.face_value,
-            message: card.message 
-        });
-    } catch (err) {
-        res.status(400).json({ valid: false, error: err.message });
-    }
+    res.status(503).json({ error: 'Gift card validation is temporarily disabled.' });
 });
 
 app.post('/api/gift-cards/redeem', async (req, res) => {
-    try {
-        const { code, userId } = req.body;
-        if (!code || !userId) return res.status(400).json({ error: 'code and userId are required' });
-        const result = await giftCardService.redeemGiftCard(supabaseAdmin, code, userId);
-        res.json(result);
-    } catch (err) {
-        console.error('[GIFT_CARD_REDEEM_ERROR]', err);
-        res.status(400).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Gift card redemption is temporarily disabled.' });
 });
 
 // 7. PARTNER COLLABORATION
 app.post('/api/collab/invite', async (req, res) => {
-    try {
-        const { planId, ownerId, partnerEmail, isSurpriseMode } = req.body;
-        if (!planId || !ownerId || !partnerEmail) return res.status(400).json({ error: 'planId, ownerId, and partnerEmail are required' });
-        const result = await collaborationService.invitePartner(supabase, emailService, { planId, ownerId, partnerEmail, isSurpriseMode });
-        res.json({ success: true, inviteLink: result.inviteLink, collabId: result.id });
-    } catch (err) {
-        console.error('[COLLAB_INVITE_ERROR]', err);
-        res.status(500).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
 });
 
 app.get('/api/collab/accept', async (req, res) => {
-    try {
-        const { token, userId } = req.query;
-        if (!token || !userId) return res.status(400).json({ error: 'token and userId are required' });
-        const result = await collaborationService.acceptInvite(supabase, token, userId);
-        res.json({ success: true, ...result });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
 });
 
 app.post('/api/collab/vote', async (req, res) => {
-    try {
-        const { planId, stopIndex, userId, vote } = req.body;
-        if (!planId || stopIndex === undefined || !userId || !vote) return res.status(400).json({ error: 'Missing required fields' });
-        const result = await collaborationService.submitVote(supabase, { planId, stopIndex, userId, vote });
-        res.json({ success: true, vote: result });
-    } catch (err) {
-        console.error('[COLLAB_VOTE_ERROR]', err);
-        res.status(500).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
 });
 
 app.get('/api/collab/votes/:planId', async (req, res) => {
-    try {
-        const { userId } = req.query;
-        const summary = await collaborationService.getVoteSummary(supabase, req.params.planId, userId);
-        res.json({ success: true, votes: summary });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
 });
 
 app.get('/api/collab/status/:planId', async (req, res) => {
-    try {
-        const { userId } = req.query;
-        const status = await collaborationService.getCollabStatus(supabase, req.params.planId, userId);
-        res.json({ success: true, collab: status });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
 });
 
 app.get('/api/collab/all/:userId', async (req, res) => {
-    try {
-        const list = await collaborationService.getUserCollaborations(supabaseAdmin, req.params.userId);
-        res.json({ success: true, collaborations: list });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
 });
 
 // 8. USERS & ACCOUNT
@@ -1263,9 +1191,75 @@ app.get('/api/photo-proxy', async (req, res) => {
         
         console.log(`[PhotoProxy] Fetching and streaming Google Photo from: ${googleUrl.split('?')[0]}...`);
         
-        const response = await fetch(googleUrl);
+        const fetchHeaders = {
+            'Referer': req.headers.referer || process.env.FRONTEND_URL || 'http://localhost:3000'
+        };
+        if (apiKey) {
+            fetchHeaders['X-Goog-Api-Key'] = apiKey;
+        }
+
+        const response = await fetch(googleUrl, { headers: fetchHeaders });
         if (!response.ok) {
-            throw new Error(`Google responded with status ${response.status}`);
+            console.log(`[PhotoProxy] Google Photo request failed with status ${response.status}. Attempting to resolve a fresh photo reference...`);
+            
+            // Extract place ID from the googleUrl
+            const match = googleUrl.match(/places\/([^\/]+)\/photos/);
+            const placeId = match ? match[1] : null;
+            
+            if (placeId && apiKey) {
+                console.log(`[PhotoProxy] Querying Place Details for placeId: ${placeId}`);
+                const detailsResponse = await axios.get(`https://places.googleapis.com/v1/places/${placeId}?fields=photos&key=${apiKey}`);
+                const photos = detailsResponse.data?.photos;
+                if (photos && photos.length > 0) {
+                    const freshPhotoName = photos[0].name; // e.g., 'places/ChIJ.../photos/AaVG...'
+                    const freshMediaUrl = `https://places.googleapis.com/v1/${freshPhotoName}/media?maxWidthPx=800&key=${apiKey}`;
+                    
+                    console.log(`[PhotoProxy] Fetching fresh media from: ${freshMediaUrl.split('?')[0]}`);
+                    const freshResponse = await fetch(freshMediaUrl, { headers: fetchHeaders });
+                    if (freshResponse.ok) {
+                        res.setHeader('Content-Type', freshResponse.headers.get('content-type') || 'image/jpeg');
+                        res.setHeader('Cache-Control', 'public, max-age=86400');
+                        const arrayBuffer = await freshResponse.arrayBuffer();
+                        const buffer = Buffer.from(arrayBuffer);
+                        
+                        // Async background update to the plan in Supabase so future queries get the fresh photo directly
+                        try {
+                            const { data: plansToUpdate } = await supabaseAdmin
+                                .from('plans')
+                                .select('id, itinerary')
+                                .is('deleted_at', null)
+                                .not('itinerary', 'is', null);
+                            
+                            if (plansToUpdate) {
+                                for (const plan of plansToUpdate) {
+                                    let steps = Array.isArray(plan.itinerary) ? plan.itinerary : (plan.itinerary?.steps || []);
+                                    let modified = false;
+                                    steps = steps.map(s => {
+                                        if (s.googlePlaceId === placeId || (s.photoUrl && s.photoUrl.includes(placeId))) {
+                                            s.photoUrl = freshMediaUrl;
+                                            modified = true;
+                                        }
+                                        return s;
+                                    });
+                                    if (modified) {
+                                        let updatedItinerary = Array.isArray(plan.itinerary) ? steps : { ...plan.itinerary, steps };
+                                        await supabaseAdmin
+                                            .from('plans')
+                                            .update({ itinerary: updatedItinerary })
+                                            .eq('id', plan.id);
+                                        console.log(`[PhotoProxy Heal] Auto-updated plan ${plan.id} with fresh photo URL.`);
+                                    }
+                                }
+                            }
+                        } catch (dbErr) {
+                            console.error('[PhotoProxy Heal DB Error]', dbErr.message);
+                        }
+                        
+                        return res.send(buffer);
+                    }
+                }
+            }
+            throw new Error(`Google responded with status ${response.status} and could not resolve a fresh photo reference.`);
         }
         
         res.setHeader('Content-Type', response.headers.get('content-type') || 'image/jpeg');
@@ -1287,11 +1281,20 @@ app.get('/api/photo-proxy', async (req, res) => {
                 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?q=80&w=1000&auto=format&fit=crop'
             ];
             const fallbackUrl = fallbackUrls[Math.floor(Math.random() * fallbackUrls.length)];
-            return res.redirect(302, fallbackUrl);
+            
+            const fallbackResponse = await fetch(fallbackUrl);
+            if (fallbackResponse.ok) {
+                res.setHeader('Content-Type', fallbackResponse.headers.get('content-type') || 'image/jpeg');
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); // Avoid caching fallbacks
+                const arrayBuffer = await fallbackResponse.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
+                return res.send(buffer);
+            }
+            throw new Error('Failed to fetch fallback image');
         } catch (fallbackErr) {
             console.error('[CRITICAL_FALLBACK_FAIL]', fallbackErr.message);
             if (!res.headersSent) {
-                res.status(502).json({ error: 'All image sources failed' });
+                res.status(500).json({ error: 'Failed to retrieve photo.' });
             }
         }
     }

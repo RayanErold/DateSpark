@@ -135,6 +135,41 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
     return R * c; 
 };
 
+const MOCK_SIDEBAR_EVENTS = [
+    {
+        title: "Broadway: The Great Gatsby",
+        location: "Broadway Theatre, NYC",
+        date: "Fri, Oct 16 · 7:30 PM",
+        image: "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=400&q=80",
+        price: "$89",
+        category: "Theater"
+    },
+    {
+        title: "Sunset Wine Tasting Cruise",
+        location: "Pier 15, Manhattan",
+        date: "Sat, Oct 17 · 5:30 PM",
+        image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=400&q=80",
+        price: "$45",
+        category: "Food & Drink"
+    },
+    {
+        title: "Jazz under the Stars",
+        location: "Blue Note Jazz Club",
+        date: "Thu, Oct 22 · 9:00 PM",
+        image: "https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=400&q=80",
+        price: "$35",
+        category: "Music"
+    },
+    {
+        title: "Midnight Gallery & Cocktails",
+        location: "Chelsea Galleries",
+        date: "Sat, Oct 24 · 10:00 PM",
+        image: "https://images.unsplash.com/photo-1513829096999-4978602297f7?auto=format&fit=crop&w=400&q=80",
+        price: "Free",
+        category: "Activity"
+    }
+];
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const API_URL = import.meta.env.VITE_API_URL || '';
@@ -160,6 +195,9 @@ const Dashboard = () => {
     const [user, setUser] = useState(null);
     const hasFetchedRef = React.useRef(false);
     const [plans, setPlans] = useState([]);
+    const [sidebarEvents, setSidebarEvents] = useState([]);
+    const [isFetchingSidebarEvents, setIsFetchingSidebarEvents] = useState(false);
+
     const [isSharing, setIsSharing] = useState(false);
     const [recommendations, setRecommendations] = useState([]);
     const [isFetchingRecs, setIsFetchingRecs] = useState(false);
@@ -415,6 +453,23 @@ const Dashboard = () => {
     const [isPostingReply, setIsPostingReply] = useState(false);
     const [likingReview, setLikingReview] = useState(null); // { planId, reviewIndex }
     const [userCity, setUserCity] = useState('New York');
+
+    useEffect(() => {
+        if (!userCity) return;
+        const getSidebarEvents = async () => {
+            setIsFetchingSidebarEvents(true);
+            try {
+                const response = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(userCity)}&category=all`);
+                setSidebarEvents(response.data || []);
+            } catch (err) {
+                console.error('Failed to fetch sidebar events:', err);
+            } finally {
+                setIsFetchingSidebarEvents(false);
+            }
+        };
+        getSidebarEvents();
+    }, [userCity]);
+
 
     useEffect(() => {
         if (currentTab === 'vibe') {
@@ -1810,8 +1865,8 @@ const Dashboard = () => {
 
     const renderPlanCard = (plan, planIdx, enforceLocked = false, isCompact = false) => {
         const isPreview = plan.itinerary?.metadata?.isPreviewPlan || plan.is_preview || false;
-        const isLockedPlan = enforceLocked || false; // Whole-card lock disabled for now as per "1 Full + 1 Preview" rule
-        const isPartiallyLocked = !isPremium && isPreview; // Only 2nd+ plans are partially locked for free users
+        const isLockedPlan = enforceLocked || false;
+        const isPartiallyLocked = !isPremium && isPreview;
 
         const itinerarySteps = Array.isArray(plan.itinerary) ? plan.itinerary : plan.itinerary?.steps || [];
         const coverImage = getProxiedPhoto(itinerarySteps[0]?.photoUrl || itinerarySteps[0]?.image) || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
@@ -1819,250 +1874,130 @@ const Dashboard = () => {
         return (
             <div
                 key={plan.id}
-                className={`rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden flex-shrink-0 w-full sm:max-w-none snap-start premium-shadow premium-shadow-hover ${appTheme === 'dark'
-                        ? 'border-white/10 hover:border-white/20'
-                        : 'border-navy/5 shadow-sm'
-                    } ${isCompact ? 'p-4' : 'p-4 sm:p-6'} ${isLockedPlan ? 'cursor-not-allowed grayscale-[0.5] opacity-80' : ''}`}
+                className={`rounded-[2rem] overflow-hidden border group transition-all duration-500 hover:shadow-xl hover:-translate-y-1.5 p-3 flex flex-col justify-between w-full sm:max-w-none snap-start cursor-pointer ${
+                    appTheme === 'dark' ? 'bg-[#111827] border-white/8 hover:border-white/20 text-white' : 'bg-white border-slate-100 text-navy shadow-sm'
+                }`}
                 onClick={() => {
                     if (isLockedPlan) {
                         setShowUpgradeModal(true);
+                    } else {
+                        setSelectedPlan({ ...plan, isPartiallyLocked });
                     }
                 }}
             >
-                {/* Cinematic Background Image */}
-                <div className="absolute inset-0 z-0">
+                {/* Image Section */}
+                <div className="relative aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-slate-900/5 mb-3 shadow-inner">
                     <img
                         src={coverImage}
                         alt="Plan Cover"
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                        className="w-full h-full object-cover transition-transform duration-600 group-hover:scale-105"
                         onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
                         }}
                     />
-                    {/* Multi-layer Gradient Overlay for readability */}
-                    <div className={`absolute inset-0 z-1 ${appTheme === 'dark'
-                            ? 'bg-gradient-to-b from-navy/60 via-navy/40 to-navy/95'
-                            : 'bg-gradient-to-b from-black/40 via-black/20 to-black/80'
-                        }`} />
-                </div>
+                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-70 group-hover:opacity-85 transition-opacity" />
 
-                {/* Selection Checkbox */}
-                {isSelectMode && (
-                    <div
-                        className="absolute top-4 left-4 z-40"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const isSelected = selectedPlanIds.includes(plan.id);
-                            if (isSelected) {
-                                setSelectedPlanIds(prev => prev.filter(id => id !== plan.id));
-                            } else {
-                                setSelectedPlanIds(prev => [...prev, plan.id]);
-                            }
-                        }}
-                    >
-                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedPlanIds.includes(plan.id) ? 'bg-coral border-coral text-white' : 'bg-white/80 border-gray-200'}`}>
-                            {selectedPlanIds.includes(plan.id) && <Check className="w-4 h-4" />}
-                        </div>
-                    </div>
-                )}
-
-                {/* Blur Overlay for Locked Plans */}
-                {isLockedPlan && (
-                    <div className="absolute inset-0 z-10 backdrop-blur-[6px] bg-white/40 flex flex-col items-center justify-center pointer-events-none">
-                        <div className="w-12 h-12 bg-navy rounded-full flex items-center justify-center mb-3 shadow-lg">
-                            <span className="text-white text-xl">🔒</span>
-                        </div>
-                        <h4 className="text-lg font-black text-navy px-4 text-center">Premium Plan</h4>
-                        <p className="text-sm font-bold text-coral mt-1">Click to Unlock</p>
-                    </div>
-                )}
-
-                {/* Popular Vibe Tag Badge */}
-                {!isLockedPlan && getPopularTag(plan.vibe_tags) && (
-                    <div className={`absolute top-4 ${isSelectMode ? 'left-12' : 'left-4'} z-30 animate-in fade-in zoom-in duration-500`}>
-                        <div className="px-3 py-1 bg-white/90 backdrop-blur-md border border-coral/20 rounded-full shadow-md flex items-center gap-1.5 ring-1 ring-coral/5">
-                            <span className="text-xs">{getPopularTag(plan.vibe_tags).icon}</span>
-                            <span className="text-[10px] font-black text-coral uppercase tracking-tighter">{getPopularTag(plan.vibe_tags).label}</span>
-                        </div>
-                    </div>
-                )}
-
-                <div className={`flex flex-col gap-2 relative z-10 ${isCompact ? 'mb-2' : 'sm:gap-5 mb-4 sm:mb-6'}`}>
-                    {/* 🗓️ Planned For - TOP Minimalist Badge */}
-                    <div className="flex items-center justify-between gap-4">
-                        {(plan.itinerary?.metadata?.planDate || plan.created_at) && (
-                            <div className={`flex items-center gap-2 rounded-xl shadow-sm border backdrop-blur-md ${
-                                isCompact ? 'px-2.5 py-1' : 'px-3 py-1.5'
-                            } ${appTheme === 'dark' ? 'bg-white/10 border-white/10' : 'bg-black/20 border-white/20'
-                                }`}>
-                                <Calendar className={`w-3.5 h-3.5 ${appTheme === 'dark' ? 'text-white/60' : 'text-coral'}`} />
-                                <p className={`text-[10px] font-black uppercase tracking-widest font-outfit ${appTheme === 'dark' ? 'text-white/60' : 'text-white/70'
-                                    }`}>
-                                    Scheduled for: <span className={appTheme === 'dark' ? 'text-white' : 'text-white'}>
-                                        {new Date((plan.itinerary?.metadata?.planDate || plan.created_at) + (plan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
-                                    </span>
-                                </p>
-                            </div>
-                        )}
+                    {/* Category badge */}
+                    <div className="absolute top-3 left-3 bg-gradient-to-r from-coral to-orange-500 text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider z-10 shadow-sm">
+                        {plan.vibe || "Date"}
                     </div>
 
-                    <div className="space-y-1">
-                        <h3 className={`font-black leading-tight font-outfit line-clamp-2 drop-shadow-lg ${
-                            isCompact ? 'text-[17px] leading-snug' : 'text-2xl'
-                        } ${appTheme === 'dark' ? 'text-white' : 'text-white'
-                            }`}>
-                            {plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + " Date" : "Perfect Date Plan")}
-                        </h3>
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-md border ${appTheme === 'dark' ? 'bg-white/10 border-white/10 text-white' : 'bg-black/20 border-white/20 text-white'
-                                }`}>
-                                <MapPin className="w-3 h-3 text-coral" /> {plan.location}
-                            </div>
-                            {plan.budget && (
-                                <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-md border ${appTheme === 'dark' ? 'bg-white/10 border-white/10 text-white' : 'bg-black/20 border-white/20 text-white'
-                                    }`}>
-                                    <CreditCard className="w-3 h-3 text-emerald-400" /> {plan.budget}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {!isCompact && (
-                    <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-8 relative z-10">
-                        {itinerarySteps.slice(0, 2).map((step, idx) => (
-                            <div key={idx} className="flex items-center gap-4 relative group/step">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all backdrop-blur-md ${appTheme === 'dark'
-                                        ? 'bg-white/10 border-white/20 text-white'
-                                        : 'bg-white/20 border-white/20 text-white group-hover/step:bg-white/30'
-                                    }`}>
-                                    <Clock className="w-4.5 h-4.5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-[14px] font-black leading-none mb-1 font-outfit drop-shadow-md ${appTheme === 'dark' ? 'text-white' : 'text-white'}`}>{step.time}</p>
-                                    <p className={`text-[12px] font-bold truncate font-outfit drop-shadow-md ${appTheme === 'dark' ? 'text-white/60' : 'text-white/80'}`}>
-                                        {step.activity}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
-                        {itinerarySteps.length > 2 && (
-                            <div className="flex items-center gap-3 pl-15">
-                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg backdrop-blur-md ${appTheme === 'dark' ? 'bg-white/10 text-white/50' : 'bg-white/20 text-white/80'
-                                    }`}>
-                                    + {itinerarySteps.length - 2} ADDED STOPS
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Modern Social Action Bar */}
-                <div className={`flex items-center justify-between gap-2 border-t relative z-10 ${
-                    isCompact ? 'py-2.5 mb-3' : 'py-4 mb-5'
-                } ${appTheme === 'dark' ? 'border-white/10' : 'border-white/20'}`}>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-0.5">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                                <Star key={s} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-                            ))}
-                        </div>
-                        <span className={`text-xs font-black drop-shadow-md ${appTheme === 'dark' ? 'text-white/80' : 'text-white/90'}`}>{plan.avg_rating || '4.9'}</span>
+                    {/* Source Badge */}
+                    <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white/90 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 z-10 shadow-sm">
+                        SPARK
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    {/* Actions Overlay */}
+                    <div className="absolute bottom-3 right-3 z-20 flex gap-1.5">
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setShareCardPlan(plan); }}
-                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 ${appTheme === 'dark'
-                                    ? 'bg-coral/20 border-coral/40 text-coral hover:bg-coral/30'
-                                    : 'bg-coral/10 border-coral/30 text-coral hover:bg-coral/15'
-                                }`}
-                            title="Share — opens beautiful share card"
+                            className="w-7 h-7 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                            title="Share plan"
                         >
-                            <Share2 className="w-4 h-4" />
+                            <Share2 className="w-3.5 h-3.5" />
                         </button>
                         <button
+                            type="button"
                             onClick={(e) => handleToggleFavorite(plan, e)}
-                            title={plan.is_favorite ? "Remove from Favorites" : "Add to Favorites"}
-                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${appTheme === 'dark'
-                                    ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500'
-                                    : 'bg-white/10 border-white/20 text-white/70 hover:text-red-400 hover:border-red-400'
-                                }`}
+                            className="w-7 h-7 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-red-400 hover:bg-black/70 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                            title="Favorite plan"
                         >
-                            <Heart className={`w-4 h-4 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
+                            <Heart className={`w-3.5 h-3.5 ${plan.is_favorite ? 'fill-red-500 text-red-500' : ''}`} />
                         </button>
                         <button
+                            type="button"
                             onClick={(e) => handleDelete(plan.id, e)}
-                            title="Delete this Date Plan"
-                            className={`w-9 h-9 flex items-center justify-center transition-all border rounded-xl hover:scale-110 active:scale-95 ${appTheme === 'dark'
-                                    ? 'bg-white/5 border-white/10 text-white/40 hover:text-red-500'
-                                    : 'bg-white/10 border-white/20 text-white/70 hover:text-red-400 hover:border-red-400'
-                                }`}
+                            className="w-7 h-7 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-red-500 hover:bg-black/70 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                            title="Delete plan"
                         >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
-
-                        <div className={`w-px h-6 mx-1 opacity-20 ${appTheme === 'dark' ? 'bg-white' : 'bg-white'}`} />
-
-                        <button
-                            onClick={(e) => { e.stopPropagation(); handleBoostPlan(plan.id); }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-black transition-all duration-300 group/boost shadow-md active:scale-[0.97] backdrop-blur-md ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
-                                    ? 'bg-gradient-to-r from-orange-500 via-coral to-pink-500 text-white shadow-lg shadow-coral/30 hover:shadow-xl hover:-translate-y-0.5 border border-white/20'
-                                    : appTheme === 'dark'
-                                        ? 'bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10'
-                                        : 'bg-black/20 border border-white/20 text-white/80 hover:text-coral hover:bg-black/40 hover:border-coral/50'
-                                }`}
-                        >
-                            {Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? (
-                                <div className="flex items-center justify-center w-5 h-5 bg-white/20 rounded-full shadow-inner">
-                                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                                </div>
-                            ) : (
-                                <div className={`flex items-center justify-center w-5 h-5 rounded-full transition-colors ${appTheme === 'dark' ? 'bg-white/10 group-hover/boost:bg-coral/20' : 'bg-white/10 group-hover/boost:bg-coral/30'}`}>
-                                    <Flame className={`w-3 h-3 transition-colors ${appTheme === 'dark' ? 'opacity-70 group-hover/boost:opacity-100 group-hover/boost:fill-coral text-coral' : 'text-white group-hover/boost:fill-coral group-hover/boost:text-coral'}`} />
-                                </div>
-                            )}
-                            <span className={`tracking-tight ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'drop-shadow-sm' : ''}`}>
-                                {Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'We Tried This' : 'Tried It?'}
-                            </span>
-                            <span className={`opacity-50 font-black px-0.5 ${Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'text-white/60' : ''}`}>•</span>
-                            <span className={Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id) ? 'text-white' : ''}>{plan.boost_count || 0}</span>
+                            <Trash2 className="w-3.5 h-3.5" />
                         </button>
                     </div>
+
+                    {/* Date overlay badge */}
+                    <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-xl">
+                        <Calendar className="w-3 h-3 text-rose" />
+                        <span className="text-[9px] font-black text-white/90 uppercase tracking-widest">
+                            {new Date((plan.itinerary?.metadata?.planDate || plan.created_at) + (plan.itinerary?.metadata?.planDate ? 'T00:00:00' : '')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
+                        </span>
+                    </div>
+
+                    {/* Blur Overlay for Locked Plans */}
+                    {isLockedPlan && (
+                        <div className="absolute inset-0 z-20 backdrop-blur-[6px] bg-white/40 flex flex-col items-center justify-center pointer-events-none">
+                            <div className="w-10 h-10 bg-navy rounded-full flex items-center justify-center mb-2 shadow-lg">
+                                <span className="text-white text-base">🔒</span>
+                            </div>
+                            <h4 className="text-sm font-black text-navy px-4 text-center">Premium Plan</h4>
+                            <p className="text-xs font-bold text-coral mt-0.5">Click to Unlock</p>
+                        </div>
+                    )}
                 </div>
 
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if (isLockedPlan) setShowUpgradeModal(true);
-                        else setSelectedPlan({ ...plan, isPartiallyLocked });
-                    }}
-                    className={`w-full font-black rounded-2xl transition-all active:scale-[0.98] font-outfit border flex items-center justify-center gap-3 group/btn shadow-lg relative z-10 backdrop-blur-md ${
-                        isCompact ? 'py-3 text-[13px]' : 'py-4.5 text-[15px]'
-                    } ${isLockedPlan
-                            ? (appTheme === 'dark' ? "bg-white/5 text-white/20 border-white/5" : "bg-black/20 text-white/40 border-white/20")
-                            : isPartiallyLocked
-                                ? (appTheme === 'dark'
-                                    ? "bg-white/10 text-white border-white/20 hover:bg-coral hover:text-white hover:border-coral"
-                                    : "bg-white/20 text-white border-white/30 hover:bg-coral hover:text-white hover:border-coral")
-                                : (appTheme === 'dark'
-                                    ? "bg-white/10 text-white border-white/20 hover:bg-coral hover:text-white hover:border-coral"
-                                    : "bg-white/20 text-white border-white/30 hover:bg-coral hover:text-white hover:border-coral")
-                        }`}
-                >
-                    {isLockedPlan ? (
-                        <><Lock className="w-4 h-4" /> Unlock Master Plan</>
-                    ) : isPartiallyLocked ? (
-                        <><Sparkles className="w-5 h-5 text-gold group-hover/btn:text-white" /> Preview Plan <ArrowRight className="w-4.5 h-4.5 transition-transform group-hover/btn:translate-x-1" /></>
-                    ) : (
-                        <>View Full Itinerary <ArrowRight className="w-4.5 h-4.5 transition-transform group-hover/btn:translate-x-1" /></>
-                    )}
-                </button>
+                {/* Info */}
+                <div className="px-1 py-1 font-outfit">
+                    <h4 className={`font-black text-sm leading-snug line-clamp-1 mb-1 group-hover:text-rose transition-colors ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>
+                        {plan.vibe_variant || (plan.vibe ? plan.vibe.charAt(0).toUpperCase() + plan.vibe.slice(1).toLowerCase() + " Date" : "Perfect Date Plan")}
+                    </h4>
+                    <div className="flex items-center gap-1 mb-2">
+                        <MapPin className="w-3 h-3 text-rose/80 flex-shrink-0" />
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{plan.location}</p>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between border-t pt-2 mt-1 border-gray-100/50">
+                        <span className={`text-[11px] font-black ${appTheme === 'dark' ? 'text-white/60' : 'text-slate-500'}`}>
+                            {plan.budget || "See details"}
+                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                            {/* Tried it boost button overlay inline */}
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleBoostPlan(plan.id); }}
+                                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-black transition-all duration-300 ${
+                                    Array.isArray(plan.boosted_by) && plan.boosted_by.includes(user?.id)
+                                        ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-sm'
+                                        : 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/60 hover:text-coral'
+                                }`}
+                            >
+                                <Flame className="w-3 h-3" />
+                                <span>{plan.boost_count || 0}</span>
+                            </button>
+
+                            <div className="flex items-center gap-1 text-[9px] font-black px-3 py-1.5 rounded-full bg-gradient-to-r from-coral to-orange-500 text-white group-hover:opacity-90 transition-opacity">
+                                View Itinerary <ArrowRight className="w-2.5 h-2.5" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     };
+
 
 
 
@@ -2222,14 +2157,40 @@ const Dashboard = () => {
 
                         </div>
 
+                        {/* Groupon-style local discovery categories */}
+                        <div className="px-4 sm:px-0 mb-6">
+                            <h3 className="text-[10px] font-black text-navy uppercase tracking-widest mb-3 opacity-60">Explore Local Discoveries</h3>
+                            <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-3">
+                                {[
+                                    { id: 'concerts', label: 'Concerts', emoji: '🎸', color: 'bg-rose-50 hover:bg-rose-100/70 border-rose-100/50 text-rose' },
+                                    { id: 'dining', label: 'Dining', emoji: '🍷', color: 'bg-violet-50 hover:bg-violet-100/70 border-violet-100/50 text-violet-700' },
+                                    { id: 'sports', label: 'Sports', emoji: '⚽', color: 'bg-orange-50 hover:bg-orange-100/70 border-orange-100/50 text-orange-600' },
+                                    { id: 'theater', label: 'Theater', emoji: '🎭', color: 'bg-emerald-50 hover:bg-emerald-100/70 border-emerald-100/50 text-emerald-700' },
+                                    { id: 'comedy', label: 'Comedy', emoji: '🎤', color: 'bg-amber-50 hover:bg-amber-100/70 border-amber-100/50 text-amber-600' },
+                                    { id: 'spa', label: 'Spa/Wellness', emoji: '💆‍♀️', color: 'bg-teal-50 hover:bg-teal-100/70 border-teal-100/50 text-teal-700' },
+                                    { id: 'active', label: 'Activities', emoji: '🎳', color: 'bg-sky-50 hover:bg-sky-100/70 border-sky-100/50 text-sky-600' },
+                                    { id: 'outdoor', label: 'Outdoors', emoji: '⛰️', color: 'bg-lime-50 hover:bg-lime-100/70 border-lime-100/50 text-lime-700' }
+                                ].map((cat) => (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => {
+                                            setCurrentTab('events');
+                                        }}
+                                        className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center group hover:scale-[1.03] active:scale-95 ${cat.color}`}
+                                    >
+                                        <span className="text-xl sm:text-2xl mb-1">{cat.emoji}</span>
+                                        <span className="text-[10px] font-black tracking-tight leading-tight">{cat.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         {/* ── Dashboard Sub-Navigation pill-based Nav Bar ── */}
                         <div className="px-4 mb-8 overflow-x-auto scrollbar-hide flex gap-2.5 border-b border-gray-100/50 pb-4">
                             {[
                                 { id: 'overview', label: 'Create with Spark AI', icon: Sparkles },
                                 { id: 'plans', label: 'My Plans', icon: Calendar },
-                                { id: 'favorites', label: 'Favorites', icon: Heart },
-                                { id: 'wishlist', label: 'Wishlist', icon: Gift },
-                                { id: 'feed', label: 'My Feed', icon: Zap }
+                                { id: 'favorites', label: 'Favorites', icon: Heart }
                             ].map((tab) => {
                                 const IconComponent = tab.icon;
                                 const isActive = homeSubTab === tab.id;
@@ -2237,11 +2198,7 @@ const Dashboard = () => {
                                     <button
                                         key={tab.id}
                                         onClick={() => {
-                                            if (tab.id === 'feed') {
-                                                navigate('/vibe-feed');
-                                            } else {
-                                                setHomeSubTab(tab.id);
-                                            }
+                                            setHomeSubTab(tab.id);
                                         }}
                                         className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-black transition-all shrink-0 cursor-pointer shadow-sm border active:scale-95 ${
                                             isActive
@@ -2418,28 +2375,79 @@ const Dashboard = () => {
                                 onFindEvents={() => setCurrentTab('events')}
                             />
 
-                            {/* Connection Partner / Co-planning Card */}
-                            <div className="bg-gradient-to-br from-[#fff7f5] to-white border border-orange-100/60 rounded-[2.5rem] p-6 shadow-[0_10px_30px_rgba(255,127,80,0.03)] flex flex-col justify-between">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <div className="w-8 h-8 rounded-xl bg-coral/10 flex items-center justify-center">
-                                            <Users className="w-4 h-4 text-coral" />
+                            {/* Sliding Events Strip */}
+                            <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-xl bg-rose/10 flex items-center justify-center">
+                                            <Sparkles className="w-4 h-4 text-rose" />
                                         </div>
-                                        <h4 className="text-xs font-black uppercase tracking-wider text-navy font-outfit">
-                                            Connection Hub
+                                        <h4 className="text-xs font-black uppercase tracking-wider text-plum font-outfit">
+                                            Trending Nearby Events
                                         </h4>
                                     </div>
-                                    <p className="text-xs font-medium text-slate-500 leading-relaxed mb-5">
-                                        Link a partner to collaborate on itineraries, vote on stops together, and share surprise plans!
-                                    </p>
+                                    <button 
+                                        onClick={() => setCurrentTab('events')} 
+                                        className="text-[10px] font-black uppercase tracking-wider text-rose hover:underline"
+                                    >
+                                        See All
+                                    </button>
                                 </div>
-                                <button 
-                                    onClick={handleLinkPartnerClick}
-                                    className="w-full py-3.5 bg-white border border-coral text-coral font-black rounded-2xl text-xs hover:bg-coral/5 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
-                                >
-                                    <span>Link Partner Invite</span>
-                                    <Plus className="w-4 h-4" />
-                                </button>
+                                
+                                <div className="flex gap-4 overflow-x-auto pb-2 disable-scrollbar snap-x snap-mandatory">
+                                    {(sidebarEvents.length > 0 ? sidebarEvents : MOCK_SIDEBAR_EVENTS).map((event, idx) => {
+                                        const title = event.name || event.title;
+                                        const locationStr = event.venueName || event.location;
+                                        const dateStr = event.date;
+                                        const imageSrc = event.image || (event.category === 'Theater' ? 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=400&q=80' : 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=400&q=80');
+                                        const priceLabel = event.price || (event.priceMin ? `$${event.priceMin}` : 'See tickets');
+                                        const targetUrl = event.url || 'https://seatgeek.com';
+                                        const catLabel = event.genre || event.category || 'Event';
+                                        
+                                        return (
+                                            <div 
+                                                key={idx} 
+                                                className="w-[200px] flex-shrink-0 bg-slate-50/50 rounded-2xl overflow-hidden border border-slate-100/80 flex flex-col justify-between snap-start hover:border-rose/30 transition-colors"
+                                            >
+                                                <div className="relative h-24 w-full">
+                                                    <img 
+                                                        src={imageSrc} 
+                                                        alt={title} 
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <span className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-[8px] font-bold text-plum px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                        {catLabel}
+                                                    </span>
+                                                </div>
+                                                <div className="p-3 flex-1 flex flex-col justify-between gap-2">
+                                                    <div>
+                                                        <h5 className="text-[11px] font-bold text-plum line-clamp-1 leading-snug">
+                                                            {title}
+                                                        </h5>
+                                                        <p className="text-[9px] text-taupe mt-0.5 flex items-center gap-1">
+                                                            <MapPin className="w-2.5 h-2.5 text-rose/70 flex-shrink-0" />
+                                                            <span className="truncate">{locationStr}</span>
+                                                        </p>
+                                                        <p className="text-[9px] text-slate-400 mt-0.5">
+                                                            {dateStr}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-100/50">
+                                                        <span className="text-[10px] font-bold text-plum">{priceLabel}</span>
+                                                        <a 
+                                                            href={targetUrl} 
+                                                            target="_blank" 
+                                                            rel="noreferrer"
+                                                            className="text-[8px] font-black text-rose uppercase tracking-widest flex items-center gap-0.5 hover:underline"
+                                                        >
+                                                            Tickets <ChevronRight className="w-2.5 h-2.5" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                         </div>
@@ -2450,73 +2458,49 @@ const Dashboard = () => {
         );
     };
 
-    const renderMyPlans = () => (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="px-4">
-                <button
-                    onClick={() => setCurrentTab('home')}
-                    className="flex items-center gap-2 text-xs font-black text-gray-400 hover:text-coral transition-colors uppercase tracking-widest mb-4 group"
-                >
-                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                    Back to Overview
-                </button>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4">
-                <div>
-                    <h2 className="text-2xl font-black text-navy tracking-tight">Your Date Schedule</h2>
-                    <p className="text-gray-500 text-sm font-medium mt-1">Manage all your generated and saved itineraries.</p>
-                </div>
-                <div className="flex items-center gap-3">
+    const renderMyPlans = () => {
+        const activePlans = plans.filter(p => !p.deleted_at);
+        return (
+            <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="px-4">
                     <button
-                        onClick={() => {
-                            setIsSelectMode(!isSelectMode);
-                            setSelectedPlanIds([]);
-                        }}
-                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${isSelectMode ? 'bg-navy text-white border-navy' : 'bg-white text-navy border-gray-200 hover:border-coral hover:text-coral'}`}
+                        onClick={() => setCurrentTab('home')}
+                        className="flex items-center gap-2 text-xs font-black text-gray-400 hover:text-coral transition-colors uppercase tracking-widest mb-4 group"
                     >
-                        {isSelectMode ? 'Cancel' : 'Select'}
+                        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                        Back to Overview
                     </button>
-                    <div className="flex bg-gray-200/40 p-1 rounded-2xl border border-gray-100">
-                        <button
-                            onClick={() => setActiveTab('all')}
-                            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'all' ? 'bg-white text-navy shadow-sm' : 'text-gray-500 hover:text-navy'}`}
-                        >
-                            All Plans
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('favorites')}
-                            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'favorites' ? 'bg-white text-coral shadow-sm' : 'text-gray-500 hover:text-navy'}`}
-                        >
-                            Favorites
-                        </button>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4">
+                    <div>
+                        <h2 className="text-2xl font-black text-navy tracking-tight">Your Date Schedule</h2>
+                        <p className="text-gray-500 text-sm font-medium mt-1">Manage all your generated and saved itineraries.</p>
                     </div>
                 </div>
-            </div>
 
-            {plans.length === 0 ? (
-                <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm max-w-lg mx-auto">
-                    <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Calendar className="w-8 h-8 text-gray-300" />
+                {activePlans.length === 0 ? (
+                    <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm max-w-lg mx-auto">
+                        <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <Calendar className="w-8 h-8 text-gray-300" />
+                        </div>
+                        <h3 className="text-xl font-bold text-navy mb-2">No plans yet</h3>
+                        <p className="text-navy/60 mb-6">Start planning your first unforgettable date tonight.</p>
+                        <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="inline-flex items-center gap-2 px-8 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-all">
+                            <Plus className="w-4 h-4" /> Create First Plan
+                        </button>
                     </div>
-                    <h3 className="text-xl font-bold text-navy mb-2">No plans yet</h3>
-                    <p className="text-navy/60 mb-6">Start planning your first unforgettable date tonight.</p>
-                    <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="inline-flex items-center gap-2 px-8 py-3 bg-navy text-white font-bold rounded-xl hover:bg-navy/90 transition-all">
-                        <Plus className="w-4 h-4" /> Create First Plan
-                    </button>
-                </div>
-            ) : (
-                <div className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-5 scrollbar-hide pb-4 px-4 md:px-0">
-                    {(activeTab === 'favorites' ? plans.filter(p => p.is_favorite) : plans.filter(p => !p.is_favorite))
-                        .filter(p => !p.deleted_at)
-                        .map((plan, idx) => (
-                            <div key={plan.id} className="flex-shrink-0 w-[80vw] sm:w-[325px] snap-center">
+                ) : (
+                    <div className="flex gap-6 overflow-x-auto pb-4 disable-scrollbar snap-x snap-mandatory px-4">
+                        {activePlans.map((plan, idx) => (
+                            <div key={plan.id} className="flex-shrink-0 w-[85vw] sm:w-[325px] snap-start">
                                 {renderPlanCard(plan, idx, false, true)}
                             </div>
                         ))}
-                </div>
-            )}
-        </div>
-    );
+                    </div>
+                )}
+            </div>
+        );
+    };
 
 
 
@@ -2760,7 +2744,7 @@ const Dashboard = () => {
         return (
             <div className="max-w-2xl mx-auto pb-20 px-4 animate-in fade-in duration-500">
                 {/* Header matching requested style */}
-                <div className="flex items-center justify-between mb-12 pt-4">
+                <div className="flex items-center justify-between mb-8 pt-4">
                     <h2 className="text-3xl font-black text-navy tracking-tight">Settings</h2>
                     <button
                         onClick={() => setCurrentTab('home')}
@@ -2770,21 +2754,48 @@ const Dashboard = () => {
                     </button>
                 </div>
 
-                {/* Simplified Menu List */}
-                <div className="space-y-2 mb-12">
+                {/* User Info Card */}
+                <div className="bg-gradient-to-br from-[#fffcfb] to-white border border-orange-100/60 rounded-[2rem] p-6 shadow-[0_10px_35px_rgba(255,127,80,0.03)] flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
+                    <div className="flex items-center gap-4">
+                        {user?.user_metadata?.avatar_url ? (
+                            <img src={user.user_metadata.avatar_url} className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md" alt="Avatar" />
+                        ) : (
+                            <div className="w-16 h-16 rounded-2xl bg-navy text-white flex items-center justify-center text-xl font-black shadow-md">
+                                {profileData.first_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                            </div>
+                        )}
+                        <div>
+                            <h3 className="text-lg font-black text-navy">{profileData.first_name ? `${profileData.first_name} ${profileData.last_name}` : 'DateSpark Explorer'}</h3>
+                            <p className="text-gray-400 font-bold text-xs">{user?.email}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isPremium ? 'bg-navy text-white shadow-md' : 'bg-slate-100 text-slate-500'}`}>
+                            {isPremium ? '💎 Premium Plus' : '⚡ Free Plan'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Grid Menu List */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
                     {[
-                        { id: 'personal', label: 'Profile', icon: User },
-                        { id: 'billing', label: 'Subscription', icon: CreditCard },
-                        { id: 'preferences', label: 'Preferences', icon: Bell },
-                        { id: 'trash', label: 'Trash Bin', icon: Trash2 }
+                        { id: 'personal', label: 'Personal Info', desc: 'Update profile details & name', icon: User, color: 'text-coral bg-coral/10' },
+                        { id: 'billing', label: 'Subscription', desc: 'Manage plans & Stripe billing', icon: CreditCard, color: 'text-violet-600 bg-violet-50' },
+                        { id: 'preferences', label: 'App Theme', desc: 'Choose light, dark or warm theme', icon: Bell, color: 'text-amber-500 bg-amber-50' },
+                        { id: 'trash', label: 'Recycle Bin', desc: 'Recover deleted plans', icon: Trash2, color: 'text-emerald-500 bg-emerald-50' }
                     ].map((item) => (
                         <button
                             key={item.id}
                             onClick={() => setAccountSubView(item.id)}
-                            className="w-full flex items-center gap-6 p-5 hover:bg-gray-50 rounded-3xl transition-all group"
+                            className="bg-white hover:bg-gray-50 border border-gray-100 rounded-3xl p-6 text-left transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-98 flex items-start gap-4 cursor-pointer"
                         >
-                            <item.icon className="w-6 h-6 text-gray-300 group-hover:text-navy transition-colors" />
-                            <span className="text-lg font-black text-gray-500 group-hover:text-navy transition-colors">{item.label}</span>
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${item.color}`}>
+                                <item.icon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-navy text-sm">{item.label}</h4>
+                                <p className="text-gray-400 text-xs mt-1 leading-tight font-medium">{item.desc}</p>
+                            </div>
                         </button>
                     ))}
                 </div>
@@ -3170,65 +3181,40 @@ const Dashboard = () => {
     };
 
 
-    const renderFavorites = () => (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4">
-                <div>
-                    <h2 className={`text-2xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'
-                        }`}>Your Favorites ✨</h2>
-                    <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>Your hand-picked itineraries for perfect dates.</p>
-                </div>
-            </div>
-
-            {plans.filter(p => !p.deleted_at && p.is_favorite).length === 0 ? (
-                <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm max-w-lg mx-auto">
-                    <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Heart className="w-8 h-8 text-gray-300" />
+    const renderFavorites = () => {
+        const favPlans = plans.filter(p => !p.deleted_at && p.is_favorite);
+        return (
+            <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4">
+                    <div>
+                        <h2 className={`text-2xl font-black tracking-tight ${appTheme === 'dark' ? 'text-white' : 'text-navy'}`}>Your Favorites ✨</h2>
+                        <p className={`${appTheme === 'dark' ? 'text-white/40' : 'text-navy/60'} text-sm font-medium mt-1`}>Your hand-picked itineraries for perfect dates.</p>
                     </div>
-                    <h3 className="text-xl font-bold text-navy mb-2">No favorites yet!</h3>
-                    <p className="text-gray-400 mb-6 font-medium">Love a date? Tap the heart icon on any plan card to save it here for quick access.</p>
-                    <button onClick={() => setCurrentTab('home')} className="px-8 py-3 bg-navy text-white font-black rounded-xl hover:bg-navy/90 transition-all">
-                        Discover New Dates
-                    </button>
                 </div>
-            ) : (
-                (() => {
-                    const favPlans = plans.filter(p => !p.deleted_at && p.is_favorite);
-                    // Group by Month
-                    const grouped = favPlans.reduce((acc, plan) => {
-                        const date = new Date(plan.created_at);
-                        const key = date.toLocaleString('default', { month: 'long', year: 'numeric' });
-                        if (!acc[key]) acc[key] = [];
-                        acc[key].push(plan);
-                        return acc;
-                    }, {});
-                    return (
-                        <div className="space-y-8 px-4">
-                            {Object.entries(grouped).map(([month, monthPlans]) => (
-                                <div key={month}>
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${appTheme === 'dark' ? 'text-white/30' : 'text-gray-300'
-                                            }`}>{month}</span>
-                                        <div className={`flex-1 h-px ${appTheme === 'dark' ? 'bg-white/10' : 'bg-gray-100'
-                                            }`} />
-                                        <span className={`text-[10px] font-bold ${appTheme === 'dark' ? 'text-white/20' : 'text-gray-300'
-                                            }`}>{monthPlans.length} plan{monthPlans.length !== 1 ? 's' : ''}</span>
-                                    </div>
-                                    <div className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-6 scrollbar-hide pb-2 md:pb-0 px-1">
-                                        {monthPlans.map((plan, idx) => (
-                                            <div key={plan.id} className="flex-shrink-0 w-[85vw] sm:w-[400px] snap-center">
-                                                {renderPlanCard(plan, idx, false)}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
+
+                {favPlans.length === 0 ? (
+                    <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm max-w-lg mx-auto">
+                        <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <Heart className="w-8 h-8 text-gray-300" />
                         </div>
-                    );
-                })()
-            )}
-        </div>
-    );
+                        <h3 className="text-xl font-bold text-navy mb-2">No favorites yet!</h3>
+                        <p className="text-gray-400 mb-6 font-medium">Love a date? Tap the heart icon on any plan card to save it here for quick access.</p>
+                        <button onClick={() => setHomeSubTab('overview')} className="px-8 py-3 bg-navy text-white font-black rounded-xl hover:bg-navy/90 transition-all">
+                            Discover New Dates
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex gap-6 overflow-x-auto pb-4 disable-scrollbar snap-x snap-mandatory px-4">
+                        {favPlans.map((plan, idx) => (
+                            <div key={plan.id} className="flex-shrink-0 w-[85vw] sm:w-[325px] snap-start">
+                                {renderPlanCard(plan, idx, false)}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const renderCollaboration = () => {
         return (
@@ -3511,61 +3497,7 @@ const Dashboard = () => {
                             {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Events</span>}
                         </button>
 
-                        {/* Challenges */}
-                        <button
-                            onClick={() => { setCurrentTab('challenges'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'challenges'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Flame className={`w-5 h-5 shrink-0 ${currentTab === 'challenges' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Challenges</span>}
-                        </button>
 
-                        {/* Co-planning */}
-                        <button
-                            onClick={() => { setCurrentTab('collaboration'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all ${currentTab === 'collaboration'
-                                    ? 'bg-coral/5 text-coral'
-                                    : 'text-slate-500 hover:bg-gray-50 hover:text-navy'
-                                } ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Users className={`w-5 h-5 shrink-0 ${currentTab === 'collaboration' ? 'text-coral' : 'text-slate-400'}`} />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Co-planning</span>}
-                        </button>
-
-                        {/* Gift Cards */}
-                        <button
-                            onClick={() => { navigate('/gift'); if (window.innerWidth < 768) setIsSidebarCollapsed(true); }}
-                            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold transition-all text-slate-500 hover:bg-gray-50 hover:text-navy ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <Gift className="w-5 h-5 shrink-0 text-slate-400" />
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Gift Cards</span>}
-                        </button>
-
-                        {/* Exclusive Deals */}
-                        <button
-                            onClick={() => {
-                                if (isPremium) {
-                                    setToastMessage('Deals section coming soon! 🏷️');
-                                } else {
-                                    setLimitType('swaps');
-                                    setShowUpgradeModal(true);
-                                }
-                            }}
-                            className={`flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all text-slate-500 hover:bg-gray-50 hover:text-navy ${isSidebarCollapsed ? 'md:justify-center' : ''}`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <Tag className="w-5 h-5 shrink-0 text-slate-400 hover:text-coral" />
-                                {(!isSidebarCollapsed || window.innerWidth < 768) && <span className="text-sm font-outfit">Exclusive Deals</span>}
-                            </div>
-                            {(!isSidebarCollapsed || window.innerWidth < 768) && (
-                                <span className="px-1.5 py-0.5 bg-coral/10 text-coral text-[9px] font-black rounded-md flex-shrink-0 animate-pulse">
-                                    Soon
-                                </span>
-                            )}
-                        </button>
 
                         {/* Profile & Settings embedded */}
                         <button
@@ -3730,44 +3662,6 @@ const Dashboard = () => {
 
                                     {/* Right: Actions + Close */}
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        {/* Desktop Only Actions */}
-                                        <div className="hidden sm:flex items-center gap-2">
-                                            {selectedPlan.user_id === user?.id && (!collabStatus || collabStatus.status !== 'accepted') && (
-                                                <button
-                                                    onClick={() => setShowCollabModal(true)}
-                                                    className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all text-[11px] font-black font-inter shadow-md animate-pulse"
-                                                >
-                                                    <Users className="w-3.5 h-3.5" />
-                                                    <span>Plan with Partner</span>
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => handleForkPlan(selectedPlan)}
-                                                className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all text-[11px] font-black group shadow-lg shadow-violet-500/20 font-inter"
-                                            >
-                                                <Sparkles className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
-                                                <span>Steal & Customize</span>
-                                            </button>
-                                            <button
-                                                onClick={() => handleRecreatePlan(selectedPlan.id)}
-                                                className="flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-xl transition-all text-[11px] font-black group font-inter text-indigo-600"
-                                            >
-                                                <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform`} />
-                                                <span>Recreate</span>
-                                            </button>
-                                        </div>
-
-                                        {/* Mobile/Compact Actions */}
-                                        {selectedPlan.user_id === user?.id && (!collabStatus || collabStatus.status !== 'accepted') && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowCollabModal(true)}
-                                                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-violet-600 hover:bg-violet-700 border border-violet-500/30 rounded-xl transition-all text-[10px] font-black font-inter text-white min-h-[44px] shadow-sm"
-                                            >
-                                                <Users className="w-3.5 h-3.5" />
-                                                <span>Invite</span>
-                                            </button>
-                                        )}
                                         <button
                                             type="button"
                                             onClick={handleShare}
@@ -3776,7 +3670,7 @@ const Dashboard = () => {
                                             <Share2 className="w-3.5 h-3.5 text-white group-hover:scale-110 transition-transform" />
                                             <span>Share with your Date</span>
                                         </button>
-
+ 
                                         {/* Close Button — Primary target on mobile */}
                                         <button
                                             onClick={() => {
@@ -3789,22 +3683,6 @@ const Dashboard = () => {
                                             <X className="w-5 h-5" />
                                         </button>
                                     </div>
-                                </div>
-
-                                {/* Mobile Secondary Action Row — Hidden on desktop */}
-                                <div className="sm:hidden bg-[#0f172a]/95 backdrop-blur-xl px-3 py-2 flex items-center gap-2 border-b border-white/5">
-                                    <button
-                                        onClick={() => handleForkPlan(selectedPlan)}
-                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-violet-600/20 border border-violet-500/30 text-violet-400 rounded-xl text-[10px] font-black uppercase tracking-wider"
-                                    >
-                                        <Sparkles className="w-3.5 h-3.5" /> Steal & Edit
-                                    </button>
-                                    <button
-                                        onClick={() => handleRecreatePlan(selectedPlan.id)}
-                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/5 border border-white/10 text-white/70 rounded-xl text-[10px] font-black uppercase tracking-wider"
-                                    >
-                                        <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} /> Variations
-                                    </button>
                                 </div>
 
                                 <p className="px-3 py-2.5 text-[10px] sm:text-[11px] text-white/80 font-medium bg-[#0c1222] border-b border-white/10 leading-snug">
@@ -3838,7 +3716,7 @@ const Dashboard = () => {
                                     </div>
                                 ) : (
                                     <div className="p-6 sm:p-8 pt-10 bg-white md:bg-white rounded-t-[2.5rem] md:rounded-none shadow-sm md:shadow-none relative mt-[-1.5rem] min-h-screen">
-                                        <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-10 pb-8">
+                                        <div className="relative border-l-2 border-dashed border-gray-200 ml-4 space-y-6 pb-4">
                                             {(Array.isArray(selectedPlan.itinerary)
                                             ? selectedPlan.itinerary
                                             : (selectedPlan.itinerary?.steps || selectedPlan.itinerary?.itinerary || selectedPlan.itinerary?.schedule || [])
@@ -3846,7 +3724,7 @@ const Dashboard = () => {
                                             // Gating Rule: If it's a preview plan, free users only see 2 stops (idx 0, 1). 3rd stop (idx 2) is locked.
                                             const isPreview = selectedPlan.itinerary?.metadata?.isPreviewPlan || selectedPlan.is_preview || false;
                                             const isLockedStep = !isPremium && isPreview && idx >= 2;
-
+ 
                                             // Assign specific colors for styling dots
                                             const dotColors = ['bg-coral', 'bg-yellow-400', 'bg-navy', 'bg-emerald-500', 'bg-purple-500'];
                                             const textColor = ['text-coral', 'text-yellow-500', 'text-navy', 'text-emerald-600', 'text-purple-600'];
@@ -3863,10 +3741,10 @@ const Dashboard = () => {
                                                     }}
                                                 >
                                                     {/* Absolute Time on the far left of the Line setup */}
-                                                    <div className="absolute -left-14 top-2 text-[11px] font-black text-gray-400 text-right w-10 font-inter">
+                                                    <div className="absolute -left-14 top-2 text-[10px] font-black text-gray-400 text-right w-10 font-inter">
                                                         {step.time}
                                                     </div>
-
+ 
                                                     <button
                                                         type="button"
                                                         disabled={isLockedStep}
@@ -3887,66 +3765,66 @@ const Dashboard = () => {
                                                             <div className={`w-1.5 h-1.5 rounded-full ${dotColors[colorIdx]}`} />
                                                         )}
                                                     </button>
-
-                                                    <div className={`bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 flex flex-col gap-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-coral/20 ${isLockedStep ? 'blur-[10px] select-none opacity-40 pointer-events-none' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
-                                                        <div className="flex items-start gap-4">
+ 
+                                                    <div className={`bg-white border border-gray-100 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-coral/20 ${isLockedStep ? 'blur-[10px] select-none opacity-40 pointer-events-none' : ''} ${completedSteps.includes(idx) ? 'opacity-40' : ''}`}>
+                                                        <div className="flex items-start gap-3">
                                                             {/* Category Icon */}
-                                                            <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-50 border border-gray-100 shadow-sm">
+                                                            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-50 border border-gray-100 shadow-sm">
                                                                 {idx === 0 || step.activity?.toLowerCase().includes('dinner') || step.activity?.toLowerCase().includes('drinks') ? (
-                                                                    <Utensils className="w-5 h-5 text-[#FF7F50]" />
+                                                                    <Utensils className="w-4 h-4 text-[#FF7F50]" />
                                                                 ) : idx === 1 || step.activity?.toLowerCase().includes('walk') || step.activity?.toLowerCase().includes('stroll') ? (
-                                                                    <Compass className="w-5 h-5 text-amber-500" />
+                                                                    <Compass className="w-4 h-4 text-amber-500" />
                                                                 ) : (
-                                                                    <Ticket className="w-5 h-5 text-navy" />
+                                                                    <Ticket className="w-4 h-4 text-navy" />
                                                                 )}
                                                             </div>
-
+ 
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex items-start justify-between gap-4 mb-1">
                                                                     <div>
-                                                                        <h4 className="text-lg font-black font-inter text-navy leading-tight">{step.venue}</h4>
-                                                                        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#FF7F50] font-inter">
+                                                                        <h4 className="text-sm font-black font-inter text-navy leading-tight">{step.venue}</h4>
+                                                                        <p className="text-[9px] font-black uppercase tracking-[0.1em] text-[#FF7F50] font-inter">
                                                                             {step.activity}
                                                                         </p>
                                                                     </div>
-                                                                    <div className="flex flex-col items-end gap-1.5">
-                                                                        <span className="text-[11px] font-black text-gray-300 tracking-tighter font-inter">{step.time}</span>
-                                                                        <div className="flex items-center gap-1.5 bg-[#FFF9E5] px-2.5 py-1 rounded-lg border border-[#F5E1A4] shadow-sm">
-                                                                            <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />
-                                                                            <span className="text-[11px] font-black text-[#846404] font-inter flex items-center gap-1">
+                                                                    <div className="flex flex-col items-end gap-1">
+                                                                        <span className="text-[10px] font-black text-gray-300 tracking-tighter font-inter">{step.time}</span>
+                                                                        <div className="flex items-center gap-1 bg-[#FFF9E5] px-2 py-0.5 rounded-lg border border-[#F5E1A4] shadow-sm">
+                                                                            <Star className="w-2.5 h-2.5 fill-[#FFD700] text-[#FFD700]" />
+                                                                            <span className="text-[10px] font-black text-[#846404] font-inter flex items-center gap-1">
                                                                                 {step.rating ? parseFloat(step.rating).toFixed(1) : '4.7'}
-                                                                                <span className="text-[10px] opacity-40 font-bold">
+                                                                                <span className="text-[9px] opacity-40 font-bold">
                                                                                     ({step.userRatingCount > 999 ? (step.userRatingCount / 1000).toFixed(1) + 'k' : step.userRatingCount || '150'}+)
                                                                                 </span>
                                                                             </span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
-
+ 
                                                                 {step.sub_headline && (
-                                                                    <p className="text-[12px] font-black text-[#FF7F50] leading-tight mb-2 font-inter">
+                                                                    <p className="text-[10px] font-black text-[#FF7F50] leading-tight mb-1 font-inter">
                                                                         "{step.sub_headline}"
                                                                     </p>
                                                                 )}
                                                             </div>
                                                         </div>
-
+ 
                                                         {/* Vibe Tags */}
-                                                        <div className="flex flex-wrap gap-1.5 mb-2 mt-1">
-                                                            <span className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-[10px] font-bold border border-gray-100 uppercase tracking-widest">Good for talking</span>
-                                                            <span className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-[10px] font-bold border border-gray-100 uppercase tracking-widest">Great Atmosphere</span>
+                                                        <div className="flex flex-wrap gap-1 mb-1 mt-0.5">
+                                                            <span className="px-1.5 py-0.5 bg-gray-50 text-gray-500 rounded text-[9px] font-bold border border-gray-100 uppercase tracking-widest">Good for talking</span>
+                                                            <span className="px-1.5 py-0.5 bg-gray-50 text-gray-500 rounded text-[9px] font-bold border border-gray-100 uppercase tracking-widest">Great Atmosphere</span>
                                                         </div>
-
-                                                        <p className="text-[13px] text-gray-600 font-medium leading-relaxed border-t border-gray-50 pt-3">
+ 
+                                                        <p className="text-[11.5px] text-gray-600 font-medium leading-relaxed border-t border-gray-50 pt-2">
                                                             {step.description}
                                                         </p>
-
+ 
                                                         {getProxiedPhoto(step.photoUrl) && (
                                                             <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm mt-1 relative bg-gray-50">
                                                                 <img
                                                                     src={getProxiedPhoto(step.photoUrl)}
                                                                     alt={step.venue}
-                                                                    className="w-full h-48 sm:h-56 object-cover hover:scale-105 transition-transform duration-700"
+                                                                    className="w-full h-32 sm:h-36 object-cover hover:scale-105 transition-transform duration-700"
                                                                     loading="lazy"
                                                                     onError={(e) => {
                                                                         e.target.style.display = 'none'; // Hide broken image

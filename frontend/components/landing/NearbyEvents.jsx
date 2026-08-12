@@ -10,18 +10,11 @@ const QUICK_CITIES = ['New York', 'Los Angeles', 'Chicago', 'Miami', 'San Franci
 
 const CATEGORIES = [
     { id: 'all',       label: 'All Events', emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
-    { id: 'family',    label: 'Family',     emoji: '👨‍👩‍👧', color: 'from-sky-500 to-blue-600' },
-    { id: 'community', label: 'Groups',     emoji: '🤝', color: 'from-orange-400 to-red-500' },
     { id: 'music',     label: 'Music',      emoji: '🎵', color: 'from-pink-500 to-rose-600' },
     { id: 'sports',    label: 'Sports',     emoji: '🏆', color: 'from-orange-500 to-amber-600' },
     { id: 'theater',   label: 'Theater',    emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
     { id: 'comedy',    label: 'Comedy',     emoji: '😂', color: 'from-yellow-500 to-orange-500' },
-    { id: 'activities', label: 'Activities', emoji: '🎮', color: 'from-violet-500 to-purple-600' },
-    { id: 'outdoors',  label: 'Outdoors',   emoji: '🌳', color: 'from-emerald-500 to-green-600' },
     { id: 'food',      label: 'Food & Drink', emoji: '🍷', color: 'from-red-500 to-rose-500' },
-    { id: 'festivals', label: 'Festivals',  emoji: '🎪', color: 'from-amber-500 to-red-500' },
-    { id: 'classes',   label: 'Classes',    emoji: '🎨', color: 'from-indigo-500 to-purple-600' },
-    { id: 'tech',      label: 'Tech',       emoji: '💻', color: 'from-cyan-500 to-blue-500' },
 ];
 
 const CATEGORY_FALLBACK_IMAGES = {
@@ -285,9 +278,11 @@ const mixAndDeduplicateEvents = (rawEvents, count = 8) => {
     return selected;
 };
 
-const NearbyEvents = () => {
+const NearbyEvents = ({ selectedCity: propCity, setSelectedCity: propSetCity, userCoords, searchRadius }) => {
     const navigate = useNavigate();
-    const [city, setCity] = useState('New York');
+    const [localCity, setLocalCity] = useState('New York');
+    const city = propCity || localCity;
+    const setCity = propSetCity || setLocalCity;
     const [cityInput, setCityInput] = useState('New York');
     const [category, setCategory] = useState('all');
     const [events, setEvents] = useState([]);
@@ -428,13 +423,13 @@ const NearbyEvents = () => {
 
                 {/* Events Grid */}
                 {isLoading ? (
-                    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory scrollbar-hide">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                         {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl h-[280px] sm:h-[320px] md:h-[360px] animate-pulse shadow-sm w-[210px] sm:w-[260px] md:w-auto flex-shrink-0 snap-start" />
+                            <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl h-[240px] sm:h-[280px] md:h-[320px] animate-pulse shadow-sm w-full" />
                         ))}
                     </div>
                 ) : (
-                    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory scrollbar-hide">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                         {events.map((evt) => {
                             const color = segmentColor(evt.segment);
                             return (
@@ -444,10 +439,10 @@ const NearbyEvents = () => {
                                     whileInView={{ opacity: 1, scale: 1 }}
                                     viewport={{ once: true }}
                                     onClick={handleEventClick}
-                                    className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group w-[210px] sm:w-[260px] md:w-auto flex-shrink-0 snap-start"
+                                    className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group w-full"
                                 >
                                     {/* Image */}
-                                    <div className="relative h-32 sm:h-40 md:h-44 overflow-hidden bg-black/10 flex items-center justify-center">
+                                    <div className="relative h-24 sm:h-32 md:h-36 overflow-hidden bg-black/10 flex items-center justify-center">
                                         {(() => {
                                             const imgUrl = getEventImage(evt);
                                             const isGstatic = imgUrl.includes('gstatic.com') || imgUrl.includes('googleusercontent.com');
@@ -485,44 +480,44 @@ const NearbyEvents = () => {
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                                         
                                         {/* Category Badge */}
-                                        <div className={`absolute top-3 left-3 bg-gradient-to-r ${color} text-white text-[7px] sm:text-[8px] font-black px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md uppercase tracking-wider shadow-sm`}>
+                                        <div className={`absolute top-2 left-2 bg-gradient-to-r ${color} text-white text-[6px] sm:text-[8px] font-black px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md uppercase tracking-wider shadow-sm`}>
                                             {evt.genre || evt.segment}
                                         </div>
  
                                         {/* Source Badge */}
-                                        <div className="absolute top-3 right-3 bg-black/45 backdrop-blur-md text-white/90 text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 shadow-sm">
-                                            {evt.source === 'SeatGeek' ? 'SeatGeek' : evt.source === 'Local' ? 'Google Events' : 'Ticketmaster'}
+                                        <div className="absolute top-2 right-2 bg-black/45 backdrop-blur-md text-white/90 text-[6px] sm:text-[8px] font-black px-1 sm:px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 shadow-sm">
+                                            {evt.source === 'SeatGeek' ? 'SeatGeek' : evt.source === 'Local' ? 'Google' : 'TM'}
                                         </div>
                                     </div>
  
                                     {/* Content */}
-                                    <div className="p-3.5 sm:p-4.5 md:p-5 flex-1 flex flex-col justify-between">
-                                        <div className="space-y-1.5 sm:space-y-2.5 mb-2.5 sm:mb-4">
-                                            <h4 className="font-black text-xs sm:text-sm text-navy leading-tight line-clamp-2 group-hover:text-coral transition-colors">
+                                    <div className="p-2 sm:p-3 flex-1 flex flex-col justify-between">
+                                        <div className="space-y-1 sm:space-y-2 mb-2">
+                                            <h4 className="font-black text-[11px] sm:text-xs md:text-sm text-navy leading-tight line-clamp-2 group-hover:text-coral transition-colors">
                                                 {evt.name}
                                             </h4>
                                             
                                             {evt.venueName && (
-                                                <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-gray-500 font-bold">
-                                                    <MapPin className="w-3 h-3 text-coral flex-shrink-0" />
+                                                <div className="flex items-center gap-1 text-[9px] sm:text-xs text-gray-500 font-bold">
+                                                    <MapPin className="w-2.5 h-2.5 text-coral flex-shrink-0" />
                                                     <span className="truncate">{evt.venueName}</span>
                                                 </div>
                                             )}
  
-                                            <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-gray-400 font-medium">
-                                                <Calendar className="w-3 h-3 flex-shrink-0" />
+                                            <div className="flex items-center gap-1 text-[9px] sm:text-xs text-gray-400 font-medium">
+                                                <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
                                                 <span>{formatDate(evt.date, evt.time)}</span>
                                             </div>
                                         </div>
  
-                                        <div className="space-y-2 sm:space-y-3 pt-2 border-t border-gray-50">
-                                            <div className="flex items-center justify-between text-[10px] sm:text-xs">
+                                        <div className="space-y-1.5 sm:space-y-2 pt-1.5 border-t border-gray-50">
+                                            <div className="flex items-center justify-between text-[9px] sm:text-xs">
                                                 <span className="font-bold text-gray-400">Price Range</span>
                                                 <span className="font-black text-navy">{formatPrice(evt.priceMin, evt.priceMax, evt.currency)}</span>
                                             </div>
                                             
-                                            <button className="w-full py-2 sm:py-2.5 md:py-3 bg-gray-50 text-navy border border-gray-100 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-all flex items-center justify-center gap-1.5 sm:gap-2">
-                                                Get Tickets <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                            <button className="w-full py-1.5 sm:py-2 bg-gray-50 text-navy border border-gray-100 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-all flex items-center justify-center gap-1">
+                                                Tickets <ExternalLink className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
                                             </button>
                                         </div>
                                     </div>

@@ -406,6 +406,7 @@ const GeneratePlan = () => {
     });
 
     const [locationLoading, setLocationLoading] = useState(false);
+    const [showLocationPrompt, setShowLocationPrompt] = useState(false);
 
     const handlePreciseLocation = () => {
         if (!navigator.geolocation) {
@@ -423,6 +424,11 @@ const GeneratePlan = () => {
             return;
         }
 
+        setShowLocationPrompt(true);
+    };
+
+    const triggerPreciseLocation = () => {
+        setShowLocationPrompt(false);
         setLocationLoading(true);
         setError(null);
 
@@ -1208,6 +1214,41 @@ const GeneratePlan = () => {
                 onUpgrade={(type) => handleBuyPass(type || 'ELITE')}
                 limitType={limitType}
             />
+
+            {showLocationPrompt && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-navy/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="w-full max-w-md bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-2xl animate-in zoom-in-95 duration-300 relative overflow-hidden">
+                        <div className="absolute -right-12 -top-12 w-32 h-32 bg-coral/10 rounded-full blur-2xl" />
+                        <div className="absolute -left-12 -bottom-12 w-32 h-32 bg-[#4361ee]/5 rounded-full blur-2xl" />
+                        
+                        <div className="relative z-10 text-center font-outfit">
+                            <div className="w-14 h-14 bg-gradient-to-br from-coral to-orange-400 rounded-2xl mx-auto mb-5 flex items-center justify-center shadow-lg shadow-coral/30">
+                                <MapPin className="w-7 h-7 text-white" />
+                            </div>
+                            
+                            <h3 className="text-2xl font-black text-navy mb-2 tracking-tight">Allow Precise Location?</h3>
+                            <p className="text-xs text-gray-500 leading-relaxed mb-6 font-medium">
+                                DateSpark needs your location coordinates to find the best local hotspots, trending performances, and events happening nearby.
+                            </p>
+                            
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={triggerPreciseLocation}
+                                    className="w-full py-3.5 bg-coral text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-md shadow-coral/25 hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
+                                >
+                                    Yes, Allow GPS Access
+                                </button>
+                                <button
+                                    onClick={() => setShowLocationPrompt(false)}
+                                    className="w-full py-3.5 bg-gray-50 text-navy text-xs font-black uppercase tracking-wider rounded-2xl border border-gray-150 hover:bg-gray-100 active:scale-[0.98] transition-all cursor-pointer"
+                                >
+                                    No, Search Manually
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

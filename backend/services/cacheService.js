@@ -35,6 +35,35 @@ try {
     console.error('[CacheService] Failed to load local file cache:', err.message);
 }
 
+export const normalizeQueryKey = (str) => {
+    if (!str) return '';
+    let target = str;
+    if (typeof str === 'object') {
+        target = str.textQuery || JSON.stringify(str);
+    }
+    const clean = String(target)
+        .toLowerCase()
+        .replace(/^places_search_/, '')
+        .replace(/\{|\}|"|'/g, '')
+        .replace(/[^\w\s]/gi, '')
+        .replace(/\s+/g, '_')
+        .trim();
+    return `places_search_${clean}`;
+};
+
+export const normalizePlaceId = (placeId) => {
+    if (!placeId) return null;
+    const cleanId = String(placeId).replace(/^places\//, '').trim();
+    return `place_id_${cleanId}`;
+};
+
+export const normalizeVenueKey = (venueName, city) => {
+    if (!venueName) return null;
+    const cleanName = String(venueName).toLowerCase().replace(/[^\w]/gi, '');
+    const cleanCity = String(city || '').toLowerCase().replace(/[^\w]/gi, '');
+    return `venue_${cleanName}_${cleanCity}`;
+};
+
 export const initCacheService = async (config) => {
     supabaseAdmin = config.supabaseAdmin;
     if (supabaseAdmin) {
@@ -64,62 +93,78 @@ export const initCacheService = async (config) => {
 
 export const getCachedPlace = async (queryKey) => {
     if (!queryKey) return null;
-    
-    // 1. Check in-memory cache
-    const memVal = memoryCache.get(queryKey);
-    if (memVal) {
-        return memVal;
+
+    const normalizedKey = normalizeQueryKey(queryKey);
+    const keysToTry = [normalizedKey];
+    if (typeof queryKey === 'string' && queryKey !== normalizedKey) {
+        keysToTry.push(queryKey);
     }
 
-    // 2. Check Supabase cache if enabled
-    if (supabaseCacheEnabled && supabaseAdmin) {
-        try {
-            const { data, error } = await supabaseAdmin
-                .from('google_places_cache')
-                .select('result')
-                .eq('query', queryKey)
-                .maybeSingle();
-
-            if (!error && data && data.result) {
-                memoryCache.set(queryKey, data.result);
-                return data.result;
-            }
-        } catch (err) {
-            console.error(`[CacheService] Error reading from Supabase cache:`, err.message);
+    for (const key of keysToTry) {
+        // 1. Check in-memory cache
+        const memVal = memoryCache.get(key);
+        if (memVal) {
+            return memVal;
         }
-    } else {
-        // Check local file cache if Supabase not enabled
-        if (localFileCache[queryKey]) {
-            memoryCache.set(queryKey, localFileCache[queryKey]);
-            return localFileCache[queryKey];
+
+        // 2. Check Supabase cache if enabled
+        if (supabaseCacheEnabled && supabaseAdmin) {
+            try {
+                const { data, error } = await supabaseAdmin
+                    .from('google_places_cache')
+                    .select('result')
+                    .eq('query', key)
+                    .maybeSingle();
+
+                if (!error && data && data.result) {
+                    memoryCache.set(key, data.result);
+                    return data.result;
+                }
+            } catch (err) {
+                console.error(`[CacheService] Error reading from Supabase cache for key "${key}":`, err.message);
+            }
+        } else {
+            // Check local file cache if Supabase not enabled
+            if (localFileCache[key]) {
+                memoryCache.set(key, localFileCache[key]);
+                return localFileCache[key];
+            }
         }
     }
 
     return null;
 };
 
-export const setCachedPlace = async (queryKey, result) => {
+export const setCachedPlace = async (queryKey, result, extraKeys = []) => {
     if (!queryKey || !result) return;
 
-    // 1. Save to memory cache
-    memoryCache.set(queryKey, result);
+    const primaryKey = normalizeQueryKey(queryKey);
+    const allKeys = Array.from(new Set([primaryKey, ...extraKeys.filter(Boolean)]));
 
-    // 2. Save to Supabase cache if enabled
-    if (supabaseCacheEnabled && supabaseAdmin) {
-        try {
-            const { error } = await supabaseAdmin
-                .from('google_places_cache')
-                .upsert({ query: queryKey, result: result, created_at: new Date().toISOString() });
-            
-            if (error) {
-                console.error('[CacheService] Supabase upsert error:', error.message);
+    for (const key of allKeys) {
+        // 1. Save to memory cache
+        memoryCache.set(key, result);
+
+        // 2. Save to Supabase cache if enabled
+        if (supabaseCacheEnabled && supabaseAdmin) {
+            try {
+                const { error } = await supabaseAdmin
+                    .from('google_places_cache')
+                    .upsert({ query: key, result: result, created_at: new Date().toISOString() });
+                
+                if (error) {
+                    console.error(`[CacheService] Supabase upsert error for key "${key}":`, error.message);
+                }
+            } catch (err) {
+                console.error(`[CacheService] Error writing to Supabase cache for key "${key}":`, err.message);
             }
-        } catch (err) {
-            console.error('[CacheService] Error writing to Supabase cache:', err.message);
+        } else {
+            // Save to local file cache
+            localFileCache[key] = result;
         }
-    } else {
-        // Save to local file cache
-        localFileCache[queryKey] = result;
+    }
+
+    if (!supabaseCacheEnabled) {
         try {
             fs.writeFileSync(FILE_CACHE_PATH, JSON.stringify(localFileCache, null, 2), 'utf8');
         } catch (err) {

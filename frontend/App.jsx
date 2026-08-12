@@ -56,8 +56,8 @@ function App() {
           <Route path="/refund" element={<RefundPolicy />} />
           <Route path="/cookies" element={<CookiePolicy />} />
           <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/gift" element={<GiftCardPage />} />
-          <Route path="/collab/accept" element={<CollabAcceptPage />} />
+          {/* <Route path="/gift" element={<GiftCardPage />} /> */}
+          {/* <Route path="/collab/accept" element={<CollabAcceptPage />} /> */}
 
 
           {/* Protected Routes */}
@@ -66,16 +66,12 @@ function App() {
               <Dashboard />
             </ProtectedRoute>
           } />
-          <Route path="/onboarding" element={
-            <ProtectedRoute>
-              <VibeOnboarding />
-            </ProtectedRoute>
-          } />
-          <Route path="/vibe-feed" element={
+          <Route path="/onboarding" element={<Navigate to="/dashboard" replace />} />
+          {/* <Route path="/vibe-feed" element={
             <ProtectedRoute>
               <VibeFeed />
             </ProtectedRoute>
-          } />
+          } /> */}
 
           <Route path="/generate" element={
             <ProtectedRoute>

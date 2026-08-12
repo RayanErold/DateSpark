@@ -57,6 +57,70 @@ Production-ready **Stripe** integration for:
 
 DateSpark uses a decoupled microservices architecture to manage heavy AI reasoning and fast UI delivery efficiently.
 
+### 🗺️ System Design & End-to-End Communication
+
+The diagram below details how DateSpark's frontend, API Gateway, AI microservice, database layer, and third-party integrations communicate end-to-end:
+
+```mermaid
+graph TD
+    Client["React Dashboard UI"]
+    
+    Client <-->|"HTTP REST API"| Gateway["Node.js Express Gateway"]
+
+    subgraph Supabase_DB ["Supabase Database"]
+        direction TB
+        DB[("Supabase Postgres Database")]
+        HNSW["HNSW Vector Index (768d)"]
+        RPC["Cosine Similarity RPC (match_plans)"]
+        EV_CACHE[("24-Hour Event Cache Table")]
+        USER_TBL[("Users & Subscriptions Tables")]
+
+        DB --->|"pgvector Index"| HNSW
+        DB --->|"match_plans RPC"| RPC
+        DB --->|"Live Event Caching"| EV_CACHE
+        DB --->|"Auth & Usage Tracking"| USER_TBL
+    end
+
+    subgraph FastAPI_AI ["FastAPI AI Service"]
+        direction TB
+        FAST["FastAPI AI Microservice"]
+        GEMINI["Gemini API (2.5 Pro & Embeddings)"]
+
+        FAST --->|"Model Generation & Caching"| GEMINI
+        FAST --->|"Embedding / gemini-embedding-2"| GEMINI
+    end
+
+    subgraph Third_Party ["Third-Party Integrations"]
+        direction TB
+        GPLACES["Google Places API v1"]
+        STRIPE["Stripe Payments API"]
+        EVENTS["Ticketmaster / SeatGeek / SerpApi"]
+        RESEND["Resend Email Service"]
+    end
+
+    %% Core System Connections & Feature Connectivity
+    Gateway <-->|"RPC match_plans & Vector Query"| Supabase_DB
+    Gateway <-->|"HTTP /embed & /generate-itinerary"| FastAPI_AI
+    Gateway <-->|"Real-Time Venue Search & Photo Proxy"| GPLACES
+    Gateway <-->|"Create Checkout & Customer Portal"| STRIPE
+    STRIPE --->|"Webhook Fulfillment (/api/webhook)"| Gateway
+    Gateway <-->|"Fetch Live Events & Cache Updates"| EVENTS
+    Gateway --->|"Send Transactional & Welcome Emails"| RESEND
+
+    %% Style Classes for Premium Theme
+    classDef client fill:#ffe4e6,stroke:#f43f5e,stroke-width:2px,color:#000000;
+    classDef gateway fill:#e0e7ff,stroke:#6366f1,stroke-width:2px,color:#000000;
+    classDef db fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#000000;
+    classDef ai fill:#fae8ff,stroke:#d946ef,stroke-width:2px,color:#000000;
+    classDef ext fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#000000;
+
+    class Client client;
+    class Gateway gateway;
+    class DB,HNSW,RPC,EV_CACHE,USER_TBL db;
+    class FAST,GEMINI ai;
+    class GPLACES,STRIPE,EVENTS,RESEND ext;
+```
+
 ### 1. Gateway Service (Node.js / Express)
 Orchestrates requests between the frontend and internal services, handling authentication, payments, and standard operations.
 
