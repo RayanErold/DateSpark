@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Ticket, MapPin, Calendar, ExternalLink, Sparkles, Search, RefreshCw } from 'lucide-react';
-import axios from 'axios';
+import { Ticket, MapPin, Calendar, ExternalLink, Search, RefreshCw, Star } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -107,7 +106,6 @@ const getEventImage = (evt) => {
     else if (seg.includes('food') || seg.includes('drink') || seg.includes('wine') || seg.includes('beer') || seg.includes('culinary') || seg.includes('dining')) list = CATEGORY_FALLBACK_IMAGES.food;
     else if (seg.includes('festival') || seg.includes('fair') || seg.includes('expo') || seg.includes('exhibition') || seg.includes('carnival')) list = CATEGORY_FALLBACK_IMAGES.festivals;
 
-    // Deterministic selection using event name hash to prevent layout shifting
     const name = evt.name || '';
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -116,7 +114,6 @@ const getEventImage = (evt) => {
     const idx = Math.abs(hash) % list.length;
     return list[idx];
 };
-
 
 const MOCK_EVENTS = [
     {
@@ -226,8 +223,6 @@ const formatPrice = (min, max, currency) => {
 
 const mixAndDeduplicateEvents = (rawEvents, count = 8) => {
     if (!rawEvents || rawEvents.length === 0) return [];
-    
-    // 1. De-duplicate by event name (case-insensitive, trimmed)
     const seenNames = new Set();
     const uniqueEvents = [];
     for (const evt of rawEvents) {
@@ -237,32 +232,22 @@ const mixAndDeduplicateEvents = (rawEvents, count = 8) => {
             uniqueEvents.push(evt);
         }
     }
-    
-    // 2. Group by segment/category
     const groups = {};
     for (const evt of uniqueEvents) {
         const cat = evt.segment || evt.genre || 'Other';
-        if (!groups[cat]) {
-            groups[cat] = [];
-        }
+        if (!groups[cat]) { groups[cat] = []; }
         groups[cat].push(evt);
     }
-    
-    // Shuffle events within each category group to ensure variety
     Object.keys(groups).forEach(c => {
         groups[c].sort(() => Math.random() - 0.5);
     });
-    
-    // 3. Round-robin select from groups
     const categories = Object.keys(groups);
     const selected = [];
     const indices = {};
     categories.forEach(c => { indices[c] = 0; });
-    
     let added = true;
     while (added && selected.length < count) {
         added = false;
-        // Shuffle category order per round-robin pass to randomize which category comes first
         const shuffledCats = [...categories].sort(() => Math.random() - 0.5);
         for (const c of shuffledCats) {
             const idx = indices[c];
@@ -274,8 +259,96 @@ const mixAndDeduplicateEvents = (rawEvents, count = 8) => {
             }
         }
     }
-    
     return selected;
+};
+
+// Replicated EventCard Component to match EventsTab.jsx style perfectly
+const EventCard = ({ evt, idx, onClick }) => {
+    const color = segmentColor(evt.segment);
+    const isCancelled = evt.status === 'cancelled';
+    const rawImg = evt.image || '';
+    const isGstatic = rawImg.includes('gstatic.com') || rawImg.includes('googleusercontent.com');
+    const mainImgUrl = isGstatic ? getEventImage({ ...evt, image: null }) : getEventImage(evt);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0, transition: { delay: idx * 0.04 } }}
+            viewport={{ once: true }}
+            whileHover={{ y: -4 }}
+            onClick={onClick}
+            className={`block rounded-[2rem] overflow-hidden border group transition-all duration-500 hover:shadow-xl hover:-translate-y-1.5 p-3 bg-white border-slate-100 text-navy shadow-sm cursor-pointer ${isCancelled ? 'opacity-50 pointer-events-none' : ''}`}
+        >
+            {/* Image Section */}
+            <div className="relative aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-slate-900/5 mb-3 shadow-inner">
+                <img
+                    src={mainImgUrl}
+                    alt={evt.name}
+                    className="w-full h-full object-cover transition-transform duration-600 group-hover:scale-105"
+                    onError={(e) => {
+                        e.target.src = getEventImage({ ...evt, image: null });
+                    }}
+                />
+                
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-70 group-hover:opacity-85 transition-opacity" />
+
+                {/* Category badge */}
+                <div className={`absolute top-3 left-3 bg-gradient-to-r ${color} text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider z-10 shadow-sm`}>
+                    {evt.genre || evt.segment}
+                </div>
+
+                {/* Source Badge */}
+                <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white/90 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 z-10 shadow-sm">
+                    {evt.source === 'SeatGeek' ? 'SG' : evt.source === 'Local' ? 'Google' : 'TM'}
+                </div>
+
+                {/* Event logo / avatar badge (for Google Events with thumbnails) */}
+                {isGstatic && evt.image && (
+                    <div className="absolute bottom-3 right-3 w-11 h-11 rounded-full overflow-hidden border-2 border-white shadow-lg z-10 bg-white">
+                        <img 
+                            src={evt.image} 
+                            alt="Event logo" 
+                            className="w-full h-full object-cover select-none pointer-events-none" 
+                            onError={(e) => {
+                                e.target.parentNode.style.display = 'none';
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* Date overlay badge */}
+                <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-xl">
+                    <Calendar className="w-3 h-3 text-rose" />
+                    <span className="text-[9px] font-black text-white/90 uppercase tracking-widest">
+                        {evt.date ? new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : 'TBD'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Info */}
+            <div className="px-1 py-1 font-outfit">
+                <h4 className="font-black text-sm leading-snug line-clamp-1 mb-1 group-hover:text-rose transition-colors text-navy">
+                    {evt.name}
+                </h4>
+                {evt.venueName && (
+                    <div className="flex items-center gap-1 mb-2">
+                        <MapPin className="w-3 h-3 text-rose/80 flex-shrink-0" />
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{evt.venueName}</p>
+                    </div>
+                )}
+
+                {/* Footer */}
+                <div className="flex items-center justify-between border-t pt-2 mt-1 border-gray-100/50">
+                    <span className="text-[11px] font-black text-slate-500">
+                        {formatPrice(evt.priceMin, evt.priceMax, evt.currency)}
+                    </span>
+                    <div className={`flex items-center gap-1 text-[9px] font-black px-3 py-1.5 rounded-full bg-gradient-to-r ${color} text-white group-hover:opacity-90 transition-opacity`}>
+                        Get Tickets <ExternalLink className="w-2.5 h-2.5" />
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
 };
 
 const NearbyEvents = ({ selectedCity: propCity, setSelectedCity: propSetCity, userCoords, searchRadius }) => {
@@ -291,7 +364,6 @@ const NearbyEvents = ({ selectedCity: propCity, setSelectedCity: propSetCity, us
 
     const fetchLocalEvents = async (searchCity, searchCategory = 'all') => {
         setIsLoading(true);
-        // Map boroughs to metro center for Ticketmaster compatibility
         let queryCity = searchCity;
         const metroKeywords = ['manhattan', 'brooklyn', 'queens', 'bronx', 'staten island', 'jersey city', 'hoboken'];
         if (metroKeywords.includes(searchCity.toLowerCase())) {
@@ -306,9 +378,14 @@ const NearbyEvents = ({ selectedCity: propCity, setSelectedCity: propSetCity, us
         }
 
         try {
-            const res = await axios.get(`${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=${searchCategory}`);
-            if (res.data && res.data.length > 0) {
-                const mixed = mixAndDeduplicateEvents(res.data, 8);
+            // Replaced axios with native browser fetch to ensure correct CORS / Vite Proxy routing
+            const url = `${API_URL}/api/events?city=${encodeURIComponent(queryCity)}&category=${searchCategory}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Network response not ok');
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                const mixed = mixAndDeduplicateEvents(data, 8);
                 setEvents(mixed);
                 setEventsCache(prev => ({
                     ...prev,
@@ -430,100 +507,14 @@ const NearbyEvents = ({ selectedCity: propCity, setSelectedCity: propSetCity, us
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                        {events.map((evt) => {
-                            const color = segmentColor(evt.segment);
-                            return (
-                                <motion.div
-                                    key={evt.id}
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    whileInView={{ opacity: 1, scale: 1 }}
-                                    viewport={{ once: true }}
-                                    onClick={handleEventClick}
-                                    className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between group w-full"
-                                >
-                                    {/* Image */}
-                                    <div className="relative h-24 sm:h-32 md:h-36 overflow-hidden bg-black/10 flex items-center justify-center">
-                                        {(() => {
-                                            const imgUrl = getEventImage(evt);
-                                            const isGstatic = imgUrl.includes('gstatic.com') || imgUrl.includes('googleusercontent.com');
-                                            if (isGstatic) {
-                                                return (
-                                                    <>
-                                                        <img
-                                                            src={imgUrl}
-                                                            alt=""
-                                                            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-60 scale-125 select-none pointer-events-none"
-                                                        />
-                                                        <img
-                                                            src={imgUrl}
-                                                            alt={evt.name}
-                                                            className="h-full w-auto object-contain relative z-10 group-hover:scale-105 transition-transform duration-700"
-                                                            onError={(e) => {
-                                                                e.target.src = getEventImage({ ...evt, image: null });
-                                                            }}
-                                                        />
-                                                    </>
-                                                );
-                                            } else {
-                                                return (
-                                                    <img
-                                                        src={imgUrl}
-                                                        alt={evt.name}
-                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                                        onError={(e) => {
-                                                            e.target.src = getEventImage({ ...evt, image: null });
-                                                        }}
-                                                    />
-                                                );
-                                            }
-                                        })()}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                                        
-                                        {/* Category Badge */}
-                                        <div className={`absolute top-2 left-2 bg-gradient-to-r ${color} text-white text-[6px] sm:text-[8px] font-black px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md uppercase tracking-wider shadow-sm`}>
-                                            {evt.genre || evt.segment}
-                                        </div>
- 
-                                        {/* Source Badge */}
-                                        <div className="absolute top-2 right-2 bg-black/45 backdrop-blur-md text-white/90 text-[6px] sm:text-[8px] font-black px-1 sm:px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 shadow-sm">
-                                            {evt.source === 'SeatGeek' ? 'SeatGeek' : evt.source === 'Local' ? 'Google' : 'TM'}
-                                        </div>
-                                    </div>
- 
-                                    {/* Content */}
-                                    <div className="p-2 sm:p-3 flex-1 flex flex-col justify-between">
-                                        <div className="space-y-1 sm:space-y-2 mb-2">
-                                            <h4 className="font-black text-[11px] sm:text-xs md:text-sm text-navy leading-tight line-clamp-2 group-hover:text-coral transition-colors">
-                                                {evt.name}
-                                            </h4>
-                                            
-                                            {evt.venueName && (
-                                                <div className="flex items-center gap-1 text-[9px] sm:text-xs text-gray-500 font-bold">
-                                                    <MapPin className="w-2.5 h-2.5 text-coral flex-shrink-0" />
-                                                    <span className="truncate">{evt.venueName}</span>
-                                                </div>
-                                            )}
- 
-                                            <div className="flex items-center gap-1 text-[9px] sm:text-xs text-gray-400 font-medium">
-                                                <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
-                                                <span>{formatDate(evt.date, evt.time)}</span>
-                                            </div>
-                                        </div>
- 
-                                        <div className="space-y-1.5 sm:space-y-2 pt-1.5 border-t border-gray-50">
-                                            <div className="flex items-center justify-between text-[9px] sm:text-xs">
-                                                <span className="font-bold text-gray-400">Price Range</span>
-                                                <span className="font-black text-navy">{formatPrice(evt.priceMin, evt.priceMax, evt.currency)}</span>
-                                            </div>
-                                            
-                                            <button className="w-full py-1.5 sm:py-2 bg-gray-50 text-navy border border-gray-100 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-all flex items-center justify-center gap-1">
-                                                Tickets <ExternalLink className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
+                        {events.map((evt, idx) => (
+                            <EventCard 
+                                key={evt.id || idx} 
+                                evt={evt} 
+                                idx={idx} 
+                                onClick={handleEventClick} 
+                            />
+                        ))}
                     </div>
                 )}
             </div>

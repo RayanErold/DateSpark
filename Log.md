@@ -75,3 +75,13 @@ This log tracks design overhauls, style updates, and technical modifications mad
   - Removed the "Plan with Partner", "Steal & Customize", "Recreate", and mobile "Invite" buttons from the itinerary viewer header.
   - Reduced overall layout padding and scaled down spacing between stops.
   - Scaled category icon bubbles (`w-9 h-9`), fonts (venue names to `text-sm`), descriptions, and reduced Google photos height (`h-32 sm:h-36`) to make the display smaller and more appealing.
+
+---
+
+### Entry: August 12, 2026 - 05:30 AM (UTC)
+#### Landing Page Events Showcase Refactor
+- **Decision**: Refactored the events showcase on the landing page to display live events with high-resolution photos, matching the dashboard's design.
+- **Changes**:
+  - Replaced the low-res event cards in [NearbyEvents.jsx](file:///c:/Users/Erold%20Rayan/Downloads/Million%20Dollar%20Web%20app%20Ideas/Date%20Planner%20app/frontend/components/landing/NearbyEvents.jsx) with the premium `EventCard` component style.
+  - Implemented the identical high-resolution fallback image resolution logic to skip low-res static maps or missing event graphics.
+  - Replaced `axios` requests with native browser `fetch` calls to run requests cleanly through the Vite dev server proxy.
