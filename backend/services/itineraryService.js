@@ -145,7 +145,7 @@ const fallbackEnrichWithGemini = async (step, city) => {
             return null;
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
         const query = step.search_query || `${step.activity} in ${city}`;
         
         const prompt = `You are a helpful romantic date assistant. We need to find a REAL, specific venue matching the search query: "${query}" in the location: "${city}".
@@ -478,6 +478,112 @@ const enrichStepsWithImages = (steps) => {
 
 // --- CORE AI GENERATION ---
 
+
+export const generateAIOptions = async (params) => {
+    try {
+        console.log(`[ItineraryService] Fetching multi-generation options from AI Microservice: ${AI_SERVICE_URL}`);
+        const response = await axios.post(`${AI_SERVICE_URL}/generate-options`, {
+            city: params.city || params.location,
+            vibe: params.vibe,
+            budget: params.budget,
+            preferences: params.preferences || params.prompt || '',
+            lat: params.lat,
+            lng: params.lng,
+            numActivities: params.numActivities || 3,
+            radius: params.radius,
+            planDate: params.planDate,
+            planTime: params.planTime
+        }, { timeout: 30000 });
+
+        if (response.data && response.data.raw_options) {
+            let optionsData;
+            try {
+                const raw = response.data.raw_options;
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                optionsData = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+            } catch (e) {
+                console.error('[Microservice Options Parse Error]', e);
+                throw new Error("Invalid options format from AI Microservice");
+            }
+
+            if (optionsData.options && Array.isArray(optionsData.options)) {
+                return optionsData.options;
+            }
+        }
+        throw new Error("Empty options response from AI Microservice");
+    } catch (err) {
+        console.warn(`[AI Options Microservice Failed] using fallback options generator: ${err.message}`);
+        const city = params.city || params.location || 'NYC';
+        return [
+            {
+                id: '1',
+                title: `${params.vibe ? (params.vibe.charAt(0).toUpperCase() + params.vibe.slice(1)) : 'Romantic'} Evening in ${city}`,
+                tagline: 'A candlelit journey through cozy neighborhood favorites',
+                vibe: params.vibe || 'romantic',
+                estimated_cost: '$$',
+                description: `Experience intimate dining, artisanal cocktails, and a nightcap in ${city}.`,
+                steps: [
+                    { time: '6:30 PM', activity: 'Craft Cocktails', venue: 'REAL PLACE TBD', search_query: `craft cocktail lounge in ${city}`, description: 'Start the evening with signature cocktails.' },
+                    { time: '8:00 PM', activity: 'Candlelit Dinner', venue: 'REAL PLACE TBD', search_query: `intimate romantic restaurant in ${city}`, description: 'Enjoy chef specials in a cozy atmosphere.' },
+                    { time: '9:45 PM', activity: 'Late Night Lounge', venue: 'REAL PLACE TBD', search_query: `speakeasy jazz lounge in ${city}`, description: 'Conclude with smooth jazz and nightcaps.' }
+                ]
+            },
+            {
+                id: '2',
+                title: `Playful & Active Night Out`,
+                tagline: 'High-energy fun followed by casual bites and drinks',
+                vibe: 'adventure',
+                estimated_cost: '$',
+                description: `An engaging night filled with interactive games and lively spots around ${city}.`,
+                steps: [
+                    { time: '6:00 PM', activity: 'Arcade / Games', venue: 'REAL PLACE TBD', search_query: `retro arcade bar or bowling in ${city}`, description: 'Kick off with playful competition.' },
+                    { time: '7:45 PM', activity: 'Casual Feast', venue: 'REAL PLACE TBD', search_query: `lively patio gourmet tacos or burgers in ${city}`, description: 'Grab flavorful, relaxed bites.' },
+                    { time: '9:30 PM', activity: 'Dessert & Stroll', venue: 'REAL PLACE TBD', search_query: `gourmet gelato or dessert shop in ${city}`, description: 'Sweet treats under evening lights.' }
+                ]
+            },
+            {
+                id: '3',
+                title: `Artistic & Speakeasy Culture`,
+                tagline: 'Curated galleries, rooftop views, and hidden bars',
+                vibe: 'artistic',
+                estimated_cost: '$$$',
+                description: `A sophisticated, culture-rich date through iconic art and secret lounges in ${city}.`,
+                steps: [
+                    { time: '5:30 PM', activity: 'Gallery / Viewpoint', venue: 'REAL PLACE TBD', search_query: `scenic viewpoint or modern gallery in ${city}`, description: 'Immerse in art and panoramic sights.' },
+                    { time: '7:30 PM', activity: 'Fine Dining', venue: 'REAL PLACE TBD', search_query: `top-rated upscale bistro in ${city}`, description: 'Savor an exceptional multi-course dinner.' },
+                    { time: '9:30 PM', activity: 'Hidden Speakeasy', venue: 'REAL PLACE TBD', search_query: `secret bookshelf speakeasy bar in ${city}`, description: 'Unwind with bespoke mixology.' }
+                ]
+            }
+        ];
+    }
+};
+
+export const finalizeSelectedOption = async (supabase, userId, params, selectedOption) => {
+    const rawSteps = selectedOption.steps || [];
+    const city = params.city || params.location || 'NYC';
+    const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
+    const radius = params.neighborhoodLock ? 800 : (params.radius || 15000);
+
+    const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords, radius);
+
+    const itineraryData = {
+        title: selectedOption.title,
+        description: selectedOption.description || selectedOption.tagline,
+        vibe: selectedOption.vibe || params.vibe || 'romantic',
+        estimated_cost: selectedOption.estimated_cost || '$$',
+        steps: enrichedSteps
+    };
+
+    const aiResult = {
+        source: 'SHOWDOWN_OPTION_ENRICHED',
+        data: itineraryData,
+        enriched: true
+    };
+
+    const savedPlan = await savePlan(supabase, userId, params, aiResult);
+    return savedPlan;
+};
+
 export const generateAIDate = async (params) => {
     try {
         // --- 1. AI GENERATION (Call Python Microservice) ---
@@ -570,9 +676,9 @@ export const generateAIDate = async (params) => {
         Do not return anything else except the JSON.`;
         
         const fallbackModels = [
-            "gemini-2.5-pro",
+            "gemini-3.6-flash",
             "gemini-flash-latest",
-            "gemini-2.5-flash-lite",
+            "gemini-3.5-flash",
             "gemini-pro-latest"
         ];
         
@@ -837,33 +943,17 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation, user
         // Fetch a pool of active plans matching location & lifecycle state
         let targetUserId = null;
         try {
-            if (supabaseAdmin) {
-                const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserByEmail('rayanerold@gmail.com');
-                if (userData?.user) {
-                    targetUserId = userData.user.id;
-                    console.log(`[Trending] Found target user ID for rayanerold@gmail.com: ${targetUserId}`);
-                } else if (userError) {
-                    console.warn('[Trending] getUserByEmail error:', userError.message);
-                }
+            const { data: profileData } = await dbClient
+                .from('profiles')
+                .select('id')
+                .eq('email', 'rayanerold@gmail.com')
+                .maybeSingle();
+            if (profileData) {
+                targetUserId = profileData.id;
+                console.log(`[Trending] Found user ID from profiles for rayanerold@gmail.com: ${targetUserId}`);
             }
         } catch (err) {
-            console.warn('[Trending] Failed to get user by email:', err.message);
-        }
-
-        if (!targetUserId) {
-            try {
-                const { data: profileData } = await dbClient
-                    .from('profiles')
-                    .select('id')
-                    .eq('email', 'rayanerold@gmail.com')
-                    .maybeSingle();
-                if (profileData) {
-                    targetUserId = profileData.id;
-                    console.log(`[Trending] Found user ID from profiles for rayanerold@gmail.com: ${targetUserId}`);
-                }
-            } catch (err) {
-                // Ignore profiles query error if email column doesn't exist
-            }
+            console.warn('[Trending] Failed to get user by email from profiles:', err.message);
         }
 
         let query;
@@ -1370,3 +1460,17 @@ export const getOrCreateWeeklySpark = async (supabase, userId) => {
     if (insertError) throw insertError;
     return newPlan;
 };
+
+/**
+ * Progressive Enrichment Helper: Enriches a single step on-demand with real Google Places venue details.
+ */
+export const enrichSingleStep = async (step, location, coords = null, radius = 15000) => {
+    try {
+        const enriched = await enrichWithRealPlaces([step], location, coords, radius);
+        return (enriched && enriched.length > 0) ? enriched[0] : step;
+    } catch (e) {
+        console.warn('[EnrichSingleStep Warning]', e.message);
+        return step;
+    }
+};
+

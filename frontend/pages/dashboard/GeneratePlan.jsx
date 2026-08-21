@@ -68,6 +68,11 @@ const GeneratePlan = () => {
     const [showDietaryOptions, setShowDietaryOptions] = useState(false);
     const [error, setError] = useState(null);
 
+    // --- THE ITINERARY SHOWDOWN MULTI-GENERATION STATES ---
+    const [showdownOptions, setShowdownOptions] = useState(null);
+    const [isFetchingOptions, setIsFetchingOptions] = useState(false);
+    const [selectedShowdownId, setSelectedShowdownId] = useState(null);
+
     // Usage state for Free users
     const [usage, setUsage] = useState({
         classic: 0,
@@ -391,6 +396,7 @@ const GeneratePlan = () => {
         location: '', 
         date: today,
         vibe: 'chill',
+        numActivities: 3,
         time: '18:00',
         endTime: '22:00',
         budget: '',
@@ -528,6 +534,111 @@ const GeneratePlan = () => {
         }
         setMode(newMode);
         setError(null);
+    };
+
+    const handleGenerateShowdownOptions = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+
+        if (!formData.location || !formData.date || !formData.time || !formData.endTime) {
+            setError("Please fill out all required fields under 'Where & When'.");
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        setError(null);
+        setIsFetchingOptions(true);
+
+        try {
+            const currentUser = user || (await supabase.auth.getUser()).data.user;
+            const response = await fetch('/api/generate-date-options', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentUser?.id,
+                    ...formData,
+                    prompt: initialPrompt || formData.interests,
+                    vibeProfile: vibeProfile || null,
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to generate date showdown options.');
+            }
+
+            const result = await response.json();
+            if (result.options && Array.isArray(result.options) && result.options.length > 0) {
+                setShowdownOptions(result.options);
+                window.scrollTo({ top: 200, behavior: 'smooth' });
+            } else {
+                throw new Error('No date options returned.');
+            }
+        } catch (err) {
+            console.error('Options Generation Error:', err);
+            setError(err.message);
+        } finally {
+            setIsFetchingOptions(false);
+        }
+    };
+
+    const handleFinalizeOption = async (option) => {
+        if (!isPremium && usage.classic >= limits.classic) {
+            setLimitType('classic');
+            setShowPremiumModal(true);
+            return;
+        }
+
+        setSelectedShowdownId(option.id);
+        setIsGenerating(true);
+        setError(null);
+
+        try {
+            const currentUser = user || (await supabase.auth.getUser()).data.user;
+            if (!currentUser) throw new Error('You must be logged in.');
+
+            const response = await fetch('/api/finalize-date-option', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentUser.id,
+                    selectedOption: option,
+                    ...formData,
+                    is_favorite: formData.is_favorite
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                if (response.status === 403 || errData.code === 'LIMIT_REACHED') {
+                    setIsGenerating(false);
+                    setLimitType('classic');
+                    setShowPremiumModal(true);
+                    return;
+                }
+                throw new Error(errData.error || 'Failed to finalize chosen itinerary.');
+            }
+
+            const result = await response.json();
+            const firstPlanId = result.plan?.id;
+
+            if (!isPremium) {
+                setUsage(prev => ({ ...prev, classic: prev.classic + 1 }));
+            }
+
+            setFlashMessage('Plan ready — opening your itinerary showdown winner!');
+            if (firstPlanId) {
+                navigate(`/shared/${firstPlanId}`);
+            } else {
+                navigate('/dashboard');
+            }
+        } catch (err) {
+            setError(err.message);
+            setIsGenerating(false);
+            if (err.message.toLowerCase().includes('limit') || err.message.toLowerCase().includes('reached')) {
+                setLimitType('classic');
+                setShowPremiumModal(true);
+            }
+        }
     };
 
     const handleSuggestConcepts = async (e) => {
@@ -785,9 +896,9 @@ const GeneratePlan = () => {
 
 
                 {/* --- CLASSIC MODE --- */}
-                {mode === 'classic' && (
+                {mode === 'classic' && !showdownOptions && (
                     <div className="bg-white rounded-[2.5rem] shadow-[0_8px_60px_rgba(0,0,0,0.05)] border border-gray-100 p-8 sm:p-12 mb-20 animate-in fade-in zoom-in-95 duration-500 relative">
-                        <form onSubmit={handleSubmitClassic} className="space-y-10">
+                        <form onSubmit={handleGenerateShowdownOptions} className="space-y-10">
                             {/* SECTION: WHERE & WHEN */}
                             <div className="space-y-6">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Step 1 of 2</p>
@@ -901,6 +1012,25 @@ const GeneratePlan = () => {
                                             <option value="educational">Educational & Curious</option>
                                         </select>
                                         <Sliders className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 w-5 h-5" />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-[12px] font-black text-gray-400 uppercase tracking-widest px-1">Number of Stops / Activities</label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {[3, 4, 5, 6].map((count) => {
+                                            const isActive = (formData.numActivities || 3) === count;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={count}
+                                                    onClick={() => setFormData({ ...formData, numActivities: count })}
+                                                    className={`py-3 px-3 rounded-xl border-2 font-black text-xs transition-all active:scale-[0.97] ${isActive ? 'border-coral bg-coral text-white shadow-md shadow-coral/20' : 'border-gray-100 bg-white text-navy hover:border-coral/30'}`}
+                                                >
+                                                    {count} Stops {count === 3 ? '⚡' : count === 6 ? '🌌' : '✨'}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -1079,10 +1209,20 @@ const GeneratePlan = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12 mb-6">
                                 <button
                                     type="submit"
-                                    disabled={isGenerating}
-                                    className="w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group sm:col-span-2"
+                                    disabled={isGenerating || isFetchingOptions}
+                                    className="w-full bg-navy text-white hover:bg-navy/90 py-5 rounded-2xl text-[17px] font-black flex items-center justify-center gap-3 disabled:opacity-50 transition-all shadow-lg active:scale-95 group sm:col-span-2 cursor-pointer"
                                 >
-                                    {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Sparkles className="w-6 h-6 group-hover:animate-pulse" />Generate Itineraries</>}
+                                    {isFetchingOptions ? (
+                                        <>
+                                            <Loader2 className="w-6 h-6 animate-spin text-coral" />
+                                            Curating 3 Showdown Experiences...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-6 h-6 group-hover:animate-pulse text-coral" />
+                                            Start The Itinerary Showdown
+                                        </>
+                                    )}
                                 </button>
 
                                 <div className="sm:col-span-2 flex items-center gap-3 px-4 py-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
@@ -1101,24 +1241,153 @@ const GeneratePlan = () => {
                                 
                                 <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={(e) => {
                                         setFormData(prev => ({ ...prev, vibe: 'hidden', interests: 'Any', budget: '$200' }));
-                                        handleSubmitClassic({ preventDefault: () => { } });
+                                        handleGenerateShowdownOptions(e);
                                     }}
-                                    className="w-full bg-white text-coral border-2 border-coral/20 hover:border-coral/40 hover:bg-coral/5 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 group"
+                                    className="w-full bg-white text-coral border-2 border-coral/20 hover:border-coral/40 hover:bg-coral/5 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 group cursor-pointer"
                                 >
-                                    <Sparkles className="w-4 h-4 text-coral opacity-50 group-hover:opacity-100" /> Surprise Me!
+                                    <Sparkles className="w-4 h-4 text-coral opacity-50 group-hover:opacity-100" /> Surprise Me Showdown!
                                 </button>
                                 
                                 <button
                                     type="button"
                                     onClick={() => navigate('/dashboard')}
-                                    className="w-full bg-gray-100 text-gray-500 hover:bg-gray-200 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95"
+                                    className="w-full bg-gray-100 text-gray-500 hover:bg-gray-200 py-4 rounded-2xl text-[15px] font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                             </div>
                         </form>
+                    </div>
+                )}
+
+                {/* --- THE ITINERARY SHOWDOWN MULTI-OPTION CARDS --- */}
+                {showdownOptions && Array.isArray(showdownOptions) && showdownOptions.length > 0 && (
+                    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-5xl mx-auto w-full mb-20">
+                        <div className="text-center space-y-3">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-coral/10 via-pink-500/10 to-violet-500/10 text-coral rounded-full border border-coral/20 font-black text-xs uppercase tracking-widest shadow-sm">
+                                <Sparkles className="w-4 h-4 text-coral animate-bounce" /> The Itinerary Showdown
+                            </div>
+                            <h2 className="text-3xl sm:text-5xl font-black text-navy tracking-tight">Choose Your Experience</h2>
+                            <p className="text-gray-500 text-sm sm:text-base font-medium max-w-xl mx-auto">
+                                We've generated 3 contrasting date concepts for <span className="font-bold text-navy">{formData.location || 'your location'}</span>. Select your favorite to lock in real venues!
+                            </p>
+                        </div>
+
+                        {/* 3-CARD SHOWDOWN GRID */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {showdownOptions.map((opt, idx) => {
+                                const vibeGradients = {
+                                    romantic: 'from-rose-500 to-pink-600',
+                                    adventure: 'from-emerald-500 to-teal-600',
+                                    artistic: 'from-violet-600 to-purple-600',
+                                    chill: 'from-sky-500 to-blue-600',
+                                    party: 'from-amber-500 to-orange-600',
+                                };
+                                const gradient = vibeGradients[opt.vibe?.toLowerCase()] || 'from-coral to-pink-500';
+
+                                return (
+                                    <motion.div
+                                        key={opt.id || idx}
+                                        initial={{ opacity: 0, y: 25 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.15 }}
+                                        className="bg-white rounded-[2.5rem] border-2 border-gray-100 hover:border-coral/40 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between overflow-hidden group relative"
+                                    >
+                                        <div>
+                                            {/* Card Header Banner */}
+                                            <div className={`p-6 bg-gradient-to-r ${gradient} text-white relative`}>
+                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-black uppercase tracking-wider text-white border border-white/30">
+                                                        Option {idx + 1} • {(opt.vibe || 'Romantic').toUpperCase()}
+                                                    </span>
+                                                    <span className="px-2.5 py-1 bg-black/30 backdrop-blur-md rounded-full text-[11px] font-black text-amber-300">
+                                                        {opt.estimated_cost || '$$'}
+                                                    </span>
+                                                </div>
+                                                <h3 className="text-xl font-black tracking-tight leading-snug">{opt.title}</h3>
+                                                {opt.tagline && (
+                                                    <p className="text-xs font-medium text-white/90 mt-1 italic">{opt.tagline}</p>
+                                                )}
+                                            </div>
+
+                                            {/* Card Body */}
+                                            <div className="p-6 space-y-6">
+                                                <p className="text-xs text-gray-600 font-medium leading-relaxed">
+                                                    {opt.description}
+                                                </p>
+
+                                                {/* Steps Outline Timeline */}
+                                                <div className="space-y-3 pt-2 border-t border-gray-100">
+                                                    <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">
+                                                        Experience Timeline
+                                                    </h4>
+                                                    <div className="space-y-2.5">
+                                                        {(opt.steps || []).map((st, sIdx) => (
+                                                            <div key={sIdx} className="flex items-start gap-3 text-xs bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                                                                <div className="w-6 h-6 rounded-lg bg-coral/10 text-coral flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                                                                    {sIdx + 1}
+                                                                </div>
+                                                                <div className="space-y-0.5 min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-bold text-navy text-[11px]">{st.time}</span>
+                                                                        <span className="font-black text-coral text-[11px]">• {st.activity}</span>
+                                                                    </div>
+                                                                    <p className="text-[11px] text-gray-500 font-medium line-clamp-1">
+                                                                        {st.description || st.search_query}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Card CTA Footer */}
+                                        <div className="p-6 pt-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleFinalizeOption(opt)}
+                                                disabled={isGenerating}
+                                                className="w-full py-4 rounded-2xl font-black text-sm text-white bg-navy hover:bg-coral transition-all duration-300 shadow-md flex items-center justify-center gap-2 group-hover:scale-[1.02] active:scale-95 cursor-pointer"
+                                            >
+                                                {isGenerating && selectedShowdownId === opt.id ? (
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                                        Lock In This Plan
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Back / Regenerate Bar */}
+                        <div className="flex items-center justify-between px-4 pt-4 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setShowdownOptions(null)}
+                                className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-navy transition-colors cursor-pointer"
+                            >
+                                <ArrowLeft className="w-4 h-4" /> Change Location or Preferences
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleGenerateShowdownOptions}
+                                disabled={isFetchingOptions}
+                                className="flex items-center gap-2 text-xs font-black text-coral hover:text-pink-600 transition-colors cursor-pointer"
+                            >
+                                {isFetchingOptions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                                Shuffle & Generate 3 New Options
+                            </button>
+                        </div>
                     </div>
                 )}
 

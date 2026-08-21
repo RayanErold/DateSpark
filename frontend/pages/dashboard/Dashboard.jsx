@@ -240,43 +240,13 @@ const Dashboard = () => {
 
     // Fetch collaboration details for a plan
     const fetchCollabDetails = async (planId) => {
-        if (!planId) return;
-        try {
-            const [statusRes, votesRes] = await Promise.all([
-                fetch(`/api/collab/status/${planId}`),
-                fetch(`/api/collab/votes/${planId}`)
-            ]);
-            if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                setCollabStatus(statusData.collab);
-            } else {
-                setCollabStatus(null);
-            }
-            if (votesRes.ok) {
-                const votesData = await votesRes.json();
-                setVoteSummary(votesData);
-            } else {
-                setVoteSummary({});
-            }
-        } catch (err) {
-            console.error('Error fetching collab details:', err);
-        }
+        setCollabStatus(null);
+        setVoteSummary({});
     };
 
     const fetchUserCollaborations = async () => {
-        if (!user) return;
-        setIsCollabListLoading(true);
-        try {
-            const res = await fetch(`/api/collab/all/${user.id}`);
-            const data = await res.json();
-            if (data.success) {
-                setCollaborations(data.collaborations || []);
-            }
-        } catch (err) {
-            console.error('Failed to fetch user collaborations:', err);
-        } finally {
-            setIsCollabListLoading(false);
-        }
+        setCollaborations([]);
+        setIsCollabListLoading(false);
     };
 
     useEffect(() => {

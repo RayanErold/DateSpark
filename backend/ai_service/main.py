@@ -1,6 +1,9 @@
 import os
 import json
 import logging
+import asyncio
+import time
+import hashlib
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
 # pyrefly: ignore [missing-import]
@@ -41,6 +44,11 @@ else:
 
 # Context Caching Global Variables
 itinerary_cache = None
+
+# In-memory options cache to avoid redundant AI calls under rate-limiting
+# Key: hash of city+vibe+budget. Value: { options: [...], timestamp: float }
+_options_cache = {}
+OPTIONS_CACHE_TTL = 300  # seconds (5 min)
 
 SYSTEM_CONTEXT_TEMPLATE = """
 You are the Elite Date Concierge for DateSpark, a premium hospitality agent specializing in curating unforgettable, highly cohesive romantic experiences and day trips.
@@ -212,7 +220,7 @@ def init_context_cache():
     try:
         logger.info("Initializing Gemini Context Caching for DateSpark Concierge...")
         itinerary_cache = gemini_client.caches.create(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             config=types.CreateCachedContentConfig(
                 display_name="datespark_concierge_cache",
                 contents=[SYSTEM_CONTEXT_TEMPLATE],
@@ -275,38 +283,49 @@ async def generate_with_gemini(prompt: str, use_cache: bool = False):
         raise Exception("Gemini provider not configured")
     
     models_to_try = [
-        "gemini-2.5-pro",
-        "gemini-2.5-flash-lite",
-        "gemini-2.5-flash",
-        "gemini-flash-latest"
+        "gemini-3.6-flash",
+        "gemini-3.5-flash" 
     ]
     
     last_error = None
     for model_name in models_to_try:
-        try:
-            logger.info(f"Attempting generation with {model_name}...")
-            if use_cache and model_name == "gemini-2.5-flash" and itinerary_cache:
-                logger.info(f"Context cache hit for {model_name} using: {itinerary_cache.name}")
-                response = gemini_client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        cached_content=itinerary_cache.name
+        # Exponential backoff for rate limit errors: retry up to 3 times
+        MAX_RETRIES = 3
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.info(f"Attempting generation with {model_name} (attempt {attempt + 1})...")
+                if use_cache and model_name == "gemini-3.6-flash" and itinerary_cache:
+                    logger.info(f"Context cache hit for {model_name} using: {itinerary_cache.name}")
+                    response = gemini_client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            cached_content=itinerary_cache.name
+                        )
                     )
-                )
-            else:
-                contents_payload = f"{SYSTEM_CONTEXT_TEMPLATE}\n\n{prompt}" if use_cache else prompt
-                response = gemini_client.models.generate_content(
-                    model=model_name,
-                    contents=contents_payload
-                )
-                
-            logger.info(f"Success with {model_name}")
-            return response.text, model_name
-        except Exception as e:
-            last_error = e
-            logger.warning(f"Model {model_name} failed: {str(e)}")
-            continue
+                else:
+                    contents_payload = f"{SYSTEM_CONTEXT_TEMPLATE}\n\n{prompt}" if use_cache else prompt
+                    response = gemini_client.models.generate_content(
+                        model=model_name,
+                        contents=contents_payload
+                    )
+                    
+                logger.info(f"Success with {model_name}")
+                return response.text, model_name
+
+            except Exception as e:
+                error_str = str(e).lower()
+                is_rate_limit = "429" in error_str or "resource_exhausted" in error_str or "rate" in error_str or "quota" in error_str
+
+                if is_rate_limit and attempt < MAX_RETRIES - 1:
+                    wait_seconds = (2 ** attempt)  # 1s, 2s, 4s
+                    logger.warning(f"[Rate Limit] {model_name} throttled. Retrying in {wait_seconds}s... (attempt {attempt + 1}/{MAX_RETRIES})")
+                    await asyncio.sleep(wait_seconds)
+                    continue  # retry same model
+                else:
+                    last_error = e
+                    logger.warning(f"Model {model_name} failed permanently: {str(e)}")
+                    break  # move to next model
             
     raise Exception(f"All Gemini models failed. Last error: {str(last_error)}")
 
@@ -380,6 +399,103 @@ async def generate_itinerary(request: ItineraryRequest):
                 raise HTTPException(status_code=500, detail="All AI providers failed")
         else:
             raise HTTPException(status_code=500, detail=f"Gemini failed and no OpenAI fallback available: {str(e)}")
+
+@app.post("/generate-options")
+async def generate_options(request: ItineraryRequest):
+    """
+    Generate 3 distinct, contrasting date candidate itineraries (The Showdown Options).
+    Supports 3 to 6 steps per itinerary based on user preference.
+    """
+    num_stops = min(max(request.numActivities or 3, 3), 6)
+    time_str = request.planTime or "Evening"
+    date_str = request.planDate or "Any date"
+    city = request.city or "NYC"
+    user_vibe = request.vibe or "romantic"
+    budget = request.budget or "flexible"
+
+    options_prompt = f"""
+    You are creating "The Itinerary Showdown" — exactly 3 DISTINCT, CONTRASTING candidate date/trip options for a couple in {city}.
+    
+    User Context & Preferences:
+    - User Prompt/Request: "{request.prompt or request.preferences or 'Curate a memorable date experience'}"
+    - Primary Vibe: {user_vibe}
+    - Budget Level: {budget}
+    - Coordinates: {request.lat}, {request.lng} if available
+    - Time: {time_str}, Date: {date_str}
+    - Exact number of activities/steps per plan required: {num_stops}
+
+    TASK:
+    Generate 3 contrasting candidate date concepts (Option 1, Option 2, Option 3) with different moods.
+    Each of the 3 options MUST contain exactly {num_stops} sequential steps/activities spread reasonably across the time frame.
+    
+    OUTPUT FORMAT REQUIREMENTS:
+    Return ONLY valid JSON matching this exact structure:
+    {{
+      "options": [
+        {{
+          "id": "1",
+          "title": "Catchy Title (Max 5 words)",
+          "tagline": "Short enticing tagline (Max 8 words)",
+          "vibe": "romantic",
+          "estimated_cost": "$$",
+          "description": "A short 1-2 sentence narrative summary.",
+          "steps": [
+            {{
+              "time": "6:30 PM",
+              "activity": "Cocktails & Views",
+              "venue": "REAL PLACE TBD",
+              "search_query": "High-intent search query for Google Maps in {city}",
+              "description": "Short sensory description sentence."
+            }}
+          ]
+        }},
+        {{
+          "id": "2",
+          "title": "Option 2 Title",
+          "tagline": "Option 2 Tagline",
+          "vibe": "adventure",
+          "estimated_cost": "$",
+          "description": "Option 2 Summary",
+          "steps": []
+        }},
+        {{
+          "id": "3",
+          "title": "Option 3 Title",
+          "tagline": "Option 3 Tagline",
+          "vibe": "artistic",
+          "estimated_cost": "$$$",
+          "description": "Option 3 Summary",
+          "steps": []
+        }}
+      ]
+    }}
+    """
+
+    # --- 5-MINUTE IN-MEMORY CACHE ---
+    # Avoids hammering the API with repeated identical requests (burst testing, UI refresh etc.)
+    cache_key = hashlib.md5(f"{city}:{user_vibe}:{budget}:{num_stops}".encode()).hexdigest()
+    cached = _options_cache.get(cache_key)
+    if cached and (time.time() - cached["timestamp"]) < OPTIONS_CACHE_TTL:
+        logger.info(f"[Cache HIT] Returning cached options for key={cache_key}")
+        return {"raw_options": cached["raw_options"], "provider": "cache"}
+    
+    try:
+        content, model_used = await generate_with_gemini(options_prompt, use_cache=False)
+        _options_cache[cache_key] = {"raw_options": content, "timestamp": time.time()}
+        return {"raw_options": content, "provider": f"gemini ({model_used})"}
+    except Exception as e:
+        logger.error(f"Gemini options generation failed: {str(e)}")
+        logger.error(f"Gemini key configured: {bool(GEMINI_API_KEY)}, OpenAI key configured: {bool(OPENAI_API_KEY)}")
+        if OPENAI_API_KEY:
+            try:
+                content = await generate_with_openai(options_prompt)
+                _options_cache[cache_key] = {"raw_options": content, "timestamp": time.time()}
+                return {"raw_options": content, "provider": "openai (gpt-4o-mini)"}
+            except Exception as oe:
+                logger.error(f"OpenAI fallback also failed: {str(oe)}")
+                raise HTTPException(status_code=500, detail=f"All AI providers failed. Gemini: {str(e)}. OpenAI: {str(oe)}")
+        else:
+            raise HTTPException(status_code=500, detail=f"Gemini failed (no OpenAI fallback): {str(e)}")
 
 @app.post("/chat")
 async def chat_with_architect(request: ChatRequest):

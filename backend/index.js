@@ -17,7 +17,6 @@ import * as userService from './services/userService.js';
 import * as generationService from './services/generationService.js';
 import * as emailService from './services/emailService.js';
 import * as giftCardService from './services/giftCardService.js';
-import * as collaborationService from './services/collaborationService.js';
 import * as cacheService from './services/cacheService.js';
 import cron from 'node-cron';
 
@@ -97,6 +96,46 @@ app.post('/api/generate-custom-date', async (req, res) => {
         console.error('[GENERATE_CUSTOM_ERROR]', err);
         const status = err.status || 500;
         res.status(status).json({ error: err.message, code: err.code }); 
+    }
+});
+
+app.post('/api/generate-date-options', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const options = await generationService.generateOptionsFlow(supabase, userId, req.body);
+        res.json({ success: true, options });
+    } catch (err) {
+        console.error('[GENERATE_OPTIONS_ERROR]', err);
+        const status = err.status || 500;
+        res.status(status).json({ error: err.message, code: err.code });
+    }
+});
+
+app.post('/api/finalize-date-option', async (req, res) => {
+    try {
+        const { userId, selectedOption, type = 'classic' } = req.body;
+        if (!selectedOption) {
+            return res.status(400).json({ error: 'selectedOption is required' });
+        }
+        const savedPlan = await generationService.finalizeOptionFlow(supabase, userId, req.body, selectedOption, type);
+        res.json({ success: true, plan: savedPlan });
+    } catch (err) {
+        console.error('[FINALIZE_OPTION_ERROR]', err);
+        const status = err.status || 500;
+        res.status(status).json({ error: err.message, code: err.code });
+    }
+});
+
+app.post('/api/enrich-stop', async (req, res) => {
+    try {
+        const { step, location, lat, lng, radius } = req.body;
+        if (!step) return res.status(400).json({ error: 'step object is required' });
+        const coords = (lat && lng) ? { lat: Number(lat), lng: Number(lng) } : null;
+        const enrichedStep = await itineraryService.enrichSingleStep(step, location, coords, radius);
+        res.json({ success: true, step: enrichedStep });
+    } catch (err) {
+        console.error('[ENRICH_STOP_ERROR]', err);
+        res.json({ success: false, step: req.body.step || null });
     }
 });
 
@@ -306,8 +345,8 @@ async function verifyProofWithAI(imageUrl, challenge) {
             };
         }
 
-        // Use gemini-2.5-flash for speed and multimodal capabilities
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        // Use gemini-3.6-flash for speed and multimodal capabilities
+        const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
         
         const prompt = `You are a strict, smart Date Night Proof Verification AI for DateSpark.
 Analyze the attached photo to verify if it represents a truthful proof of completion for this challenge:
@@ -732,7 +771,7 @@ app.post('/api/architect-stream', async (req, res) => {
         
         Provide up to 2 concepts when READY.`;
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
         
         const history = [
             { role: 'user', parts: [{ text: systemPrompt }] },
@@ -774,7 +813,7 @@ app.post('/api/suggest-date-concepts', async (req, res) => {
         if (!genAI) throw new Error('Gemini API is not configured.');
         const { conversationHistory, location, lat, lng, budget, goal, numActivities, radius, planDate, planTime } = req.body;
         
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
         
         const radiusStr = radius ? `${(radius / 1609.34).toFixed(1)} miles` : 'standard';
         const prompt = `Based on the following conversation, location (${location}), budget (${budget}), and goal (${goal}), suggest 2 creative date plan concepts.
@@ -880,11 +919,10 @@ Produce the next response in the requested JSON structure. Return ONLY a single 
         let lastError = null;
 
         const modelsToTry = [
-            "gemini-2.5-pro",
-            "gemini-2.5-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro"
+            "gemini-3.6-flash",
+            "gemini-flash-latest",
+            "gemini-3.5-flash",
+            "gemini-pro-latest"
         ];
 
         for (const modelName of modelsToTry) {
@@ -908,7 +946,23 @@ Produce the next response in the requested JSON structure. Return ONLY a single 
         }
 
         if (!success) {
-            throw lastError || new Error("All generative fallback models failed");
+            console.warn('[Spark Concierge] All AI models failed. Returning smart fallback response.');
+            const userLoc = settings.location || 'your area';
+            return res.json({
+                reply: `I'm curating some incredible ideas for ${userLoc}! What vibe are you leaning towards for this plan?`,
+                options: ["Romantic & Candlelit 🍷", "Fun & Interactive 🎳", "Chill & Scenic 🌳"],
+                isReady: false,
+                inferredParams: {
+                    location: settings.location || null,
+                    budget: settings.budget || null,
+                    vibe: settings.vibe || null,
+                    numActivities: settings.numActivities || 3,
+                    planDate: settings.planDate || null,
+                    planTime: settings.planTime || null,
+                    isTrip: settings.isTrip || false
+                },
+                concepts: []
+            });
         }
 
         // Extract JSON block safely
@@ -919,7 +973,14 @@ Produce the next response in the requested JSON structure. Return ONLY a single 
         res.json(responseData);
     } catch (err) {
         console.error('[SPARK_CONCIERGE_ERROR]', err);
-        res.status(500).json({ error: 'Failed to generate response' });
+        const userLoc = req.body?.currentSettings?.location || 'your city';
+        res.json({
+            reply: `Welcome! Let's craft an unforgettable experience in ${userLoc}. What kind of experience do you have in mind?`,
+            options: ["Romantic Dinner & Drinks 🍷", "Outdoor Adventure 🏞️", "Art & Live Music 🎨"],
+            isReady: false,
+            inferredParams: { location: null, budget: null, vibe: null, numActivities: 3, planDate: null, planTime: null, isTrip: false },
+            concepts: []
+        });
     }
 });
 
@@ -1058,30 +1119,7 @@ app.post('/api/gift-cards/redeem', async (req, res) => {
     res.status(503).json({ error: 'Gift card redemption is temporarily disabled.' });
 });
 
-// 7. PARTNER COLLABORATION
-app.post('/api/collab/invite', async (req, res) => {
-    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
-});
 
-app.get('/api/collab/accept', async (req, res) => {
-    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
-});
-
-app.post('/api/collab/vote', async (req, res) => {
-    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
-});
-
-app.get('/api/collab/votes/:planId', async (req, res) => {
-    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
-});
-
-app.get('/api/collab/status/:planId', async (req, res) => {
-    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
-});
-
-app.get('/api/collab/all/:userId', async (req, res) => {
-    res.status(503).json({ error: 'Collaboration features are temporarily disabled.' });
-});
 
 // 8. USERS & ACCOUNT
 app.post('/api/increment-save-usage', async (req, res) => {

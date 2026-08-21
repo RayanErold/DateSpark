@@ -14,7 +14,6 @@ const CATEGORY_SEGMENT_MAP = {
     'comedy': 'Arts & Theatre',
     'family': 'Family',
     'classes': 'Classes',
-    'tech': 'Technology',
     'community': 'Community'
 };
 
@@ -28,6 +27,26 @@ const SEATGEEK_TAXONOMY_MAP = {
     'festivals': 'festival',
     'all': 'event'
 };
+
+function mapInternalCategoryToAPI(internalCategory, userKeyword) {
+  const mappings = {
+    tech: {
+      ticketmasterId: 'KZFzniwnSyZfZ7v7na', // Miscellaneous/Seminars code
+      fallbackKeyword: userKeyword || 'technology',
+      serpQueryModifier: userKeyword || 'technology conferences'
+    },
+    music: {
+      ticketmasterId: 'KZFzniwnSyZfZ7v7jM',
+      fallbackKeyword: userKeyword || 'concert',
+      serpQueryModifier: userKeyword || 'live music concerts'
+    }
+  };
+  return mappings[internalCategory?.toLowerCase()] || {
+    ticketmasterId: '',
+    fallbackKeyword: userKeyword,
+    serpQueryModifier: userKeyword || internalCategory
+  };
+}
 
 const parseUnstructuredDate = (dateStr) => {
     if (!dateStr) return null;
@@ -235,21 +254,7 @@ const mapSeatGeekTypeToClassification = (type, category) => {
 export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword = '') => {
     if (!apiKey) return [];
     
-    const queryMap = {
-        'classes': 'classes workshops',
-        'tech': 'technology events',
-        'community': 'community events meetups',
-        'music': 'live music concerts',
-        'theater': 'theater plays musicals',
-        'comedy': 'comedy standup shows',
-        'activities': 'fun activities games',
-        'outdoors': 'outdoor activities hiking',
-        'food': 'food drink festival',
-        'festivals': 'local festivals fairs',
-        'all': 'events things to do'
-    };
-    
-    const baseSearchTerm = keyword ? keyword.trim() : (queryMap[category.toLowerCase()] || category);
+    const apiConfig = mapInternalCategoryToAPI(category, keyword);
     const cleanKey = apiKey.trim();
 
     try {
@@ -257,14 +262,14 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
         const res = await axios.get('https://serpapi.com/search.json', {
             params: {
                 engine: 'google_events',
-                q: `${baseSearchTerm} in ${city}`,
+                q: `${apiConfig.serpQueryModifier} in ${city}`,
                 api_key: cleanKey,
                 start: 0
             },
             timeout: 12000
         });
         let raw = res.data?.events_results || [];
-        console.log(`[SerpApi Page 1] Found ${raw.length} events for query: "${baseSearchTerm}" in ${city}`);
+        console.log(`[SerpApi Page 1] Found ${raw.length} events for query: "${apiConfig.serpQueryModifier}" in ${city}`);
 
         // Fetch Page 2 if requested size > 10 and we got exactly 10 or more events from page 1
         if (size > 10 && raw.length >= 10) {
@@ -272,14 +277,14 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
                 const res2 = await axios.get('https://serpapi.com/search.json', {
                     params: {
                         engine: 'google_events',
-                        q: `${baseSearchTerm} in ${city}`,
+                        q: `${apiConfig.serpQueryModifier} in ${city}`,
                         api_key: cleanKey,
                         start: 10
                     },
                     timeout: 12000
                 });
                 const raw2 = res2.data?.events_results || [];
-                console.log(`[SerpApi Page 2] Found ${raw2.length} events for query: "${baseSearchTerm}"`);
+                console.log(`[SerpApi Page 2] Found ${raw2.length} events for query: "${apiConfig.serpQueryModifier}"`);
                 raw = [...raw, ...raw2];
             } catch (err2) {
                 console.warn('[SerpApi Page 2 Error]', err2.message);
@@ -294,10 +299,8 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
             const rawDateStr = evt.date?.when || evt.date?.start_date || 'Date TBD';
             const { date, time } = parseUnstructuredDateTime(rawDateStr);
             const classification = classifySerpEvent(evt.title, category);
-            // Append random suffix to id to avoid collisions during pagination or parallel requests
-            const randomSuffix = Math.random().toString(36).substring(2, 6);
             return {
-                id: `serp-${evt.title?.substring(0,3).toLowerCase().replace(/[^a-z0-9]/g, '')}-${i}-${randomSuffix}`,
+                id: `serp-${evt.title?.substring(0,3).toLowerCase().replace(/[^a-z0-9]/g, '')}-${i}`,
                 source: 'Local',
                 name: evt.title,
                 url: evt.link,
@@ -334,24 +337,23 @@ export const fetchEvents = async (supabase, city, category, size = 15, keys = {}
     // 1. CHECK CACHE FIRST (skip if keyword search or forceRefresh is true)
     if (!hasKeyword && !forceRefresh) {
         try {
-            const { data: cached, error: cacheError } = await supabase
+            const { data: cachedEntries } = await supabase
                 .from('event_cache')
-                .select('data')
+                .select('created_at, data')
                 .eq('city', normalizedCity)
-                .eq('category', cat)
-                .gt('expires_at', new Date().toISOString())
-                .maybeSingle();
+                .eq('category', cat);
 
-            if (cached?.data && cached.data.length > 0) {
-                const nowStr = new Date().toISOString().split('T')[0];
-                const upcoming = cached.data.filter(evt => !evt.date || evt.date === 'Date TBD' || evt.date >= nowStr);
+            if (cachedEntries && cachedEntries.length > 0) {
+                const cacheAgeMs = Date.now() - new Date(cachedEntries[0].created_at).getTime();
+                const fourHours = 4 * 60 * 60 * 1000;
                 
-                // If we have a reasonable amount of upcoming events, return them. Otherwise, trigger a fresh fetch.
-                if (upcoming.length >= 10) {
-                    console.log(`[EventCache] ✅ Cache HIT for "${cat}" in ${cleanCity} (${upcoming.length} upcoming events)`);
+                if (cacheAgeMs < fourHours) {
+                    const nowStr = new Date().toISOString().split('T')[0];
+                    const upcoming = cachedEntries[0].data.filter(evt => !evt.date || evt.date === 'Date TBD' || evt.date >= nowStr);
+                    console.log(`[EventCache] ✅ Cache HIT for "${cat}" in ${cleanCity} (${upcoming.length} upcoming events, Age: ${Math.round(cacheAgeMs / 360000) / 10}h)`);
                     return upcoming;
                 } else {
-                    console.log(`[EventCache] ⚠️ Cache has only ${upcoming.length} upcoming events. Forcing fresh fetch...`);
+                    console.log(`[EventCache] ⚠️ Cache expired for "${cat}" in ${cleanCity} (Age: ${Math.round(cacheAgeMs / 360000) / 10}h). Forcing fresh fetch...`);
                 }
             }
         } catch (err) {
@@ -482,12 +484,19 @@ export const fetchEvents = async (supabase, city, category, size = 15, keys = {}
 export const fetchSeatGeekEvents = async (city, category, size = 15, clientId, keyword = '') => {
     if (!clientId) return [];
     
+    // Skip SeatGeek for unsupported local categories to prevent category pollution
+    if (['classes', 'tech', 'community'].includes(category.toLowerCase())) return [];
+
+    const apiConfig = mapInternalCategoryToAPI(category, keyword);
     const taxonomy = SEATGEEK_TAXONOMY_MAP[category.toLowerCase()];
-    if (!taxonomy) return []; // Skip SeatGeek for unsupported categories like tech, community, classes to prevent category pollution
+    if (!taxonomy && !apiConfig.fallbackKeyword) return [];
     
-    let url = `https://api.seatgeek.com/2/events?client_id=${clientId}&venue.city=${encodeURIComponent(city)}&taxonomies.name=${taxonomy}&per_page=${size}&sort=datetime_local.asc`;
-    if (keyword) {
-        url += `&q=${encodeURIComponent(keyword)}`;
+    let url = `https://api.seatgeek.com/2/events?client_id=${clientId}&venue.city=${encodeURIComponent(city)}&per_page=${size}&sort=datetime_local.asc`;
+    if (taxonomy) {
+        url += `&taxonomies.name=${taxonomy}`;
+    }
+    if (apiConfig.fallbackKeyword) {
+        url += `&q=${encodeURIComponent(apiConfig.fallbackKeyword)}`;
     }
 
     try {
@@ -521,13 +530,22 @@ export const fetchSeatGeekEvents = async (city, category, size = 15, clientId, k
 };
 
 const fetchTicketmasterEvents = async (city, category, size, apiKey, keyword = '') => {
-    const segmentName = CATEGORY_SEGMENT_MAP[category.toLowerCase()];
+    const apiConfig = mapInternalCategoryToAPI(category, keyword);
     // Skip TM if it's a very local category they don't cover well
     if (['classes', 'tech', 'community'].includes(category.toLowerCase())) return [];
 
-    let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=${encodeURIComponent(city)}&size=${size}&sort=date,asc${segmentName ? `&segmentName=${encodeURIComponent(segmentName)}` : ''}`;
+    const segmentName = CATEGORY_SEGMENT_MAP[category.toLowerCase()];
+    let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=${encodeURIComponent(city)}&size=${size}&sort=date,asc`;
+    if (segmentName) {
+        url += `&segmentName=${encodeURIComponent(segmentName)}`;
+    }
+    if (apiConfig.ticketmasterId) {
+        url += `&classificationId=${apiConfig.ticketmasterId}`;
+    }
     if (keyword) {
         url += `&keyword=${encodeURIComponent(keyword)}`;
+    } else if (!apiConfig.ticketmasterId && apiConfig.fallbackKeyword) {
+        url += `&keyword=${encodeURIComponent(apiConfig.fallbackKeyword)}`;
     }
 
     try {

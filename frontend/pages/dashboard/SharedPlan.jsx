@@ -119,24 +119,6 @@ const SharedPlan = () => {
         const fetchCollabData = async () => {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
             setUser(currentUser);
-            if (currentUser) {
-                try {
-                    const [statusRes, votesRes] = await Promise.all([
-                        fetch(`/api/collab/status/${plan.id}`),
-                        fetch(`/api/collab/votes/${plan.id}`)
-                    ]);
-                    if (statusRes.ok) {
-                        const statusData = await statusRes.json();
-                        setCollabStatus(statusData.collab);
-                    }
-                    if (votesRes.ok) {
-                        const votesData = await votesRes.json();
-                        setVoteSummary(votesData);
-                    }
-                } catch (err) {
-                    console.error('Error fetching collab data in shared view:', err);
-                }
-            }
         };
         fetchCollabData();
     }, [plan?.id]);

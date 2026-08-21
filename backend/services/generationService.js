@@ -132,3 +132,19 @@ export const recreatePlanFlow = async (supabase, userId, planId, typeOverride = 
 
     return newPlan;
 };
+
+export const generateOptionsFlow = async (supabase, userId, params) => {
+    const options = await itineraryService.generateAIOptions(params);
+    return options;
+};
+
+export const finalizeOptionFlow = async (supabase, userId, params, selectedOption, type = 'classic') => {
+    const usage = await userService.checkUsageLimits(supabase, userId, type);
+    if (!usage.allowed) {
+        throw { status: 403, message: 'Limit reached', code: 'LIMIT_REACHED' };
+    }
+
+    const savedPlan = await itineraryService.finalizeSelectedOption(supabase, userId, params, selectedOption);
+    return savedPlan;
+};
+
