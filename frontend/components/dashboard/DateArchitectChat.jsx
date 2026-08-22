@@ -166,6 +166,7 @@ const DateArchitectChat = ({
     const [currentStep, setCurrentStep] = useState(initialLocation ? 2 : 0); // Start at step 0 for concierge
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [showCustomLocation, setShowCustomLocation] = useState(false);
+    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
     const [customLocationText, setCustomLocationText] = useState('');
     const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
     const [customTime, setCustomTime] = useState('19:00');
@@ -1106,13 +1107,13 @@ const DateArchitectChat = ({
                                     </span>
                                     <button
                                         type="button"
-                                        onClick={() => setShowCustomLocation(prev => !prev)}
-                                        className="flex items-center gap-1 bg-coral/10 hover:bg-coral/20 text-coral px-2 py-0.5 rounded-full text-[9px] font-black transition-all border border-coral/20 cursor-pointer"
-                                        title="Click to change location"
+                                        onClick={() => setIsLocationModalOpen(true)}
+                                        className="flex items-center gap-1 bg-coral/10 hover:bg-coral/20 text-coral px-2.5 py-0.5 rounded-full text-[9px] font-black transition-all border border-coral/20 cursor-pointer hover:scale-105 active:scale-95"
+                                        title="Click to edit target location"
                                     >
                                         <MapPin className="w-2.5 h-2.5 text-coral" />
                                         <span>{location || 'NYC'}</span>
-                                        <Edit2 className="w-2 h-2 opacity-70" />
+                                        <Edit2 className="w-2 h-2 opacity-70 text-coral" />
                                     </button>
                                 </div>
                             </div>
@@ -1174,6 +1175,97 @@ const DateArchitectChat = ({
                         </div>
                     </div>
                 )}
+
+                {/* EDITABLE LOCATION OVERLAY MODAL */}
+                <AnimatePresence>
+                    {isLocationModalOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4"
+                            onClick={() => setIsLocationModalOpen(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="w-5 h-5 text-coral" />
+                                        <h3 className="text-base font-black text-navy uppercase tracking-wider">Target Location</h3>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsLocationModalOpen(false)}
+                                        className="p-1 rounded-full text-gray-400 hover:text-navy hover:bg-gray-100"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-xs font-semibold text-gray-500">
+                                        Where would you like to plan your date or trip experience?
+                                    </p>
+                                    <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                                        <MapPin className="w-4 h-4 text-coral shrink-0" />
+                                        <input
+                                            type="text"
+                                            placeholder="Enter city, neighborhood, or country..."
+                                            value={customLocationText}
+                                            onChange={(e) => setCustomLocationText(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && customLocationText.trim()) {
+                                                    setLocation(customLocationText.trim());
+                                                    setCustomLocationText('');
+                                                    setIsLocationModalOpen(false);
+                                                }
+                                            }}
+                                            className="bg-transparent text-navy text-xs font-bold w-full outline-none"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {['New York, NY', 'Brooklyn, NY', 'Chicago, IL', 'Los Angeles, CA', 'Miami, FL', 'Paris, France', 'London, UK'].map((cityName) => (
+                                            <button
+                                                type="button"
+                                                key={cityName}
+                                                onClick={() => {
+                                                    setLocation(cityName);
+                                                    setIsLocationModalOpen(false);
+                                                }}
+                                                className={`px-3 py-1.5 rounded-full text-xs font-black transition-all border ${location === cityName ? 'bg-coral text-white border-coral' : 'bg-coral/10 hover:bg-coral/20 text-coral border-coral/20'}`}
+                                            >
+                                                {cityName}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (customLocationText.trim()) {
+                                                setLocation(customLocationText.trim());
+                                                setCustomLocationText('');
+                                            }
+                                            setIsLocationModalOpen(false);
+                                        }}
+                                        className="w-full py-3 rounded-2xl font-black text-xs text-white bg-coral hover:bg-coral/90 transition-all shadow-md cursor-pointer"
+                                    >
+                                        Set Location
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Progress bar */}
                 {currentStep > 0 && currentStep <= 5 && (
@@ -1250,8 +1342,8 @@ const DateArchitectChat = ({
                                 </div>
                             </div>
                         )}
-                        {/* Plan Generating Thinking bubble */}
-                        {isGeneratingPlan && (
+                        {/* Plan Generating / Concierge Thinking bubble */}
+                        {(isGeneratingPlan || isStreaming || locationLoading) && (
                             <motion.div 
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
