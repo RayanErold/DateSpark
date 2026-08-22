@@ -1099,11 +1099,21 @@ const DateArchitectChat = ({
                                 <h3 className="text-sm font-black tracking-tight uppercase bg-gradient-to-r from-rose-600 via-rose-500 to-coral bg-clip-text text-transparent">
                                     Sparky
                                 </h3>
-                                <div className="flex items-center gap-1.5 mt-0.5">
+                                <div className="flex items-center gap-2 mt-0.5">
                                     <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping" />
                                     <span className="text-[9px] font-black uppercase text-rose-600 tracking-wider">
                                         {currentStep > 0 ? `Customizing: Step ${currentStep} of 5` : chatMode === 'concierge' ? 'AI Concierge 🌟' : 'AI Live Architect'}
                                     </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCustomLocation(prev => !prev)}
+                                        className="flex items-center gap-1 bg-coral/10 hover:bg-coral/20 text-coral px-2 py-0.5 rounded-full text-[9px] font-black transition-all border border-coral/20 cursor-pointer"
+                                        title="Click to change location"
+                                    >
+                                        <MapPin className="w-2.5 h-2.5 text-coral" />
+                                        <span>{location || 'NYC'}</span>
+                                        <Edit2 className="w-2 h-2 opacity-70" />
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1242,19 +1252,29 @@ const DateArchitectChat = ({
                         )}
                         {/* Plan Generating Thinking bubble */}
                         {isGeneratingPlan && (
-                            <div className="flex justify-start">
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex justify-start my-2"
+                            >
                                 <div className="flex max-w-[85%] gap-2.5">
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 shadow-sm">
-                                        <Bot className="h-4 w-4" />
+                                    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-rose-500 to-coral text-white shadow-sm">
+                                        <Sparkles className="h-4 w-4 animate-spin text-white" />
                                     </div>
-                                    <div className="rounded-2xl rounded-tl-sm border border-slate-100 bg-white p-3 px-4 text-xs font-semibold shadow-sm">
-                                        <div className="flex items-center gap-2 text-orange-500 font-black">
+                                    <div className="rounded-2xl rounded-tl-sm border border-coral/20 bg-white p-3.5 px-4 text-xs font-semibold shadow-md space-y-2">
+                                        <div className="flex items-center gap-2 text-coral font-black">
                                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            <span>Sparky is architecting the perfect custom date plan...</span>
+                                            <span className="bg-gradient-to-r from-navy via-coral to-orange-600 bg-clip-text text-transparent">
+                                                Sparky is architecting your date experience in {location || 'NYC'}...
+                                            </span>
+                                        </div>
+                                        <div className="space-y-1 pt-1">
+                                            <div className="h-1.5 bg-rose-50 rounded-full w-44 animate-pulse" />
+                                            <div className="h-1.5 bg-rose-50 rounded-full w-32 animate-pulse" />
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         )}
 
                         {/* Offered Draft Plan Preview with Accept / Decline and Prompts */}
