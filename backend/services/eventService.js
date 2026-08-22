@@ -610,23 +610,35 @@ const fetchTicketmasterEvents = async (city, category, size, apiKey, keyword = '
     try {
         const res = await axios.get(url, { timeout: 8000 });
         const raw = res.data?._embedded?.events || [];
-        return raw.map(evt => ({
-            id: `tm-${evt.id}`,
-            source: 'Ticketmaster',
-            name: evt.name,
-            url: evt.url,
-            date: evt.dates?.start?.localDate,
-            time: evt.dates?.start?.localTime,
-            venueName: evt._embedded?.venues?.[0]?.name,
-            address: evt._embedded?.venues?.[0]?.address?.line1,
-            image: evt.images?.sort((a, b) => b.width - a.width)?.[0]?.url,
-            segment: evt.classifications?.[0]?.segment?.name,
-            genre: evt.classifications?.[0]?.genre?.name,
-            priceMin: evt.priceRanges?.[0]?.min,
-            priceMax: evt.priceRanges?.[0]?.max,
-            currency: evt.priceRanges?.[0]?.currency || 'USD',
-            status: evt.dates?.status?.code
-        }));
+        const isTechCat = category.toLowerCase() === 'tech';
+
+        return raw
+            .filter(evt => {
+                if (!isTechCat) return true;
+                const name = (evt.name || '').toLowerCase();
+                const segName = (evt.classifications?.[0]?.segment?.name || '').toLowerCase();
+                if (segName.includes('theatre') || segName.includes('arts') || segName.includes('sports')) {
+                    return name.includes('tech') || name.includes('hackathon') || name.includes('ai') || name.includes('software') || name.includes('coding');
+                }
+                return true;
+            })
+            .map(evt => ({
+                id: `tm-${evt.id}`,
+                source: 'Ticketmaster',
+                name: evt.name,
+                url: evt.url,
+                date: evt.dates?.start?.localDate,
+                time: evt.dates?.start?.localTime,
+                venueName: evt._embedded?.venues?.[0]?.name,
+                address: evt._embedded?.venues?.[0]?.address?.line1,
+                image: evt.images?.sort((a, b) => b.width - a.width)?.[0]?.url,
+                segment: isTechCat ? 'Activity' : evt.classifications?.[0]?.segment?.name,
+                genre: isTechCat ? 'Tech' : evt.classifications?.[0]?.genre?.name,
+                priceMin: evt.priceRanges?.[0]?.min,
+                priceMax: evt.priceRanges?.[0]?.max,
+                currency: evt.priceRanges?.[0]?.currency || 'USD',
+                status: evt.dates?.status?.code
+            }));
     } catch (err) {
         console.warn('[Ticketmaster Error]', err.message);
         return [];
