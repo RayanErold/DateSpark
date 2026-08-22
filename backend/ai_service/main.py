@@ -445,7 +445,7 @@ async def generate_options(request: ItineraryRequest):
               "activity": "Cocktails & Views",
               "venue": "REAL PLACE TBD",
               "search_query": "High-intent search query for Google Maps in {city}",
-              "description": "Short sensory description sentence."
+              "description": "Sensory description sentence. • 💡 Tip: Order the signature smoked old fashioned. • 👔 Attire: Smart Casual. • 📅 Booking: Reservation recommended."
             }}
           ]
         }},

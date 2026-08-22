@@ -1290,51 +1290,51 @@ const GeneratePlan = () => {
                                 return (
                                     <motion.div
                                         key={opt.id || idx}
-                                        initial={{ opacity: 0, y: 25 }}
+                                        initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.15 }}
-                                        className="bg-white rounded-[2.5rem] border-2 border-gray-100 hover:border-coral/40 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between overflow-hidden group relative"
+                                        transition={{ delay: idx * 0.1 }}
+                                        className={`group relative rounded-3xl border-2 transition-all duration-300 overflow-hidden flex flex-col justify-between aspect-square bg-white hover:shadow-2xl hover:shadow-coral/10 hover:border-coral/40 ${selectedShowdownId === opt.id ? 'border-coral ring-4 ring-coral/20' : 'border-gray-100'}`}
                                     >
                                         <div>
                                             {/* Card Header Banner */}
-                                            <div className={`p-6 bg-gradient-to-r ${gradient} text-white relative`}>
-                                                <div className="flex items-center justify-between gap-2 mb-2">
-                                                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-black uppercase tracking-wider text-white border border-white/30">
+                                            <div className={`p-5 bg-gradient-to-r ${gradient} text-white relative`}>
+                                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                    <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-wider text-white border border-white/30">
                                                         Option {idx + 1} • {(opt.vibe || 'Romantic').toUpperCase()}
                                                     </span>
-                                                    <span className="px-2.5 py-1 bg-black/30 backdrop-blur-md rounded-full text-[11px] font-black text-amber-300">
+                                                    <span className="px-2.5 py-0.5 bg-black/30 backdrop-blur-md rounded-full text-[10px] font-black text-amber-300">
                                                         {opt.estimated_cost || '$$'}
                                                     </span>
                                                 </div>
-                                                <h3 className="text-xl font-black tracking-tight leading-snug">{opt.title}</h3>
+                                                <h3 className="text-lg font-black tracking-tight leading-tight line-clamp-1">{opt.title}</h3>
                                                 {opt.tagline && (
-                                                    <p className="text-xs font-medium text-white/90 mt-1 italic">{opt.tagline}</p>
+                                                    <p className="text-[11px] font-medium text-white/90 italic line-clamp-1">{opt.tagline}</p>
                                                 )}
                                             </div>
 
-                                            {/* Card Body */}
-                                            <div className="p-6 space-y-6">
-                                                <p className="text-xs text-gray-600 font-medium leading-relaxed">
+                                            {/* Card Body (Scrollable in Square Card) */}
+                                            <div className="p-4 space-y-3 overflow-y-auto max-h-[220px] custom-scrollbar">
+                                                <p className="text-[11px] text-gray-600 font-medium leading-relaxed line-clamp-2">
                                                     {opt.description}
                                                 </p>
 
                                                 {/* Steps Outline Timeline */}
-                                                <div className="space-y-3 pt-2 border-t border-gray-100">
-                                                    <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">
-                                                        Experience Timeline
+                                                <div className="space-y-2 pt-2 border-t border-gray-100">
+                                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                        Experience Timeline ({opt.steps?.length || 3} Stops)
                                                     </h4>
-                                                    <div className="space-y-2.5">
+                                                    <div className="space-y-2">
                                                         {(opt.steps || []).map((st, sIdx) => (
-                                                            <div key={sIdx} className="flex items-start gap-3 text-xs bg-gray-50/80 p-3 rounded-xl border border-gray-100">
-                                                                <div className="w-6 h-6 rounded-lg bg-coral/10 text-coral flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                                                            <div key={sIdx} className="flex items-start gap-2.5 text-[11px] bg-gray-50/90 p-2.5 rounded-xl border border-gray-100/80">
+                                                                <div className="w-5 h-5 rounded-lg bg-coral/10 text-coral flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
                                                                     {sIdx + 1}
                                                                 </div>
                                                                 <div className="space-y-0.5 min-w-0">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="font-bold text-navy text-[11px]">{st.time}</span>
-                                                                        <span className="font-black text-coral text-[11px]">• {st.activity}</span>
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        <span className="font-bold text-navy text-[10px]">{st.time}</span>
+                                                                        <span className="font-black text-coral text-[10px]">• {st.activity}</span>
                                                                     </div>
-                                                                    <p className="text-[11px] text-gray-500 font-medium line-clamp-1">
+                                                                    <p className="text-[10px] text-gray-500 font-medium leading-snug">
                                                                         {st.description || st.search_query}
                                                                     </p>
                                                                 </div>

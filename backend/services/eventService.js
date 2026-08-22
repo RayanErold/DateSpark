@@ -322,7 +322,7 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
     }
 };
 
-export const fetchEvents = async (supabase, city, category, size = 15, keys = {}, keyword = '', forceRefresh = false) => {
+export const fetchEvents = async (supabase, city, category, size = 50, keys = {}, keyword = '', forceRefresh = false) => {
     const { ticketmaster, serpapi, seatgeek } = keys;
     
     // Trim and lowercase parameters to prevent duplicate caching and queries
