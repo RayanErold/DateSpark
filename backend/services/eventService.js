@@ -14,7 +14,10 @@ const CATEGORY_SEGMENT_MAP = {
     'comedy': 'Arts & Theatre',
     'family': 'Family',
     'classes': 'Classes',
-    'community': 'Community'
+    'community': 'Community',
+    'food': 'Food & Drink',
+    'tech': 'Tech Events',
+    'outdoors': 'Outdoors'
 };
 
 const SEATGEEK_TAXONOMY_MAP = {
@@ -25,28 +28,106 @@ const SEATGEEK_TAXONOMY_MAP = {
     'family': 'family',
     'food': 'festival',
     'festivals': 'festival',
+    'outdoors': 'sports',
     'all': 'event'
 };
+
+function parseLocationString(locationStr) {
+  const result = {
+    city: locationStr || '',
+    countryCode: '',
+    stateCode: ''
+  };
+  if (!locationStr) return result;
+
+  const parts = locationStr.split(',').map(p => p.trim());
+  if (parts.length > 1) {
+    result.city = parts[0];
+    const lastPart = parts[parts.length - 1].toLowerCase();
+    
+    // Country code mapping
+    if (lastPart === 'canada' || lastPart === 'ca') {
+      result.countryCode = 'CA';
+    } else if (lastPart === 'united kingdom' || lastPart === 'uk' || lastPart === 'gb' || lastPart === 'great britain' || lastPart === 'england') {
+      result.countryCode = 'GB';
+    } else if (lastPart === 'france' || lastPart === 'fr') {
+      result.countryCode = 'FR';
+    } else if (lastPart === 'germany' || lastPart === 'de') {
+      result.countryCode = 'DE';
+    } else if (lastPart === 'united states' || lastPart === 'usa' || lastPart === 'us') {
+      result.countryCode = 'US';
+    } else if (lastPart === 'australia' || lastPart === 'au') {
+      result.countryCode = 'AU';
+    } else if (lastPart === 'spain' || lastPart === 'es') {
+      result.countryCode = 'ES';
+    } else if (lastPart === 'italy' || lastPart === 'it') {
+      result.countryCode = 'IT';
+    } else if (lastPart === 'netherlands' || lastPart === 'nl') {
+      result.countryCode = 'NL';
+    }
+    
+    if (parts.length > 2) {
+      result.stateCode = parts[1];
+    }
+  }
+  return result;
+}
 
 function mapInternalCategoryToAPI(internalCategory, userKeyword) {
   const mappings = {
     tech: {
       ticketmasterId: 'KZFzniwnSyZfZ7v7na', // Miscellaneous/Seminars code
       fallbackKeyword: userKeyword || 'technology',
-      serpQueryModifier: userKeyword || 'technology conferences'
+      serpQueryModifier: userKeyword || 'technology conferences OR programming OR hackathon OR AI developer meetup'
     },
     music: {
       ticketmasterId: 'KZFzniwnSyZfZ7v7jM',
       fallbackKeyword: userKeyword || 'concert',
-      serpQueryModifier: userKeyword || 'live music concerts'
+      serpQueryModifier: userKeyword || 'live music concerts OR gigs OR music festival'
+    },
+    sports: {
+      ticketmasterId: 'KZFzniwnSyZfZ7v7n1',
+      fallbackKeyword: userKeyword || 'sports',
+      serpQueryModifier: userKeyword || 'sports games OR football OR basketball OR soccer OR baseball OR hockey'
+    },
+    theater: {
+      ticketmasterId: 'KZFzniwnSyZfZ7v7na',
+      fallbackKeyword: userKeyword || 'theater',
+      serpQueryModifier: userKeyword || 'theater play OR broadway show OR opera OR ballet OR art gallery exhibition'
+    },
+    comedy: {
+      ticketmasterId: 'KZFzniwnSyZfZ7v7na',
+      fallbackKeyword: userKeyword || 'comedy',
+      serpQueryModifier: userKeyword || 'comedy show OR standup comedy OR improv'
+    },
+    food: {
+      ticketmasterId: '',
+      fallbackKeyword: userKeyword || 'food',
+      serpQueryModifier: userKeyword || 'food festival OR wine tasting OR beer tasting OR culinary experience OR food truck festival'
+    },
+    outdoors: {
+      ticketmasterId: '',
+      fallbackKeyword: userKeyword || 'outdoor',
+      serpQueryModifier: userKeyword || 'guided hike OR outdoor festival OR camping OR nature walk OR park activities'
+    },
+    classes: {
+      ticketmasterId: 'KZFzniwnSyZfZ7v7na',
+      fallbackKeyword: userKeyword || 'workshop',
+      serpQueryModifier: userKeyword || 'workshop OR craft class OR cooking class OR painting tutorial OR pottery seminar'
+    },
+    community: {
+      ticketmasterId: '',
+      fallbackKeyword: userKeyword || 'meetup',
+      serpQueryModifier: userKeyword || 'community gathering OR speed dating OR social networking meetup OR local charity volunteer event'
     }
   };
   return mappings[internalCategory?.toLowerCase()] || {
     ticketmasterId: '',
     fallbackKeyword: userKeyword,
-    serpQueryModifier: userKeyword || internalCategory
+    serpQueryModifier: userKeyword || internalCategory || 'events'
   };
 }
+
 
 const parseUnstructuredDate = (dateStr) => {
     if (!dateStr) return null;
@@ -256,35 +337,50 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
     
     const apiConfig = mapInternalCategoryToAPI(category, keyword);
     const cleanKey = apiKey.trim();
+    const locationDetails = parseLocationString(city);
 
     try {
-        // Fetch Page 1 (first 10 events)
-        const res = await axios.get('https://serpapi.com/search.json', {
-            params: {
+        let params = {
+            engine: 'google_events',
+            q: `${apiConfig.serpQueryModifier}`,
+            location: city,
+            api_key: cleanKey,
+            start: 0
+        };
+
+        if (locationDetails.countryCode) {
+            params.gl = locationDetails.countryCode.toLowerCase();
+            params.hl = locationDetails.countryCode.toLowerCase() === 'ca' ? 'en' : locationDetails.countryCode.toLowerCase();
+        }
+
+        let res;
+        try {
+            res = await axios.get('https://serpapi.com/search.json', { params, timeout: 12000 });
+        } catch (err) {
+            console.warn('[SerpApi Location-based Search Failed, retrying with raw text query]', err.message);
+            // Fallback: search by query modifier + city text
+            params = {
                 engine: 'google_events',
-                q: `${apiConfig.serpQueryModifier} in ${city}`,
+                q: `${apiConfig.serpQueryModifier} in ${locationDetails.city}`,
                 api_key: cleanKey,
                 start: 0
-            },
-            timeout: 12000
-        });
+            };
+            res = await axios.get('https://serpapi.com/search.json', { params, timeout: 12000 });
+        }
+
         let raw = res.data?.events_results || [];
         console.log(`[SerpApi Page 1] Found ${raw.length} events for query: "${apiConfig.serpQueryModifier}" in ${city}`);
 
         // Fetch Page 2 if requested size > 10 and we got exactly 10 or more events from page 1
         if (size > 10 && raw.length >= 10) {
             try {
+                let params2 = { ...params, start: 10 };
                 const res2 = await axios.get('https://serpapi.com/search.json', {
-                    params: {
-                        engine: 'google_events',
-                        q: `${apiConfig.serpQueryModifier} in ${city}`,
-                        api_key: cleanKey,
-                        start: 10
-                    },
+                    params: params2,
                     timeout: 12000
                 });
                 const raw2 = res2.data?.events_results || [];
-                console.log(`[SerpApi Page 2] Found ${raw2.length} events for query: "${apiConfig.serpQueryModifier}"`);
+                console.log(`[SerpApi Page 2] Found ${raw2.length} events`);
                 raw = [...raw, ...raw2];
             } catch (err2) {
                 console.warn('[SerpApi Page 2 Error]', err2.message);
@@ -322,12 +418,13 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
     }
 };
 
+
 export const fetchEvents = async (supabase, city, category, size = 50, keys = {}, keyword = '', forceRefresh = false) => {
     const { ticketmaster, serpapi, seatgeek } = keys;
     
     // Trim and lowercase parameters to prevent duplicate caching and queries
-    const cleanCity = (city || '').trim();
-    const normalizedCity = cleanCity.toLowerCase();
+    const cleanCityRaw = (city || '').trim();
+    const normalizedCity = cleanCityRaw.toLowerCase();
     const cat = (category || 'all').toLowerCase();
     const cleanKeyword = (keyword || '').trim();
     const hasKeyword = cleanKeyword.length > 0;
@@ -350,19 +447,24 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
                 if (cacheAgeMs < fourHours) {
                     const nowStr = new Date().toISOString().split('T')[0];
                     const upcoming = cachedEntries[0].data.filter(evt => !evt.date || evt.date === 'Date TBD' || evt.date >= nowStr);
-                    console.log(`[EventCache] ✅ Cache HIT for "${cat}" in ${cleanCity} (${upcoming.length} upcoming events, Age: ${Math.round(cacheAgeMs / 360000) / 10}h)`);
+                    console.log(`[EventCache] ✅ Cache HIT for "${cat}" in ${cleanCityRaw} (${upcoming.length} upcoming events, Age: ${Math.round(cacheAgeMs / 360000) / 10}h)`);
                     return upcoming;
                 } else {
-                    console.log(`[EventCache] ⚠️ Cache expired for "${cat}" in ${cleanCity} (Age: ${Math.round(cacheAgeMs / 360000) / 10}h). Forcing fresh fetch...`);
+                    console.log(`[EventCache] ⚠️ Cache expired for "${cat}" in ${cleanCityRaw} (Age: ${Math.round(cacheAgeMs / 360000) / 10}h). Forcing fresh fetch...`);
                 }
             }
         } catch (err) {
             console.warn('[EventCache] ⚠️ Read Error:', err.message);
         }
-        console.log(`[EventCache] ❌ Cache MISS for "${cat}" in ${cleanCity}. Fetching fresh...`);
+        console.log(`[EventCache] ❌ Cache MISS for "${cat}" in ${cleanCityRaw}. Fetching fresh...`);
     } else {
         console.log(`[EventCache] 🔍 Bypassing cache. Reason: ${hasKeyword ? `Keyword search: "${cleanKeyword}"` : 'Force refresh requested'}`);
     }
+
+    // Parse location details (extracting base city and country code)
+    const locDetails = parseLocationString(cleanCityRaw);
+    const apiCityName = locDetails.city;
+    const countryCode = locDetails.countryCode;
 
     // 2. Determine if this is a "Local-Heavy" category that REQUIRED SerpApi
     const isLocalCategory = ['classes', 'tech', 'community', 'activities', 'outdoors', 'food', 'festivals'].includes(cat);
@@ -377,10 +479,10 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
         const sizePerCat = Math.ceil(size / targetCats.length);
         
         const tmPromises = ticketmaster 
-            ? targetCats.map(c => fetchTicketmasterEvents(cleanCity, c, sizePerCat, ticketmaster, cleanKeyword))
+            ? targetCats.map(c => fetchTicketmasterEvents(apiCityName, c, sizePerCat, ticketmaster, cleanKeyword, countryCode))
             : [];
         const sgPromises = seatgeek
-            ? targetCats.map(c => fetchSeatGeekEvents(cleanCity, c, sizePerCat, seatgeek, cleanKeyword))
+            ? targetCats.map(c => fetchSeatGeekEvents(apiCityName, c, sizePerCat, seatgeek, cleanKeyword))
             : [];
             
         const tmResults = await Promise.all(tmPromises);
@@ -390,8 +492,8 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
         sgEvents = sgResults.flat();
     } else {
         const [tmRes, sgRes] = await Promise.all([
-            ticketmaster ? fetchTicketmasterEvents(cleanCity, category, size, ticketmaster, cleanKeyword) : Promise.resolve([]),
-            seatgeek ? fetchSeatGeekEvents(cleanCity, category, size, seatgeek, cleanKeyword) : Promise.resolve([])
+            ticketmaster ? fetchTicketmasterEvents(apiCityName, category, size, ticketmaster, cleanKeyword, countryCode) : Promise.resolve([]),
+            seatgeek ? fetchSeatGeekEvents(apiCityName, category, size, seatgeek, cleanKeyword) : Promise.resolve([])
         ]);
         tmEvents = tmRes;
         sgEvents = sgRes;
@@ -403,15 +505,15 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
     //    - As a fallback if standard sources are empty
     let serpEvents = [];
     if (serpapi && (isLocalCategory || cat === 'all' || (tmEvents.length + sgEvents.length < 5))) {
-        console.log(`[EventService] 🔍 Triggering SerpApi search for "${cat}" in ${cleanCity} (Quota Protection Active)`);
+        console.log(`[EventService] 🔍 Triggering SerpApi search for "${cat}" in ${cleanCityRaw} (Quota Protection Active)`);
         if (cat === 'all') {
             // Fetch popular date-friendly local categories in parallel to populate the dashboard rows
             const serpCategories = ['all', 'food', 'festivals', 'outdoors'];
-            const serpPromises = serpCategories.map(c => fetchSerpEvents(cleanCity, c, 15, serpapi, cleanKeyword));
+            const serpPromises = serpCategories.map(c => fetchSerpEvents(cleanCityRaw, c, 15, serpapi, cleanKeyword));
             const serpResults = await Promise.all(serpPromises);
             serpEvents = serpResults.flat();
         } else {
-            serpEvents = await fetchSerpEvents(cleanCity, category, size, serpapi, cleanKeyword);
+            serpEvents = await fetchSerpEvents(cleanCityRaw, category, size, serpapi, cleanKeyword);
         }
     }
 
@@ -458,68 +560,6 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
         return 0;
     });
 
-    // 5. ASYNC CACHE SAVE & FALLBACK FOR TECH
-    if (sorted.length === 0 && (cat === 'tech' || cat === 'classes' || cat === 'community')) {
-        console.log(`[EventService] Generating curated fallback events for "${cat}" in ${cleanCity}`);
-        const today = new Date();
-        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-        const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 5);
-
-        sorted.push(
-            {
-                id: `tech-fallback-1`,
-                source: 'Community',
-                name: `${cleanCity} AI & Tech Meetup: Developer Demo Night`,
-                url: `https://www.google.com/search?q=${encodeURIComponent(`${cleanCity} AI tech meetup demo night`)}`,
-                date: today.toISOString().split('T')[0],
-                time: '18:30:00',
-                venueName: `${cleanCity} Tech Hub / Innovation Center`,
-                address: `Downtown ${cleanCity}`,
-                image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop',
-                segment: 'Activity',
-                genre: 'Tech',
-                priceMin: 0,
-                priceMax: 0,
-                currency: 'USD',
-                status: 'active'
-            },
-            {
-                id: `tech-fallback-2`,
-                source: 'Community',
-                name: `${cleanCity} Builders & Founders Networking Mixer`,
-                url: `https://www.google.com/search?q=${encodeURIComponent(`${cleanCity} startup founders networking mixer`)}`,
-                date: tomorrow.toISOString().split('T')[0],
-                time: '19:00:00',
-                venueName: `${cleanCity} Rooftop Lounge`,
-                address: `Central ${cleanCity}`,
-                image: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&auto=format&fit=crop',
-                segment: 'Activity',
-                genre: 'Tech',
-                priceMin: 0,
-                priceMax: 15,
-                currency: 'USD',
-                status: 'active'
-            },
-            {
-                id: `tech-fallback-3`,
-                source: 'Community',
-                name: `Hackathon & Open Source Showcase`,
-                url: `https://www.google.com/search?q=${encodeURIComponent(`${cleanCity} hackathon open source meetup`)}`,
-                date: nextWeek.toISOString().split('T')[0],
-                time: '18:00:00',
-                venueName: `Co-Working Space ${cleanCity}`,
-                address: `${cleanCity}`,
-                image: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop',
-                segment: 'Activity',
-                genre: 'Tech',
-                priceMin: 0,
-                priceMax: 0,
-                currency: 'USD',
-                status: 'active'
-            }
-        );
-    }
-
     if (sorted.length > 0 && !hasKeyword) {
         supabase.from('event_cache').upsert({
             city: normalizedCity,
@@ -528,11 +568,11 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
             expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         }, { onConflict: 'city,category' })
         .then(({ error }) => {
-            if (error) console.error(`[EventCache] ❌ Save Error for "${cat}" in ${cleanCity}:`, error.message);
-            else console.log(`[EventCache] 💾 Cached ${sorted.length} events for "${cat}" in ${cleanCity}`);
+            if (error) console.error(`[EventCache] ❌ Save Error for "${cat}" in ${cleanCityRaw}:`, error.message);
+            else console.log(`[EventCache] 💾 Cached ${sorted.length} events for "${cat}" in ${cleanCityRaw}`);
         })
         .catch(err => {
-            console.error(`[EventCache] ❌ Synchronous Save Exception for "${cat}" in ${cleanCity}:`, err.message);
+            console.error(`[EventCache] ❌ Synchronous Save Exception for "${cat}" in ${cleanCityRaw}:`, err.message);
         });
     }
 
@@ -588,13 +628,16 @@ export const fetchSeatGeekEvents = async (city, category, size = 15, clientId, k
     }
 };
 
-const fetchTicketmasterEvents = async (city, category, size, apiKey, keyword = '') => {
+const fetchTicketmasterEvents = async (city, category, size, apiKey, keyword = '', countryCode = '') => {
     const apiConfig = mapInternalCategoryToAPI(category, keyword);
     // Skip TM if it's a very local category they don't cover well
     if (['classes', 'community'].includes(category.toLowerCase())) return [];
 
     const segmentName = CATEGORY_SEGMENT_MAP[category.toLowerCase()];
     let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=${encodeURIComponent(city)}&size=${size}&sort=date,asc`;
+    if (countryCode) {
+        url += `&countryCode=${encodeURIComponent(countryCode)}`;
+    }
     if (segmentName) {
         url += `&segmentName=${encodeURIComponent(segmentName)}`;
     }

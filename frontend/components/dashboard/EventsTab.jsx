@@ -10,13 +10,16 @@ import { Autocomplete } from '@react-google-maps/api';
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const CATEGORIES = [
-    { id: 'all',     label: 'All Events', emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
-    { id: 'music',   label: 'Music',      emoji: '🎵', color: 'from-pink-500 to-rose-600' },
-    { id: 'sports',  label: 'Sports',     emoji: '🏆', color: 'from-orange-500 to-amber-600' },
-    { id: 'theater', label: 'Theater',    emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
-    { id: 'comedy',  label: 'Comedy',     emoji: '😂', color: 'from-yellow-500 to-orange-500' },
-    { id: 'food',    label: 'Food & Drink', emoji: '🍷', color: 'from-red-500 to-rose-500' },
-    { id: 'tech',    label: 'Tech Events', emoji: '💻', color: 'from-blue-500 to-indigo-600' },
+    { id: 'all',       label: 'All Events',   emoji: '✨', color: 'from-violet-600 to-fuchsia-600' },
+    { id: 'music',     label: 'Music',        emoji: '🎵', color: 'from-pink-500 to-rose-600' },
+    { id: 'sports',    label: 'Sports',       emoji: '🏆', color: 'from-orange-500 to-amber-600' },
+    { id: 'theater',   label: 'Theater',      emoji: '🎭', color: 'from-emerald-500 to-teal-600' },
+    { id: 'comedy',    label: 'Comedy',       emoji: '😂', color: 'from-yellow-500 to-orange-500' },
+    { id: 'food',      label: 'Food & Drink', emoji: '🍷', color: 'from-red-500 to-rose-500' },
+    { id: 'tech',      label: 'Tech Events',  emoji: '💻', color: 'from-blue-500 to-indigo-600' },
+    { id: 'outdoors',  label: 'Outdoors',     emoji: '🌲', color: 'from-emerald-500 to-green-600' },
+    { id: 'classes',   label: 'Classes',      emoji: '🎓', color: 'from-purple-500 to-indigo-600' },
+    { id: 'community', label: 'Community',    emoji: '🤝', color: 'from-orange-400 to-red-500' },
 ];
 
 const SEGMENT_COLORS = {
@@ -406,16 +409,28 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         if (autocomplete !== null) {
             const place = autocomplete.getPlace();
             if (place.address_components) {
-                // Find city from address components
                 const cityComp = place.address_components.find(c => 
-                    c.types.includes('locality') || 
+                    c.types.includes('locality')
+                ) || place.address_components.find(c =>
                     c.types.includes('administrative_area_level_1') ||
                     c.types.includes('administrative_area_level_2')
                 );
                 const cityName = cityComp?.long_name || place.name;
+                
+                const stateComp = place.address_components.find(c => c.types.includes('administrative_area_level_1'));
+                const countryComp = place.address_components.find(c => c.types.includes('country'));
+                
+                let fullLocationName = cityName;
+                if (stateComp && stateComp.short_name !== cityName) {
+                    fullLocationName += `, ${stateComp.short_name}`;
+                }
+                if (countryComp && countryComp.long_name !== cityName) {
+                    fullLocationName += `, ${countryComp.long_name}`;
+                }
+                
                 if (cityName) {
                     setCityInput(cityName);
-                    setCity(cityName);
+                    setCity(fullLocationName);
                 }
             } else if (place.name) {
                 setCityInput(place.name);
