@@ -409,7 +409,10 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         if (autocomplete !== null) {
             const place = autocomplete.getPlace();
             if (place.address_components) {
+                // Find sublocality first (for boroughs like Manhattan, Queens, Brooklyn) then locality (city)
                 const cityComp = place.address_components.find(c => 
+                    c.types.includes('sublocality_level_1')
+                ) || place.address_components.find(c => 
                     c.types.includes('locality')
                 ) || place.address_components.find(c =>
                     c.types.includes('administrative_area_level_1') ||
@@ -446,7 +449,17 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
         // Ticketmaster/SeatGeek metro logic: boroughs & neighbors -> "New York"
         let searchCity = c;
         const metroKeywords = ['manhattan', 'brooklyn', 'queens', 'bronx', 'staten island', 'jersey city', 'hoboken'];
-        if (metroKeywords.includes(c.toLowerCase())) {
+        const normalizedC = c.toLowerCase().trim();
+        const isBoroughOfNYC = metroKeywords.some(keyword => {
+            if (normalizedC === keyword) return true;
+            if (normalizedC.startsWith(keyword + ',') || normalizedC.startsWith(keyword + ' ')) {
+                // Check if it's a NY/USA local area (excludes Manhattan Beach CA, etc.)
+                return normalizedC.includes('ny') || normalizedC.includes('new york') || normalizedC.includes('usa') || normalizedC.includes('united states') || !normalizedC.includes(',');
+            }
+            return false;
+        });
+        
+        if (isBoroughOfNYC) {
             searchCity = 'New York';
         }
 
