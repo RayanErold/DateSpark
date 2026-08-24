@@ -620,7 +620,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                             <Autocomplete
                                 onLoad={onAutocompleteLoad}
                                 onPlaceChanged={onPlaceChanged}
-                                options={{ types: ['(cities)'] }}
+                                options={{ types: ['(regions)'] }}
                                 className="w-full"
                             >
                                 <input
