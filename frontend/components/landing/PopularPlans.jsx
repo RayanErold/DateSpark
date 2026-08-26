@@ -105,7 +105,7 @@ const PopularPlans = ({ selectedCity: propCity, setSelectedCity: propSetCity, us
                     </div>
                     
                     {/* Location selector pills */}
-                    <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 md:pb-0">
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 md:pb-0 w-full">
                         {QUICK_CITIES.map(c => (
                             <button
                                 key={c}

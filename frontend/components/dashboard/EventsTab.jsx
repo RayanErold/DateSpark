@@ -697,7 +697,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
             </form>
 
             {/* Category pills */}
-            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 mb-6 px-1">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-6 px-1 w-full">
                 {CATEGORIES.map(cat => (
                     <button
                         key={cat.id}
@@ -794,7 +794,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                                                 View All
                                             </button>
                                         </div>
-                                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory w-full">
                                             {catEvents.map((evt, idx) => (
                                                 <div key={evt.id} className="min-w-[280px] sm:min-w-[320px] snap-start">
                                                     <EventCard evt={evt} isDark={isDark} idx={idx} />
@@ -816,7 +816,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                                         <div className="px-1">
                                             <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-navy'}`}>More Happenings</h3>
                                         </div>
-                                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory w-full">
                                             {otherEvents.map((evt, idx) => (
                                                 <div key={evt.id} className="min-w-[280px] sm:min-w-[320px] snap-start">
                                                     <EventCard evt={evt} isDark={isDark} idx={idx} />

@@ -461,7 +461,7 @@ const NearbyEvents = ({ selectedCity: propCity, setSelectedCity: propSetCity, us
                 </div>
 
                 {/* Quick select pills */}
-                <div className="flex gap-2 overflow-x-auto scrollbar-none pb-4 mb-8">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4 mb-8 w-full">
                     {QUICK_CITIES.map(c => (
                         <button
                             key={c}
@@ -481,7 +481,7 @@ const NearbyEvents = ({ selectedCity: propCity, setSelectedCity: propSetCity, us
                 </div>
 
                 {/* Category selector pills */}
-                <div className="flex gap-2 overflow-x-auto scrollbar-none pb-4 mb-8 snap-x snap-mandatory">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4 mb-8 snap-x snap-mandatory w-full">
                     {CATEGORIES.map(cat => (
                         <button
                             key={cat.id}
