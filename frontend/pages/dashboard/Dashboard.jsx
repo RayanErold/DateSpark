@@ -2236,6 +2236,81 @@ const Dashboard = () => {
                                             onFindEvents={() => setCurrentTab('events')}
                                         />
                                     </div>
+
+                                    {/* Mobile Sliding Events Strip */}
+                                    <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-xl bg-rose/10 flex items-center justify-center">
+                                                    <Sparkles className="w-4 h-4 text-rose" />
+                                                </div>
+                                                <h4 className="text-xs font-black uppercase tracking-wider text-plum font-outfit">
+                                                    Trending Nearby Events
+                                                </h4>
+                                            </div>
+                                            <button 
+                                                onClick={() => setCurrentTab('events')} 
+                                                className="text-[10px] font-black uppercase tracking-wider text-rose hover:underline"
+                                            >
+                                                See All
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory w-full">
+                                            {(sidebarEvents.length > 0 ? sidebarEvents : MOCK_SIDEBAR_EVENTS).map((event, idx) => {
+                                                const title = event.name || event.title;
+                                                const locationStr = event.venueName || event.location;
+                                                const dateStr = event.date;
+                                                const imageSrc = event.image || (event.category === 'Theater' ? 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=400&q=80' : 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=400&q=80');
+                                                const priceLabel = event.price || (event.priceMin ? `$${event.priceMin}` : 'See tickets');
+                                                const targetUrl = event.url || 'https://seatgeek.com';
+                                                const catLabel = event.genre || event.category || 'Event';
+                                                
+                                                return (
+                                                    <div 
+                                                        key={idx} 
+                                                        className="w-[200px] flex-shrink-0 bg-slate-50/50 rounded-2xl overflow-hidden border border-slate-100/80 flex flex-col justify-between snap-start hover:border-rose/30 transition-colors"
+                                                    >
+                                                        <div className="relative h-24 w-full">
+                                                            <img 
+                                                                src={imageSrc} 
+                                                                alt={title} 
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <span className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-[8px] font-bold text-plum px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                                {catLabel}
+                                                            </span>
+                                                        </div>
+                                                        <div className="p-3 flex-1 flex flex-col justify-between gap-2">
+                                                            <div>
+                                                                <h5 className="text-[11px] font-bold text-plum line-clamp-1 leading-snug">
+                                                                    {title}
+                                                                </h5>
+                                                                <p className="text-[9px] text-taupe mt-0.5 flex items-center gap-1">
+                                                                    <MapPin className="w-2.5 h-2.5 text-rose/70 flex-shrink-0" />
+                                                                    <span className="truncate">{locationStr}</span>
+                                                                </p>
+                                                                <p className="text-[9px] text-slate-400 mt-0.5">
+                                                                    {dateStr}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-100/50">
+                                                                <span className="text-[10px] font-bold text-plum">{priceLabel}</span>
+                                                                <a 
+                                                                    href={targetUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer"
+                                                                    className="text-[8px] font-black text-rose uppercase tracking-widest flex items-center gap-0.5 hover:underline"
+                                                                >
+                                                                    Tickets <ChevronRight className="w-2.5 h-2.5" />
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ) : (
