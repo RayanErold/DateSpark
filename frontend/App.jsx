@@ -19,9 +19,6 @@ const VibeOnboarding = lazy(() => import('./pages/dashboard/VibeOnboarding'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const VibeFeed = lazy(() => import('./pages/dashboard/VibeFeed'));
 const AdminDashboard = lazy(() => import('./pages/dashboard/AdminDashboard'));
-const GiftCardPage = lazy(() => import('./pages/GiftCardPage'));
-const CollabAcceptPage = lazy(() => import('./pages/CollabAcceptPage'));
-
 
 const LoadingScreen = () => (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-ivory z-[9999]">

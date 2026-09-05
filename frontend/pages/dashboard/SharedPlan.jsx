@@ -5,8 +5,6 @@ import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGoogleMaps } from '../../lib/googleMaps';
 import { supabase } from '../../lib/supabase';
-import CollabStatusBadge from '../../components/dashboard/CollabStatusBadge';
-import StopVoteBar from '../../components/dashboard/StopVoteBar';
 
 
 const darkMapStyle = [

@@ -86,10 +86,6 @@ import SwipeCard from '../../components/dashboard/SwipeCard';
 import DateArchitectChat from '../../components/dashboard/DateArchitectChat';
 
 // Integration Components
-import CoupleChallenges from '../../components/dashboard/CoupleChallenges';
-import CollabInvitePanel from '../../components/dashboard/CollabInvitePanel';
-import CollabStatusBadge from '../../components/dashboard/CollabStatusBadge';
-import StopVoteBar from '../../components/dashboard/StopVoteBar';
 
 const SERVER_DEFAULT_LIMITS = { classic: 2, guided: 2, swap: 3, save_weekly: 3 };
 
@@ -3676,26 +3672,6 @@ const Dashboard = () => {
                                                     <History className="w-2.5 h-2.5 text-gray-400" />
                                                     <span className="text-[9px] font-black text-white/70">{selectedPlan.total_tries || 0}</span>
                                                 </div>
-                                                {collabStatus && (
-                                                    <CollabStatusBadge
-                                                        status={collabStatus.status}
-                                                        agreedCount={(() => {
-                                                            let count = 0;
-                                                            const itinerarySteps = Array.isArray(selectedPlan.itinerary)
-                                                                ? selectedPlan.itinerary
-                                                                : (selectedPlan.itinerary?.steps || selectedPlan.itinerary?.itinerary || selectedPlan.itinerary?.schedule || []);
-                                                            itinerarySteps.forEach((_, idx) => {
-                                                                const stopVotes = voteSummary[idx];
-                                                                if (stopVotes && stopVotes.love >= 2) count++;
-                                                            });
-                                                            return count;
-                                                        })()}
-                                                        totalStops={(Array.isArray(selectedPlan.itinerary)
-                                                            ? selectedPlan.itinerary
-                                                            : (selectedPlan.itinerary?.steps || selectedPlan.itinerary?.itinerary || selectedPlan.itinerary?.schedule || [])
-                                                        ).length}
-                                                    />
-                                                )}
                                             </div>
                                             <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black opacity-70 truncate font-inter">
                                                 {!Array.isArray(selectedPlan.itinerary) && selectedPlan.itinerary?.metadata?.planDate ?
