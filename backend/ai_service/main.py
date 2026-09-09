@@ -219,17 +219,22 @@ def init_context_cache():
         return
     try:
         logger.info("Initializing Gemini Context Caching for DateSpark Concierge...")
+        # Pad content if needed to meet 1024 token minimum required by Gemini API
+        padded_content = SYSTEM_CONTEXT_TEMPLATE
+        if len(padded_content.split()) < 1024:
+            padded_content += "\n" + ("# Additional Context & Guidelines for Date Spark Planning Architecture\n" * 50)
+
         itinerary_cache = gemini_client.caches.create(
             model="gemini-3.6-flash",
             config=types.CreateCachedContentConfig(
                 display_name="datespark_concierge_cache",
-                contents=[SYSTEM_CONTEXT_TEMPLATE],
+                contents=[padded_content],
                 ttl="3600s" # 1 hour TTL
             )
         )
         logger.info(f"Successfully initialized Gemini Context Cache: {itinerary_cache.name}")
     except Exception as e:
-        logger.error(f"Failed to initialize Context Cache (falling back to dynamic prompts): {str(e)}")
+        logger.warning(f"Failed to initialize Context Cache (falling back to dynamic prompts): {str(e)}")
         itinerary_cache = None
 
 @app.on_event("startup")
@@ -244,7 +249,7 @@ class ItineraryRequest(BaseModel):
     prompt: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
-    numActivities: Optional[int] = 3
+    numActivities: Optional[int] = 4
     radius: Optional[float] = None
     planDate: Optional[str] = None
     planTime: Optional[str] = None
@@ -284,7 +289,8 @@ async def generate_with_gemini(prompt: str, use_cache: bool = False):
     
     models_to_try = [
         "gemini-3.6-flash",
-        "gemini-3.5-flash" 
+        "gemini-3.5-flash",
+        "gemini-flash-latest"
     ]
     
     last_error = None
@@ -296,7 +302,7 @@ async def generate_with_gemini(prompt: str, use_cache: bool = False):
                 logger.info(f"Attempting generation with {model_name} (attempt {attempt + 1})...")
                 if use_cache and model_name == "gemini-3.6-flash" and itinerary_cache:
                     logger.info(f"Context cache hit for {model_name} using: {itinerary_cache.name}")
-                    response = gemini_client.models.generate_content(
+                    response = await gemini_client.aio.models.generate_content(
                         model=model_name,
                         contents=prompt,
                         config=types.GenerateContentConfig(
@@ -305,7 +311,7 @@ async def generate_with_gemini(prompt: str, use_cache: bool = False):
                     )
                 else:
                     contents_payload = f"{SYSTEM_CONTEXT_TEMPLATE}\n\n{prompt}" if use_cache else prompt
-                    response = gemini_client.models.generate_content(
+                    response = await gemini_client.aio.models.generate_content(
                         model=model_name,
                         contents=contents_payload
                     )
@@ -349,7 +355,7 @@ async def generate_itinerary(request: ItineraryRequest):
     Generate date itinerary with Gemini as primary and OpenAI as fallback.
     Supports both structured builder data and raw natural language copilot prompts.
     """
-    num_stops = request.numActivities or 3
+    num_stops = request.numActivities or 4
     radius_val = f"{(request.radius / 1609.34):.1f} miles" if request.radius else "walking distance/standard"
     time_str = request.planTime or "Evening"
     date_str = request.planDate or "Any date"
@@ -404,9 +410,9 @@ async def generate_itinerary(request: ItineraryRequest):
 async def generate_options(request: ItineraryRequest):
     """
     Generate 3 distinct, contrasting date candidate itineraries (The Showdown Options).
-    Supports 3 to 6 steps per itinerary based on user preference.
+    Supports 3 to 8 steps per itinerary based on user preference.
     """
-    num_stops = min(max(request.numActivities or 3, 3), 6)
+    num_stops = min(max(request.numActivities or 4, 3), 8)
     time_str = request.planTime or "Evening"
     date_str = request.planDate or "Any date"
     city = request.city or "NYC"

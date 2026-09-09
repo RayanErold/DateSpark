@@ -98,6 +98,17 @@ app.post('/api/generate-custom-date', async (req, res) => {
     }
 });
 
+app.post('/api/guest-generate-date', async (req, res) => {
+    try {
+        const params = { ...req.body, draft: true };
+        const draftPlan = await generationService.generatePlanFlow(supabase, 'guest_demo', params, 'guided');
+        res.json([draftPlan]);
+    } catch (err) {
+        console.error('[GUEST_GENERATE_ERROR]', err);
+        res.status(500).json({ error: err.message || 'Failed to generate guest demo plan.' });
+    }
+});
+
 app.post('/api/generate-date-options', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -646,7 +657,7 @@ Produce the next response in the requested JSON structure. Return ONLY a single 
             "gemini-3.6-flash",
             "gemini-flash-latest",
             "gemini-3.5-flash",
-            "gemini-pro-latest"
+            "gemini-flash-lite-latest"
         ];
 
         for (const modelName of modelsToTry) {

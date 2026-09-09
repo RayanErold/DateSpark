@@ -379,7 +379,16 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
             if (place.photos && place.photos.length > 0) {
                 const photoName = place.photos[0].name;
                 if (photoName && photoName.startsWith('places/')) {
-                    googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=800&key=${GOOGLE_API_KEY}`;
+                    googlePhotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=1200&key=${GOOGLE_API_KEY}`;
+                }
+            }
+
+            let finalPhotoUrl = googlePhotoUrl || step.photoUrl;
+            if (!finalPhotoUrl || finalPhotoUrl.includes('/photos/AU_ZV')) {
+                const venueName = place.displayName?.text || step.venue;
+                finalPhotoUrl = await fetchRealImageWithSerpApi(venueName, city);
+                if (!finalPhotoUrl) {
+                    finalPhotoUrl = getFallbackUnsplashPhoto(step.activity || step.vibe || step.search_query);
                 }
             }
 
@@ -397,8 +406,7 @@ export const enrichWithRealPlaces = async (steps, location, coords = null, radiu
                 userRatingCount: place.userRatingCount || 100,
                 lat: place.location?.latitude,
                 lng: place.location?.longitude,
-                // AUTHENTICITY LOGIC: Prefer new photo, otherwise keep the OLD photo
-                photoUrl: googlePhotoUrl || step.photoUrl,
+                photoUrl: finalPhotoUrl,
                 googlePlaceId: place.name?.split('/').pop(),
                 websiteUrl: place.websiteUri,
                 reviews: reviews.length > 0 ? reviews : (step.reviews || []),
@@ -679,7 +687,7 @@ export const generateAIDate = async (params) => {
             "gemini-3.6-flash",
             "gemini-flash-latest",
             "gemini-3.5-flash",
-            "gemini-pro-latest"
+            "gemini-flash-lite-latest"
         ];
         
         let lastError = null;
