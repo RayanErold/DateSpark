@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
     Ticket, MapPin, Calendar, Clock, ExternalLink,
     Loader2, Music, Zap, Trophy, Sparkles, ChevronRight,
@@ -22,6 +21,18 @@ const CATEGORIES = [
     { id: 'community', label: 'Community',    emoji: '🤝', color: 'from-orange-400 to-red-500' },
 ];
 
+const POPULAR_CITIES = [
+    { name: 'Miami', label: 'Miami, FL', icon: '🏖️' },
+    { name: 'San Francisco', label: 'San Francisco, CA', icon: '🌉' },
+    { name: 'Las Vegas', label: 'Las Vegas, NV', icon: '🎰' },
+    { name: 'New York', label: 'New York, NY', icon: '🗽' },
+    { name: 'Los Angeles', label: 'Los Angeles, CA', icon: '🎬' },
+    { name: 'Chicago', label: 'Chicago, IL', icon: '🏙️' },
+    { name: 'Austin', label: 'Austin, TX', icon: '🎸' },
+    { name: 'London', label: 'London, UK', icon: '🎡' },
+    { name: 'Paris', label: 'Paris, FR', icon: '🥐' },
+];
+
 const SEGMENT_COLORS = {
     Music:            'from-pink-500 to-rose-600 shadow-pink-500/20',
     Sports:           'from-orange-600 to-amber-600 shadow-orange-500/20',
@@ -37,7 +48,7 @@ const SEGMENT_COLORS = {
 
 const segmentColor = (seg) => SEGMENT_COLORS[seg] || 'from-violet-600 to-fuchsia-600';
 
-const formatDate = (dateStr, timeStr) => {
+const _formatDate = (dateStr, timeStr) => {
     if (!dateStr || dateStr === 'Invalid Date') return 'Date TBD';
     
     // If the input date string is already a formatted, human-readable date/time (e.g. "Thu, May 28, 7:30 PM")
@@ -58,7 +69,7 @@ const formatDate = (dateStr, timeStr) => {
         const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         const timeLabel = timeStr ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
         return timeLabel ? `${dateLabel} · ${timeLabel}` : dateLabel;
-    } catch (e) {
+    } catch {
         return dateStr;
     }
 };
@@ -385,7 +396,7 @@ const EventCard = ({ evt, isDark, idx }) => {
 };
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
-const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
+const EventsTab = ({ appTheme, userCity }) => {
     const isDark = appTheme === 'dark';
     const [category, setCategory]   = useState('all');
     const [city, setCity]           = useState(userCity || 'New York');
@@ -397,6 +408,7 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
     const [autocomplete, setAutocomplete] = useState(null);
     const [dateFilter, setDateFilter] = useState('all');
     const [keywordInput, setKeywordInput] = useState('');
+    const [showCityDropdown, setShowCityDropdown] = useState(false);
     const [appliedKeyword, setAppliedKeyword] = useState('');
 
 
@@ -483,23 +495,19 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
             const uniqueData = Array.from(new Map(data.map(item => [item.id, item])).values());
             setEvents(uniqueData);
             setApiReady(true);
-        } catch (e) {
+        } catch {
             setError('Could not load events. Check your connection and try again.');
         } finally {
             setLoading(false);
         }
     }, [city, category, appliedKeyword]);
 
-    useEffect(() => { fetchEvents(city, category, appliedKeyword); }, [city, category, appliedKeyword]);
+    useEffect(() => { 
+        fetchEvents(city, category, appliedKeyword); 
+    }, [city, category, appliedKeyword, fetchEvents]);
 
     const handleRefreshEvents = () => {
         fetchEvents(city, category, appliedKeyword, true);
-    };
-
-    const handleCitySearch = (e) => {
-        e.preventDefault();
-        const trimmed = cityInput.trim();
-        if (trimmed) { setCity(trimmed); }
     };
 
     // ─── API NOT CONFIGURED YET ───────────────────────────────────────────────
@@ -621,12 +629,12 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
             </div>
 
             {/* Premium Ticketmaster-style unified search bar layout */}
-            <form onSubmit={handleSearchSubmit} className="mb-8 px-1">
-                <div className={`flex flex-col md:flex-row items-stretch rounded-3xl border shadow-sm overflow-hidden bg-white transition-all ${
+            <form onSubmit={handleSearchSubmit} className="mb-4 px-1">
+                <div className={`flex flex-col md:flex-row items-stretch rounded-3xl border shadow-sm bg-white transition-all relative ${
                     isDark ? 'border-white/10 bg-white/5 focus-within:border-violet-500/40' : 'border-gray-200 bg-white focus-within:border-violet-300'
                 }`}>
                     {/* Location Segment */}
-                    <div className="flex-1 flex items-center gap-3 px-5 py-3 border-b md:border-b-0 md:border-r border-gray-100/50">
+                    <div className="flex-1 flex items-center gap-3 px-5 py-3 border-b md:border-b-0 md:border-r border-gray-100/50 relative">
                         <MapPin className="w-5 h-5 text-coral flex-shrink-0" />
                         <div className="flex-1 flex flex-col items-start w-full">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</span>
@@ -640,6 +648,8 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                                     type="text"
                                     value={cityInput}
                                     onChange={e => setCityInput(e.target.value)}
+                                    onFocus={() => setShowCityDropdown(true)}
+                                    onBlur={() => setTimeout(() => setShowCityDropdown(false), 200)}
                                     placeholder="City or Zip Code"
                                     className={`w-full bg-transparent text-xs font-bold outline-none border-none p-0 mt-0.5 ${
                                         isDark ? 'text-white placeholder-white/30' : 'text-navy placeholder-slate-400'
@@ -647,6 +657,44 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                                 />
                             </Autocomplete>
                         </div>
+
+                        {/* Quick Location Dropdown Menu */}
+                        {showCityDropdown && (
+                            <div className={`absolute top-full left-0 mt-2 w-72 rounded-2xl border shadow-2xl z-50 overflow-hidden backdrop-blur-xl ${
+                                isDark ? 'bg-slate-900/95 border-white/15 text-white' : 'bg-white border-slate-200 text-navy'
+                            }`}>
+                                <div className="p-2.5 border-b border-slate-100 dark:border-white/10 flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 flex items-center gap-1">
+                                        <MapPin className="w-3 h-3 text-coral" /> Popular Destinations
+                                    </span>
+                                    <span className="text-[10px] font-bold text-coral px-2">1-Click</span>
+                                </div>
+                                <div className="max-h-60 overflow-y-auto py-1">
+                                    {POPULAR_CITIES.map((c) => (
+                                        <button
+                                            key={c.name}
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                setCityInput(c.name);
+                                                setCity(c.name);
+                                                setShowCityDropdown(false);
+                                            }}
+                                            className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-all hover:bg-violet-500/10 cursor-pointer ${
+                                                city.toLowerCase().includes(c.name.toLowerCase()) || cityInput.toLowerCase().includes(c.name.toLowerCase())
+                                                    ? 'text-coral font-black bg-coral/5'
+                                                    : isDark ? 'text-white/80 hover:text-white' : 'text-navy'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <span className="text-base">{c.icon}</span> {c.label}
+                                            </span>
+                                            <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Dates Segment */}
@@ -695,6 +743,36 @@ const EventsTab = ({ appTheme, userCity, setToastMessage }) => {
                     </div>
                 </div>
             </form>
+
+            {/* Quick Destination Cities Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 mb-6 px-1 w-full">
+                <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shrink-0 ${isDark ? 'text-white/40' : 'text-slate-400'}`}>
+                    <MapPin className="w-3 h-3 text-coral" /> Quick Cities:
+                </span>
+                {POPULAR_CITIES.map((c) => {
+                    const isActive = city.toLowerCase().includes(c.name.toLowerCase()) || cityInput.toLowerCase().includes(c.name.toLowerCase());
+                    return (
+                        <button
+                            type="button"
+                            key={c.name}
+                            onClick={() => {
+                                setCityInput(c.name);
+                                setCity(c.name);
+                                setShowCityDropdown(false);
+                            }}
+                            className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 active:scale-95 cursor-pointer ${
+                                isActive
+                                    ? 'bg-gradient-to-r from-coral to-rose-500 border-transparent text-white shadow-md shadow-coral/20 font-black'
+                                    : isDark
+                                        ? 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:border-white/20'
+                                        : 'bg-white text-navy border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                        >
+                            <span>{c.icon}</span> {c.name}
+                        </button>
+                    );
+                })}
+            </div>
 
             {/* Category pills */}
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-6 px-1 w-full">
