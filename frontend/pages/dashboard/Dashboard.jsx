@@ -2189,7 +2189,7 @@ const Dashboard = () => {
                                     <DateArchitectChat
                                         userId={user?.id}
                                         initialPrompt={pendingSettings?.initialPrompt}
-                                        location={pendingSettings?.initialLocation}
+                                        location={pendingSettings?.initialLocation || userCity || 'New York'}
                                         budget={pendingSettings?.initialBudget}
                                         initialVibe={pendingSettings?.initialVibe}
                                         numActivities={pendingSettings?.initialNumActivities}
@@ -3037,7 +3037,7 @@ const Dashboard = () => {
                     <DateArchitectChat
                         userId={user?.id}
                         initialPrompt={pendingSettings?.initialPrompt}
-                        location={pendingSettings?.initialLocation}
+                        location={pendingSettings?.initialLocation || userCity || 'New York'}
                         budget={pendingSettings?.initialBudget}
                         initialVibe={pendingSettings?.initialVibe}
                         numActivities={pendingSettings?.initialNumActivities}

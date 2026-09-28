@@ -359,16 +359,17 @@ async def generate_itinerary(request: ItineraryRequest):
     radius_val = f"{(request.radius / 1609.34):.1f} miles" if request.radius else "walking distance/standard"
     time_str = request.planTime or "Evening"
     date_str = request.planDate or "Any date"
+    target_area = request.city or "New York City"
 
     if request.prompt:
         context = f"User Request: \"{request.prompt}\""
         if request.lat and request.lng:
             context += f" (Location coordinates: {request.lat}, {request.lng})"
-        context += f"\nPlan details - Steps: {num_stops}, Radius: {radius_val}, Time: {time_str}, Date: {date_str}."
-        city_context = f"If the location is missing, assume {request.city or 'New York City'} but mention it."
+        context += f"\nPlan details - Target Area/Neighborhood: {target_area}, Steps: {num_stops}, Radius: {radius_val}, Time: {time_str}, Date: {date_str}, Vibe: {request.vibe or 'custom'}, Budget: {request.budget or 'flexible'}."
+        city_context = f"Target Area/Neighborhood: {target_area}. All stops MUST be clustered within walking distance (5-10 min walk) in this specific neighborhood."
     else:
         context = f"""
-        City: {request.city or 'NYC'}
+        Target Area/Neighborhood: {target_area}
         Vibe: {request.vibe or 'chill'}
         Budget: {request.budget or 'flexible'}
         Preferences: {request.preferences or 'None'}
@@ -378,7 +379,7 @@ async def generate_itinerary(request: ItineraryRequest):
         Plan Time: {time_str}
         Plan Date: {date_str}
         """
-        city_context = ""
+        city_context = f"All stops MUST be tightly clustered within walking distance in {target_area}."
 
     final_prompt = f"""
     USER PROFILE & CONTEXT:
@@ -386,7 +387,7 @@ async def generate_itinerary(request: ItineraryRequest):
     {city_context}
     
     TASK:
-    Please generate exactly {num_stops} sequential activities/stops for this user according to the guidelines.
+    Please generate exactly {num_stops} sequential activities/stops for this user according to the guidelines. All stops must be tightly clustered in {target_area} within easy walking distance.
     """
     
     # Try Gemini First (with context caching enabled)

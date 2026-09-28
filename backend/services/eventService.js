@@ -340,10 +340,13 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
     const locationDetails = parseLocationString(city);
 
     try {
+        const queryText = keyword 
+            ? `${keyword} events in ${city}` 
+            : `${apiConfig.serpQueryModifier} in ${city}`;
+
         let params = {
-            engine: 'google_events',
-            q: `${apiConfig.serpQueryModifier}`,
-            location: city,
+            engine: 'google',
+            q: queryText,
             api_key: cleanKey,
             start: 0
         };
@@ -357,52 +360,31 @@ export const fetchSerpEvents = async (city, category, size = 15, apiKey, keyword
         try {
             res = await axios.get('https://serpapi.com/search.json', { params, timeout: 12000 });
         } catch (err) {
-            console.warn('[SerpApi Location-based Search Failed, retrying with raw text query]', err.message);
-            // Fallback: search by query modifier + city text
-            params = {
-                engine: 'google_events',
-                q: `${apiConfig.serpQueryModifier} in ${locationDetails.city}`,
-                api_key: cleanKey,
-                start: 0
-            };
-            res = await axios.get('https://serpapi.com/search.json', { params, timeout: 12000 });
+            console.warn('[SerpApi Search Failed]', err.message);
+            return [];
         }
 
         let raw = res.data?.events_results || [];
-        console.log(`[SerpApi Page 1] Found ${raw.length} events for query: "${apiConfig.serpQueryModifier}" in ${city}`);
+        console.log(`[SerpApi] Found ${raw.length} events for query: "${queryText}"`);
 
-        // Fetch Page 2 if requested size > 10 and we got exactly 10 or more events from page 1
-        if (size > 10 && raw.length >= 10) {
-            try {
-                let params2 = { ...params, start: 10 };
-                const res2 = await axios.get('https://serpapi.com/search.json', {
-                    params: params2,
-                    timeout: 12000
-                });
-                const raw2 = res2.data?.events_results || [];
-                console.log(`[SerpApi Page 2] Found ${raw2.length} events`);
-                raw = [...raw, ...raw2];
-            } catch (err2) {
-                console.warn('[SerpApi Page 2 Error]', err2.message);
-            }
-        }
-        
         return raw.slice(0, size).map((evt, i) => {
-            let imgUrl = evt.image || evt.thumbnail;
+            let imgUrl = evt.thumbnail || evt.image || null;
             if (imgUrl && (imgUrl.includes('google.com/maps') || imgUrl.includes('maps.googleapis.com') || imgUrl.includes('staticmap') || imgUrl.includes('/maps/vt/'))) {
                 imgUrl = null;
             }
-            const rawDateStr = evt.date?.when || evt.date?.start_date || 'Date TBD';
+            const rawDateStr = evt.date?.when || evt.date?.start_date || (typeof evt.date === 'string' ? evt.date : 'Date TBD');
             const { date, time } = parseUnstructuredDateTime(rawDateStr);
             const classification = classifySerpEvent(evt.title, category);
+            const eventUrl = evt.link || evt.ticket_info?.[0]?.link || `https://www.google.com/search?q=${encodeURIComponent(evt.title + ' ' + city)}`;
+
             return {
-                id: `serp-${evt.title?.substring(0,3).toLowerCase().replace(/[^a-z0-9]/g, '')}-${i}`,
+                id: `serp-${evt.title?.substring(0,6).toLowerCase().replace(/[^a-z0-9]/g, '')}-${i}`,
                 source: 'Local',
                 name: evt.title,
-                url: evt.link,
+                url: eventUrl,
                 date: date,
                 time: time,
-                venueName: evt.venue?.name,
+                venueName: evt.venue?.name || (Array.isArray(evt.address) ? evt.address[0] : evt.address),
                 address: Array.isArray(evt.address) ? evt.address.join(', ') : evt.address,
                 image: imgUrl,
                 segment: classification.segment,
@@ -560,6 +542,19 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
         return 0;
     });
 
+    // Real Photo Enrichment for events missing photos using SerpApi & iTunes
+    if (serpapi) {
+        const needPhotos = sorted.filter(evt => !evt.image || evt.image.trim() === '').slice(0, 8);
+        if (needPhotos.length > 0) {
+            await Promise.all(needPhotos.map(async (evt) => {
+                const photo = await fetchRealEventPhoto(evt.name, evt.venueName, cleanCityRaw, serpapi);
+                if (photo) {
+                    evt.image = photo;
+                }
+            }));
+        }
+    }
+
     if (sorted.length > 0 && !hasKeyword) {
         supabase.from('event_cache').upsert({
             city: normalizedCity,
@@ -580,6 +575,67 @@ export const fetchEvents = async (supabase, city, category, size = 50, keys = {}
     return sorted.filter(evt => !evt.date || evt.date === 'Date TBD' || evt.date >= nowStr);
 };
 
+const eventPhotoMemoryCache = new Map();
+
+export const fetchRealEventPhoto = async (title, venueName = '', city = '', serpApiKey = null) => {
+    if (!title && !venueName) return null;
+    const cleanKey = `${(venueName || title).toLowerCase().replace(/[^a-z0-9]/g, '')}_${(city || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    if (eventPhotoMemoryCache.has(cleanKey)) {
+        return eventPhotoMemoryCache.get(cleanKey);
+    }
+
+    // 1. Try iTunes first for musical / stage performers
+    const cleanQuery = (title || '').replace(/\s*-\s*New York.*/i, '').replace(/\s*-\s*Broadway.*/i, '').replace(/tickets/i, '').trim();
+    if (cleanQuery) {
+        try {
+            const url = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&limit=1`;
+            const res = await axios.get(url, { timeout: 2500 });
+            const results = res.data?.results;
+            if (results && results.length > 0) {
+                const artwork = results[0].artworkUrl100 || results[0].artworkUrl60;
+                if (artwork) {
+                    const highRes = artwork.replace('100x100bb', '600x600bb');
+                    eventPhotoMemoryCache.set(cleanKey, highRes);
+                    return highRes;
+                }
+            }
+        } catch {
+            // ignore timeout
+        }
+    }
+
+    // 2. Query SerpApi Google Images for real venue / event exterior
+    const effectiveKey = serpApiKey || process.env.SERP_API_KEY;
+    if (effectiveKey) {
+        try {
+            const q = venueName && venueName.length > 3
+                ? `${venueName} ${city || ''} venue exterior`
+                : `${cleanQuery || title} ${city || ''}`;
+            const res = await axios.get('https://serpapi.com/search.json', {
+                params: {
+                    engine: 'google_images',
+                    q: q.trim(),
+                    api_key: effectiveKey.trim(),
+                    num: 3
+                },
+                timeout: 3500
+            });
+            const images = res.data?.images_results;
+            if (images && images.length > 0) {
+                const best = images.find(img => img.original && !img.original.includes('wikimedia.org/wikipedia/commons/thumb/b/b0'))?.original || images[0].thumbnail;
+                if (best) {
+                    eventPhotoMemoryCache.set(cleanKey, best);
+                    return best;
+                }
+            }
+        } catch {
+            // ignore
+        }
+    }
+
+    return null;
+};
+
 export const fetchSeatGeekEvents = async (city, category, size = 15, clientId, keyword = '') => {
     if (!clientId) return [];
     
@@ -589,7 +645,8 @@ export const fetchSeatGeekEvents = async (city, category, size = 15, clientId, k
     const apiConfig = mapInternalCategoryToAPI(category, keyword);
     const taxonomy = SEATGEEK_TAXONOMY_MAP[category.toLowerCase()] || (category.toLowerCase() === 'tech' ? 'event' : null);
     
-    let url = `https://api.seatgeek.com/2/events?client_id=${clientId}&venue.city=${encodeURIComponent(city)}&per_page=${size}&sort=datetime_local.asc`;
+    const todayStr = new Date().toISOString().split('T')[0] + 'T00:00:00';
+    let url = `https://api.seatgeek.com/2/events?client_id=${clientId}&venue.city=${encodeURIComponent(city)}&datetime_local.gte=${todayStr}&per_page=${size}&sort=datetime_local.asc`;
     if (taxonomy) {
         url += `&taxonomies.name=${taxonomy}`;
     }
@@ -602,8 +659,15 @@ export const fetchSeatGeekEvents = async (city, category, size = 15, clientId, k
         const res = await axios.get(url, { timeout: 8000 });
         const raw = res.data?.events || [];
         
-        return raw.map(evt => {
+        return await Promise.all(raw.map(async evt => {
             const classification = mapSeatGeekTypeToClassification(evt.type, category);
+            const perf = evt.performers?.[0];
+            let img = perf?.image || perf?.banner || perf?.images?.huge || perf?.images?.large || perf?.images?.medium || evt.venue?.image || null;
+
+            if (!img) {
+                img = await fetchRealEventPhoto(evt.short_title || evt.title || perf?.name, evt.venue?.name, city, process.env.SERP_API_KEY || '');
+            }
+
             return {
                 id: `sg-${evt.id}`,
                 source: 'SeatGeek',
@@ -613,15 +677,15 @@ export const fetchSeatGeekEvents = async (city, category, size = 15, clientId, k
                 time: evt.datetime_local?.split('T')[1],
                 venueName: evt.venue?.name,
                 address: evt.venue?.address,
-                image: evt.performers?.[0]?.images?.huge || evt.performers?.[0]?.images?.large || evt.performers?.[0]?.image,
+                image: img,
                 segment: category.toLowerCase() === 'tech' ? 'Activity' : classification.segment,
                 genre: category.toLowerCase() === 'tech' ? 'Tech' : classification.genre,
-                priceMin: evt.stats?.lowest_price,
-                priceMax: evt.stats?.highest_price,
+                priceMin: evt.stats?.lowest_price ?? null,
+                priceMax: evt.stats?.highest_price ?? null,
                 currency: 'USD',
                 status: 'active'
             };
-        });
+        }));
     } catch (err) {
         console.warn('[SeatGeek Error]', err.message);
         return [];
@@ -634,7 +698,8 @@ const fetchTicketmasterEvents = async (city, category, size, apiKey, keyword = '
     if (['classes', 'community'].includes(category.toLowerCase())) return [];
 
     const segmentName = CATEGORY_SEGMENT_MAP[category.toLowerCase()];
-    let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=${encodeURIComponent(city)}&size=${size}&sort=date,asc`;
+    const nowIso = new Date().toISOString().split('.')[0] + 'Z';
+    let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=${encodeURIComponent(city)}&startDateTime=${nowIso}&size=${size}&sort=date,asc`;
     if (countryCode) {
         url += `&countryCode=${encodeURIComponent(countryCode)}`;
     }
@@ -665,23 +730,29 @@ const fetchTicketmasterEvents = async (city, category, size, apiKey, keyword = '
                 }
                 return true;
             })
-            .map(evt => ({
-                id: `tm-${evt.id}`,
-                source: 'Ticketmaster',
-                name: evt.name,
-                url: evt.url,
-                date: evt.dates?.start?.localDate,
-                time: evt.dates?.start?.localTime,
-                venueName: evt._embedded?.venues?.[0]?.name,
-                address: evt._embedded?.venues?.[0]?.address?.line1,
-                image: evt.images?.sort((a, b) => b.width - a.width)?.[0]?.url,
-                segment: isTechCat ? 'Activity' : evt.classifications?.[0]?.segment?.name,
-                genre: isTechCat ? 'Tech' : evt.classifications?.[0]?.genre?.name,
-                priceMin: evt.priceRanges?.[0]?.min,
-                priceMax: evt.priceRanges?.[0]?.max,
-                currency: evt.priceRanges?.[0]?.currency || 'USD',
-                status: evt.dates?.status?.code
-            }));
+            .map(evt => {
+                const bestImage = evt.images?.find(i => i.ratio === '16_9' && (i.width || 0) >= 1000)?.url 
+                               || evt.images?.sort((a, b) => (b.width || 0) - (a.width || 0))?.[0]?.url 
+                               || null;
+
+                return {
+                    id: `tm-${evt.id}`,
+                    source: 'Ticketmaster',
+                    name: evt.name,
+                    url: evt.url,
+                    date: evt.dates?.start?.localDate,
+                    time: evt.dates?.start?.localTime,
+                    venueName: evt._embedded?.venues?.[0]?.name,
+                    address: evt._embedded?.venues?.[0]?.address?.line1,
+                    image: bestImage,
+                    segment: isTechCat ? 'Activity' : evt.classifications?.[0]?.segment?.name,
+                    genre: isTechCat ? 'Tech' : evt.classifications?.[0]?.genre?.name,
+                    priceMin: evt.priceRanges?.[0]?.min ?? null,
+                    priceMax: evt.priceRanges?.[0]?.max ?? null,
+                    currency: evt.priceRanges?.[0]?.currency || 'USD',
+                    status: evt.dates?.status?.code
+                };
+            });
     } catch (err) {
         console.warn('[Ticketmaster Error]', err.message);
         return [];

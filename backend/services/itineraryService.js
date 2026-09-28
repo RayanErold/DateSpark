@@ -598,17 +598,24 @@ export const generateAIDate = async (params) => {
         // This is now our primary "Brain". It handles prompts, coordinates, and fallbacks.
         console.log(`[ItineraryService] Delegating generation to AI Microservice: ${AI_SERVICE_URL}`);
         
+        const targetCity = params.city || params.location || 'NYC';
+        const isNeighborhoodSpecified = targetCity.includes(',') || 
+            /village|soho|noho|tribeca|williamsburg|dumbo|chelsea|harlem|astoria|bushwick|greenpoint|midtown|downtown|uppereast|upperwest|gramercy|flatiron/i.test(targetCity);
+        const effectiveNeighborhoodLock = params.neighborhoodLock || isNeighborhoodSpecified;
+        const effectiveRadius = params.radius || (isNeighborhoodSpecified ? 1200 : 15000);
+
         const response = await axios.post(`${AI_SERVICE_URL}/generate-itinerary`, {
-            city: params.city || params.location,
+            city: targetCity,
             vibe: params.vibe,
             budget: params.budget,
             preferences: params.preferences || params.prompt || '',
+            prompt: params.prompt || params.preferences || '',
             lat: params.lat,
             lng: params.lng,
-            neighborhoodLock: params.neighborhoodLock || false,
+            neighborhoodLock: effectiveNeighborhoodLock,
             // Include customizable options
             numActivities: params.numActivities,
-            radius: params.radius,
+            radius: effectiveRadius,
             planDate: params.planDate,
             planTime: params.planTime
         }, { timeout: 30000 });
@@ -629,11 +636,11 @@ export const generateAIDate = async (params) => {
             const rawSteps = itineraryData.steps || itineraryData.itinerary || [];
             
             if (rawSteps.length > 0) {
-                const city = params.city || params.location || 'NYC';
+                const city = targetCity;
                 const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
                 
                 // Still use the JS side for Google Places enrichment (it's faster here)
-                const radius = params.neighborhoodLock ? 800 : (params.radius || 15000);
+                const radius = effectiveRadius;
                 const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords, radius);
                 itineraryData.steps = enrichedSteps; 
 
@@ -657,7 +664,7 @@ export const generateAIDate = async (params) => {
 
         const numStops = params.numActivities || 3;
         const radiusVal = params.radius ? `${(params.radius / 1609.34).toFixed(1)} miles` : 'standard';
-        const fallbackPrompt = `Generate a ${numStops}-step date plan for ${params.city || 'NYC'}.
+        const fallbackPrompt = `Generate a ${numStops}-step date plan for ${targetCity}.
         Vibe: ${params.vibe || 'chill'}.
         Budget: ${params.budget || 'moderate'}.
         Distance/Radius: ${radiusVal}.
@@ -667,6 +674,11 @@ export const generateAIDate = async (params) => {
         
         The plan MUST have exactly ${numStops} sequential activity stops/steps.
         
+        CRITICAL RULES:
+        1. GEOGRAPHIC COHESION: All stops MUST be in ${targetCity} and clustered within easy walking distance (5-10 minutes walk).
+        2. REAL VENUES: Suggest real, highly-rated venues in this specific neighborhood.
+        3. INSIDER HONESTY: For each step, provide practical insider guidance (e.g. reservations recommended, walk-in peak wait times, dress code).
+        
         Return ONLY valid JSON matching this exact schema:
         {
           "title": "Catchy name for the date",
@@ -675,7 +687,7 @@ export const generateAIDate = async (params) => {
             {
               "time": "e.g. 6:30 PM",
               "activity": "A concise category of the activity (max 3 words)",
-              "venue": "A real popular matching venue name in the target city",
+              "venue": "A real popular matching venue name in the target area",
               "description": "An extremely short, single-sentence blurb (max 15-20 words total) structured exactly as: 'One short sensory sentence (max 8-10 words). • 💡 Tip: [Max 5 words]. • 👔 Attire: [Max 2 words]. • 📅 Booking: [Max 2 words].'"
             }
           ]
@@ -702,9 +714,9 @@ export const generateAIDate = async (params) => {
                 // Enrich fallback steps with real places
                 const rawSteps = data.steps || data.itinerary || [];
                 if (rawSteps.length > 0) {
-                    const city = params.city || params.location || 'NYC';
+                    const city = targetCity;
                     const coords = (params.lat && params.lng) ? { lat: params.lat, lng: params.lng } : null;
-                    const radius = params.neighborhoodLock ? 800 : (params.radius || 15000);
+                    const radius = effectiveRadius;
                     const enrichedSteps = await enrichWithRealPlaces(rawSteps, city, coords, radius);
                     data.steps = enrichedSteps;
                 }
@@ -920,7 +932,7 @@ export const recreatePlan = async (supabase, planId) => {
 export const getTrendingPlans = async (supabase, userId, requestedLocation, userLat, userLng, searchRadius) => {
     try {
         const dbClient = supabaseAdmin || supabase;
-        let locationFilter = null;
+        let locationFilter = requestedLocation ? requestedLocation.trim() : null;
         const isValidUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
         if (userId && isValidUUID(userId)) {
@@ -942,11 +954,21 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation, user
                 // Premium Global Switcher or Local Default
                 if (profile.is_premium && (requestedLocation || profile.custom_location)) {
                     locationFilter = requestedLocation || profile.custom_location;
-                } else {
+                } else if (profile.current_location) {
                     locationFilter = profile.current_location;
                 }
             }
         }
+
+        const applyLocationFilter = (q, loc) => {
+            if (!loc) return q;
+            const norm = loc.toLowerCase().trim();
+            const isNYC = /new york|nyc|manhattan|brooklyn|queens|bronx|staten island|yonkers/i.test(norm);
+            if (isNYC) {
+                return q.or('location.ilike.%New York%,location.ilike.%NYC%,location.ilike.%Manhattan%,location.ilike.%Brooklyn%,location.ilike.%Queens%,location.ilike.%Bronx%,location.ilike.%Staten Island%,location.ilike.%Yonkers%');
+            }
+            return q.ilike('location', `%${loc}%`);
+        };
 
         // Fetch a pool of active plans matching location & lifecycle state
         let targetUserId = null;
@@ -958,7 +980,6 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation, user
                 .maybeSingle();
             if (profileData) {
                 targetUserId = profileData.id;
-                console.log(`[Trending] Found user ID from profiles for rayanerold@gmail.com: ${targetUserId}`);
             }
         } catch (err) {
             console.warn('[Trending] Failed to get user by email from profiles:', err.message);
@@ -987,14 +1008,13 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation, user
         }
 
         if (locationFilter) {
-            query = query.ilike('location', `%${locationFilter}%`); // Enforce location isolation
+            query = applyLocationFilter(query, locationFilter);
         }
 
         let { data, error } = await query.limit(60);
 
-        // Fallback: If we queried by targetUserId and got no plans, fall back to default trending plans
+        // Fallback: If we queried by targetUserId and got no plans for this location, check general trending plans for THIS SAME location
         if ((!data || data.length === 0) && targetUserId) {
-            console.log('[Trending] No plans found for target user, falling back to general trending plans...');
             const defaultQuery = dbClient
                 .from('plans')
                 .select('*')
@@ -1004,11 +1024,9 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation, user
                 .not('itinerary', 'is', null)
                 .order('boost_count', { ascending: false });
             
-            let queryFallback;
+            let queryFallback = defaultQuery;
             if (locationFilter) {
-                queryFallback = defaultQuery.ilike('location', `%${locationFilter}%`);
-            } else {
-                queryFallback = defaultQuery;
+                queryFallback = applyLocationFilter(queryFallback, locationFilter);
             }
             
             const res = await queryFallback.limit(60);
@@ -1017,26 +1035,9 @@ export const getTrendingPlans = async (supabase, userId, requestedLocation, user
             }
         }
 
-        if ((error || !data || data.length === 0) && locationFilter) {
-            console.warn(`[Trending] No plans found for local filter "${locationFilter}". Fetching broader trending plans as fallback...`);
-            const fallbackQuery = dbClient
-                .from('plans')
-                .select('*')
-                .is('deleted_at', null)
-                .eq('is_completed', false)
-                .or('expires_at.is.null,expires_at.gt.now()')
-                .not('itinerary', 'is', null)
-                .order('boost_count', { ascending: false })
-                .limit(60);
-            
-            const res = await fallbackQuery;
-            if (!res.error && res.data) {
-                data = res.data;
-            }
-        }
-
+        // If no plans exist for this specific location, return empty array (do NOT leak other cities/states)
         if (!data || data.length === 0) {
-            console.warn('[Trending] No plans found in database matching criteria.');
+            console.log(`[Trending] No verified plans found for location "${locationFilter || 'any'}". Returning empty result.`);
             return [];
         }
 

@@ -152,7 +152,8 @@ const DateArchitectChat = ({
     const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
     // 2. NEW CUSTOMIZABLE OPTIONS
-    const [location, setLocation] = useState(initialLocation);
+    const [location, setLocation] = useState(() => initialLocation || localStorage.getItem('user_city') || 'New York');
+    const [neighborhood, setNeighborhood] = useState('');
     const [lat, setLat] = useState(null);
     const [lng, setLng] = useState(null);
     const [budget, setBudget] = useState(initialBudget);
@@ -160,6 +161,12 @@ const DateArchitectChat = ({
     const [numActivities, setNumActivities] = useState(initialNumActivities);
     const [planDate, setPlanDate] = useState(initialPlanDate || new Date().toISOString().split('T')[0]);
     const [planTime, setPlanTime] = useState(initialPlanTime);
+
+    useEffect(() => {
+        if (initialLocation && initialLocation !== location) {
+            setLocation(initialLocation);
+        }
+    }, [initialLocation]);
 
     // 3. UI STATE
     const [isExpanded, setIsExpanded] = useState(false);
@@ -362,9 +369,18 @@ const DateArchitectChat = ({
 
     // Autoscroll
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
+        const scrollToBottom = () => {
+            if (scrollRef.current) {
+                scrollRef.current.scrollTo({
+                    top: scrollRef.current.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        };
+
+        scrollToBottom();
+        const timer = setTimeout(scrollToBottom, 120);
+        return () => clearTimeout(timer);
     }, [messages, streamedText, extractedConcepts, currentStep, showCustomPicker, proposedPlan, isGeneratingPlan]);
 
     // Autofocus input on mount for fast typing (only on desktop to prevent mobile keypad/overlay popups)
@@ -482,15 +498,18 @@ const DateArchitectChat = ({
     const generateProposedPlan = async (refinementPrompt = null, overrides = {}) => {
         const finalBudget = overrides.budget || budget;
         const finalGoal = overrides.goal || selectedGoal;
+        const targetCity = neighborhood 
+            ? `${neighborhood}, ${location || 'New York'}` 
+            : (location || 'New York');
         const promptText = refinementPrompt 
             ? refinementPrompt 
             : isTrip
-                ? `A custom premium ${numActivities}-step travel trip itinerary in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, featuring incredible local landmarks, scenic routes, and top-tier dining.`
-                : `A custom ${numActivities}-step ${finalGoal || 'date'} experience in ${location || 'NYC'}, budget range ${finalBudget || 'moderate'}, with activities focused on a fun and cohesive couple experience.`;
+                ? `A custom premium ${numActivities}-step travel trip itinerary in ${targetCity}, budget range ${finalBudget || 'moderate'}, featuring incredible local landmarks, scenic routes, and top-tier dining.`
+                : `A custom ${numActivities}-step ${finalGoal || 'date'} experience in ${targetCity}, budget range ${finalBudget || 'moderate'}, with activities focused on a fun and cohesive couple experience.`;
 
         if (!userId) {
             localStorage.setItem('pending_spark_prompt', promptText);
-            localStorage.setItem('pending_spark_location', location || '');
+            localStorage.setItem('pending_spark_location', targetCity);
             localStorage.setItem('pending_spark_budget', finalBudget);
             localStorage.setItem('pending_spark_goal', finalGoal);
             localStorage.setItem('pending_spark_num_activities', numActivities);
@@ -513,7 +532,9 @@ const DateArchitectChat = ({
                 body: JSON.stringify({
                     prompt: promptText,
                     userId,
-                    city: location || 'NYC',
+                    city: targetCity,
+                    location: targetCity,
+                    vibe: finalGoal,
                     lat,
                     lng,
                     budget: finalBudget,
@@ -693,6 +714,31 @@ const DateArchitectChat = ({
         setMessages(updatedMessages);
         setInput('');
 
+        let activeLocation = location || localStorage.getItem('user_city') || 'New York';
+        let activeNeighborhood = neighborhood;
+
+        // Auto-detect neighborhood if mentioned in text
+        const knownNeighborhoods = [
+            'west village', 'greenwich village', 'east village', 'soho', 'noho', 'tribeca', 
+            'lower east side', 'les', 'williamsburg', 'dumbo', 'brooklyn heights', 'greenpoint', 
+            'bushwick', 'chelsea', 'flatiron', 'gramercy', 'upper west side', 'upper east side', 
+            'midtown', 'astoria', 'long island city', 'lic'
+        ];
+        for (const n of knownNeighborhoods) {
+            if (textToSend.toLowerCase().includes(n)) {
+                activeNeighborhood = n.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                setNeighborhood(activeNeighborhood);
+                break;
+            }
+        }
+
+        // If user says "Use my current city" or "near me", resolve to activeLocation
+        if (/use my current city|near me|current city|my city/i.test(textToSend)) {
+            if (!location) {
+                setLocation(activeLocation);
+            }
+        }
+
         try {
             const res = await fetch('/api/spark-concierge', {
                 method: 'POST',
@@ -700,7 +746,8 @@ const DateArchitectChat = ({
                 body: JSON.stringify({
                     messages: updatedMessages,
                     currentSettings: {
-                        location,
+                        location: activeLocation,
+                        neighborhood: activeNeighborhood,
                         budget,
                         vibe: selectedGoal,
                         numActivities,
@@ -717,6 +764,7 @@ const DateArchitectChat = ({
             // Extract parameters and sync to state
             if (data.inferredParams) {
                 if (data.inferredParams.location) setLocation(data.inferredParams.location);
+                if (data.inferredParams.neighborhood) setNeighborhood(data.inferredParams.neighborhood);
                 if (data.inferredParams.budget) setBudget(data.inferredParams.budget);
                 if (data.inferredParams.vibe) setSelectedGoal(data.inferredParams.vibe);
                 if (data.inferredParams.numActivities) setNumActivities(data.inferredParams.numActivities);
@@ -1085,7 +1133,7 @@ const DateArchitectChat = ({
         ? "fixed inset-0 z-[999] flex flex-col bg-white w-screen h-screen md:rounded-xl md:shadow-2xl md:max-w-4xl md:h-[85vh] md:m-auto transition-all duration-300 ease-out"
         : isStudio
             ? "overflow-hidden rounded-xl border border-orange-100/80 bg-white shadow-[0_12px_45px_rgba(255,127,80,0.06)] w-full flex flex-col h-[600px] transition-all duration-300 ease-out relative"
-            : "overflow-hidden rounded-xl border border-orange-100 bg-white shadow-[0_12px_40px_rgba(255,127,80,0.08)] max-w-2xl mx-auto flex flex-col h-[350px] transition-all duration-300 ease-out relative";
+            : "overflow-hidden rounded-xl border border-orange-100 bg-white shadow-[0_12px_40px_rgba(255,127,80,0.08)] max-w-2xl mx-auto flex flex-col h-[520px] transition-all duration-300 ease-out relative";
 
     const chatContent = (
         <div className={containerClasses}>
@@ -1279,7 +1327,7 @@ const DateArchitectChat = ({
 
                 {/* Chat window body */}
                 <div className="flex flex-col flex-1 min-h-0 bg-slate-50/30">
-                    <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4 scroll-smooth">
+                    <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4 pb-12 scroll-smooth">
                         {messages.map((message, idx) => (
                             <motion.div
                                 key={`${message.role}-${idx}`}

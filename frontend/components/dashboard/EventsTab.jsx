@@ -82,198 +82,13 @@ const formatPrice = (min, max, currency) => {
     return max && max !== min ? `${sym}${Math.round(min)} – ${sym}${Math.round(max)}` : `From ${sym}${Math.round(min)}`;
 };
 
-const CATEGORY_FALLBACK_IMAGES = {
-    music: [
-        'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1487180142328-054b783fc471?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=600&q=80'
-    ],
-    sports: [
-        'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1519766304817-4f37bda74a27?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1505666287802-931dc83948e9?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1518063319789-7217e6706b04?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1502224562085-639556652f33?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1516238840914-94dfc0c873ae?auto=format&fit=crop&w=600&q=80'
-    ],
-    theater: [
-        'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1516307364728-22f12d51c02e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1503095391757-f1fc01850d7c?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1530973427494-14227f29a008?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1505686994434-e3cc5abf1330?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=600&q=80'
-    ],
-    comedy: [
-        'https://images.unsplash.com/photo-1585699324551-f6c309eed262?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1516280440614-37939bbacd6a?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1527224857830-43a7acc85260?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1543536448-d209d2d13a1c?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1588698798007-88981600c3b8?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1485872299829-c673f5194813?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1523821741446-edb2b68bb7a0?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1550928431-ee0ec6db1afe?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1560169897-fc0cdbdfa4d5?auto=format&fit=crop&w=600&q=80'
-    ],
-    family: [
-        'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1489659639091-8b687bc4386e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1472289065668-ce650ac443d2?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1536640712247-c57f8cfbe58b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1484712401471-05c7215834eb?auto=format&fit=crop&w=600&q=80'
-    ],
-    community: [
-        'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80'
-    ],
-    activities: [
-        'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1513829096999-4978602297f7?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1511882150382-421056c89033?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1605899435973-ca2d1a8861cf?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1518133680790-39857304dd95?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=600&q=80'
-    ],
-    outdoors: [
-        'https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1472214222541-d510753a4707?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1525203135335-74d272fc8d9c?auto=format&fit=crop&w=600&q=80'
-    ],
-    food: [
-        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80'
-    ],
-    festivals: [
-        'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1481162854517-d9e353af153d?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1513418630520-22c6793c5c56?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1505232458729-26417ff63cfa?auto=format&fit=crop&w=600&q=80'
-    ],
-    classes: [
-        'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1541829019-25f239131227?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=600&q=80'
-    ],
-    tech: [
-        'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1504639725590-34d0984388bd?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1535378917042-10a22c95931a?auto=format&fit=crop&w=600&q=80'
-    ],
-    all: [
-        'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1481162854517-d9e353af153d?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80'
-    ]
-};
-
-const getEventImage = (evt) => {
-    if (evt.image && evt.image.trim() !== '') {
-        const isMapUrl = evt.image.includes('google.com/maps') ||
-                         evt.image.includes('maps.googleapis.com') ||
-                         evt.image.includes('staticmap') ||
-                         evt.image.includes('/maps/vt/');
-        if (!isMapUrl) {
-            return evt.image;
-        }
-    }
-    const seg = (evt.segment || evt.genre || 'all').toLowerCase();
-    let list = CATEGORY_FALLBACK_IMAGES.all;
-    
-    if (seg.includes('music') || seg.includes('concert')) list = CATEGORY_FALLBACK_IMAGES.music;
-    else if (seg.includes('sport') || seg.includes('athletic') || seg.includes('basketball') || seg.includes('football')) list = CATEGORY_FALLBACK_IMAGES.sports;
-    else if (seg.includes('theat') || seg.includes('broadway') || seg.includes('art') || seg.includes('museum')) list = CATEGORY_FALLBACK_IMAGES.theater;
-    else if (seg.includes('comedy') || seg.includes('standup')) list = CATEGORY_FALLBACK_IMAGES.comedy;
-    else if (seg.includes('family') || seg.includes('child')) list = CATEGORY_FALLBACK_IMAGES.family;
-    else if (seg.includes('group') || seg.includes('meetup') || seg.includes('social') || seg.includes('community')) list = CATEGORY_FALLBACK_IMAGES.community;
-    else if (seg.includes('class') || seg.includes('workshop')) list = CATEGORY_FALLBACK_IMAGES.classes;
-    else if (seg.includes('tech') || seg.includes('network') || seg.includes('software') || seg.includes('science') || seg.includes('computer')) list = CATEGORY_FALLBACK_IMAGES.tech;
-    else if (seg.includes('activities') || seg.includes('arcade') || seg.includes('bowling') || seg.includes('game') || seg.includes('recreation')) list = CATEGORY_FALLBACK_IMAGES.activities;
-    else if (seg.includes('outdoor') || seg.includes('hike') || seg.includes('nature') || seg.includes('park') || seg.includes('scenic')) list = CATEGORY_FALLBACK_IMAGES.outdoors;
-    else if (seg.includes('food') || seg.includes('drink') || seg.includes('wine') || seg.includes('beer') || seg.includes('culinary') || seg.includes('dining')) list = CATEGORY_FALLBACK_IMAGES.food;
-    else if (seg.includes('festival') || seg.includes('fair') || seg.includes('expo') || seg.includes('exhibition') || seg.includes('carnival')) list = CATEGORY_FALLBACK_IMAGES.festivals;
-
-    const name = evt.name || '';
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const idx = Math.abs(hash) % list.length;
-    return list[idx];
+const getCategoryIcon = (seg) => {
+    const s = (seg || '').toLowerCase();
+    if (s.includes('music') || s.includes('concert')) return <Music className="w-8 h-8 text-white/90" />;
+    if (s.includes('sport') || s.includes('athletic')) return <Trophy className="w-8 h-8 text-white/90" />;
+    if (s.includes('theat') || s.includes('art')) return <Sparkles className="w-8 h-8 text-white/90" />;
+    if (s.includes('tech') || s.includes('code')) return <Zap className="w-8 h-8 text-white/90" />;
+    return <Ticket className="w-8 h-8 text-white/90" />;
 };
 
 // ─── SKELETON ────────────────────────────────────────────────────────────────
@@ -292,13 +107,16 @@ const EventSkeleton = ({ isDark }) => (
 const EventCard = ({ evt, isDark, idx }) => {
     const color = segmentColor(evt.segment);
     const isCancelled = evt.status === 'cancelled';
-    
-    // Check if the event's raw image is a low-res gstatic image
-    const rawImg = evt.image || '';
-    const isGstatic = rawImg.includes('gstatic.com') || rawImg.includes('googleusercontent.com');
-    
-    // Main image: if it's a gstatic thumbnail, use high-res fallback; otherwise use the real event image
-    const mainImgUrl = isGstatic ? getEventImage({ ...evt, image: null }) : getEventImage(evt);
+    const [imgFailed, setImgFailed] = useState(false);
+
+    const isValidImage = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') return false;
+        if (url.includes('unsplash.com')) return false;
+        if (url.includes('google.com/maps') || url.includes('maps.googleapis.com') || url.includes('staticmap') || url.includes('/maps/vt/')) return false;
+        return true;
+    };
+
+    const hasPhoto = isValidImage(evt.image) && !imgFailed;
 
     return (
         <motion.a
@@ -312,20 +130,33 @@ const EventCard = ({ evt, isDark, idx }) => {
                 isDark ? 'bg-[#111827] border-white/8 hover:border-white/20 text-white' : 'bg-white border-slate-100 text-navy shadow-sm'
             } ${isCancelled ? 'opacity-50 pointer-events-none' : ''}`}
         >
-            {/* Image Section */}
+            {/* Image Section or Authentic Venue Pass */}
             <div className="relative aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-slate-900/5 mb-3 shadow-inner">
-                <motion.img
-                    src={mainImgUrl}
-                    alt={evt.name}
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ duration: 0.6 }}
-                    className="w-full h-full object-cover animate-fade-in"
-                    onError={(e) => {
-                        e.target.src = getEventImage({ ...evt, image: null });
-                    }}
-                />
+                {hasPhoto ? (
+                    <motion.img
+                        src={evt.image}
+                        alt={evt.name}
+                        whileHover={{ scale: 1.05 }}
+                        transition={{ duration: 0.6 }}
+                        className="w-full h-full object-cover animate-fade-in"
+                        onError={() => setImgFailed(true)}
+                    />
+                ) : (
+                    <div className={`w-full h-full bg-gradient-to-br ${color} flex flex-col items-center justify-center p-4 relative overflow-hidden group-hover:scale-105 transition-transform duration-500`}>
+                        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-white/10 blur-xl pointer-events-none" />
+                        <div className="absolute -left-6 -top-6 w-24 h-24 rounded-full bg-black/10 blur-lg pointer-events-none" />
+                        <div className="relative z-10 flex flex-col items-center gap-1.5 text-center">
+                            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-md">
+                                {getCategoryIcon(evt.segment || evt.genre)}
+                            </div>
+                            <span className="text-[11px] font-black text-white uppercase tracking-wider line-clamp-1 max-w-[190px] drop-shadow-sm">
+                                {evt.venueName || evt.name}
+                            </span>
+                        </div>
+                    </div>
+                )}
                 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-70 group-hover:opacity-85 transition-opacity" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-70 group-hover:opacity-85 transition-opacity pointer-events-none" />
 
                 {/* Category badge */}
                 <div className={`absolute top-3 left-3 bg-gradient-to-r ${color} text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider z-10 shadow-sm`}>
@@ -336,22 +167,6 @@ const EventCard = ({ evt, isDark, idx }) => {
                 <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white/90 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-white/10 z-10 shadow-sm">
                     {evt.source === 'SeatGeek' ? 'SG' : evt.source === 'Local' ? 'Google' : 'TM'}
                 </div>
-
-                {/* Event logo / avatar badge (for Google Events with thumbnails) */}
-                {isGstatic && evt.image && (
-                    <div className={`absolute bottom-3 right-3 w-11 h-11 rounded-full overflow-hidden border-2 shadow-lg z-10 bg-white ${
-                        isDark ? 'border-gray-900' : 'border-white'
-                    }`}>
-                        <img 
-                            src={evt.image} 
-                            alt="Event logo" 
-                            className="w-full h-full object-cover select-none pointer-events-none" 
-                            onError={(e) => {
-                                e.target.parentNode.style.display = 'none';
-                            }}
-                        />
-                    </div>
-                )}
 
                 {/* Cancelled badge */}
                 {isCancelled && (

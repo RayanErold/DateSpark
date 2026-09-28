@@ -81,12 +81,15 @@
   }
 
   @keyframes spin-slow {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+  @keyframes marquee {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
   }
 }
 
 /* ─── ANIMATION UTILITIES ─────────────────────────────────────────────────── */
+.animate-marquee        { display: flex; width: max-content; animation: marquee 35s linear infinite; }
+.animate-marquee:hover  { animation-play-state: paused; }
 .animate-fade-in        { animation: fade-in 0.3s ease-out forwards; }
 .animate-zoom-in-95     { animation: zoom-in-95 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .animate-slide-up       { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
